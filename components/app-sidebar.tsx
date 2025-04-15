@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useState, useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowUpCircleIcon,
   LayoutDashboardIcon,
@@ -18,13 +21,36 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const placeholderUser = {
-    name: "User Name",
-    email: "user@example.com",
-    avatar: "",
-  };
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      setIsLoadingUser(true);
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error fetching user:", error);
+        setUser(null);
+      } else {
+        setUser(data.user);
+      }
+      setIsLoadingUser(false);
+    };
+    fetchUser();
+  }, []);
+
+  const navUserProps = user
+    ? {
+        email: user.email || "No Email",
+        avatar: "",
+        name:
+          user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+      }
+    : { email: "", avatar: "", name: "" };
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -47,7 +73,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={placeholderUser} />
+        {isLoadingUser ? (
+          <div className="flex items-center gap-2 p-2">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-4 w-20 rounded-md" />
+              <Skeleton className="h-3 w-32 rounded-md" />
+            </div>
+          </div>
+        ) : user ? (
+          <NavUser user={navUserProps} />
+        ) : null}
       </SidebarFooter>
     </Sidebar>
   );

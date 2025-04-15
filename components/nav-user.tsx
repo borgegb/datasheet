@@ -45,6 +45,15 @@ export function NavUser({
     router.push("/");
   };
 
+  // Calculate initials from name
+  const getInitials = (name: string): string => {
+    if (!name) return "?";
+    const names = name.split(" ");
+    if (names.length === 1) return name.slice(0, 2).toUpperCase();
+    return (names[0][0] + (names[names.length - 1][0] || "")).toUpperCase();
+  };
+  const initials = getInitials(user.name);
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -56,7 +65,9 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -77,7 +88,9 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>

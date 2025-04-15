@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "NEXT_IGNORE_TYPE=1 NEXT_IGNORE_LINT=1 next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },

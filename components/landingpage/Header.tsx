@@ -8,7 +8,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         {/* Logo */}
-        <Link href="/" className="mr-6 flex items-center space-x-2">
+        <Link href="/" className="mr-auto flex items-center space-x-2">
           {/* Replace with your actual logo component or SVG */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -29,30 +29,8 @@ export default function Header() {
           <span className="font-bold inline-block">DataSheetGen</span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden flex-1 items-center space-x-6 text-sm font-medium md:flex">
-          <Link
-            href="/#features"
-            className="text-foreground/60 transition-colors hover:text-foreground/80"
-          >
-            Features
-          </Link>
-          <Link
-            href="/#pricing"
-            className="text-foreground/60 transition-colors hover:text-foreground/80"
-          >
-            Pricing
-          </Link>
-          <Link
-            href="/#contact"
-            className="text-foreground/60 transition-colors hover:text-foreground/80"
-          >
-            Contact
-          </Link>
-        </nav>
-
-        {/* Desktop Auth Buttons */}
-        <div className="hidden items-center space-x-2 md:flex">
+        {/* Auth Buttons */}
+        <div className="flex items-center space-x-2">
           <Button variant="ghost" asChild>
             <Link href="/auth/login">Login</Link>
           </Button>
@@ -60,49 +38,7 @@ export default function Header() {
             <Link href="/auth/sign-up">Get Started</Link>
           </Button>
         </div>
-
-        {/* Mobile Navigation */}
-        <div className="flex flex-1 justify-end md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle Menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <div className="flex flex-col space-y-4 p-4">
-                <Link
-                  href="/#features"
-                  className="text-foreground/60 transition-colors hover:text-foreground/80"
-                >
-                  Features
-                </Link>
-                <Link
-                  href="/#pricing"
-                  className="text-foreground/60 transition-colors hover:text-foreground/80"
-                >
-                  Pricing
-                </Link>
-                <Link
-                  href="/#contact"
-                  className="text-foreground/60 transition-colors hover:text-foreground/80"
-                >
-                  Contact
-                </Link>
-                <hr />
-                <Button variant="ghost" asChild>
-                  <Link href="/auth/login">Login</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/auth/sign-up">Get Started</Link>
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
       </div>
     </header>
   );
 }
- 

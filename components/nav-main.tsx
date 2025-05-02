@@ -4,6 +4,7 @@ import {
   LayoutDashboardIcon,
   FileTextIcon,
   DatabaseIcon,
+  PackageIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,7 +19,7 @@ import Link from "next/link";
 
 const mainNavItems = [
   {
-    title: "Dashboard",
+    title: "Overview",
     href: "/dashboard",
     icon: LayoutDashboardIcon,
   },
@@ -27,19 +28,24 @@ const mainNavItems = [
     href: "/dashboard/generator",
     icon: FileTextIcon,
   },
+  {
+    title: "Saved Datasheets",
+    href: "/dashboard/products",
+    icon: DatabaseIcon,
+  },
 ];
 
 export function NavMain() {
   return (
     <SidebarGroup>
-      <SidebarGroupContent className="flex flex-col gap-2">
+      <SidebarGroupContent className="flex flex-col gap-1">
         <SidebarMenu>
           {mainNavItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton tooltip={item.title} asChild>
                 <Link href={item.href}>
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
+                  {item.icon && <item.icon className="h-4 w-4" />}
+                  <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

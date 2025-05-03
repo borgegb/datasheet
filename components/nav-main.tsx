@@ -33,6 +33,11 @@ const mainNavItems = [
     href: "/dashboard/products",
     icon: DatabaseIcon,
   },
+  {
+    title: "Catalogs",
+    href: "/dashboard/catalogs",
+    icon: PackageIcon,
+  },
 ];
 
 export function NavMain() {
@@ -45,7 +50,7 @@ export function NavMain() {
               <SidebarMenuButton tooltip={item.title} asChild>
                 <Link href={item.href}>
                   {item.icon && <item.icon className="h-4 w-4" />}
-                  <span>{item.title}</span>
+                <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

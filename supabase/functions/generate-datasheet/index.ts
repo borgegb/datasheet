@@ -32,7 +32,7 @@ import { concat } from "https://deno.land/std@0.177.0/bytes/concat.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 console.log(
-  `Function "generate-datasheet" up and running! (pdf-lib refined layout v2)`
+  `Function "generate-datasheet" up and running! (Saves PDF to Storage)`
 );
 
 // --- Constants ---
@@ -72,19 +72,25 @@ serve(async (req: Request) => {
   try {
     // --- Parse Request Body ---
     const {
+      productId, // Expect productId
       productTitle = "N/A",
       productCode = "N/A",
       description = "",
       techSpecs = "",
       price = "",
       imagePath = null, // Expect full image path from frontend
+      imageOrientation = "portrait",
+      userId, // Expect userId
     } = await req.json();
 
-    console.log("Received data:", {
-      productTitle,
-      productCode,
-      /*...*/ imagePath,
-    });
+    console.log("Received request to generate PDF for product ID:", productId);
+
+    if (!productId) {
+      throw new Error("Product ID is missing in the request.");
+    }
+    if (!userId) {
+      throw new Error("User ID is missing in the request."); // Needed for storage path
+    }
 
     // --- PDF Generation (pdf-lib) ---
     const pdfDoc = await PDFDocument.create();
@@ -354,26 +360,64 @@ serve(async (req: Request) => {
 
     // --- Serialize and Encode ---
     const pdfBytes = await pdfDoc.save();
-    const pdfBase64 = base64Encode(pdfBytes);
     console.log(
       "PDF generated successfully with refined layout (Base64 length:",
-      pdfBase64.length,
+      pdfBytes.length,
       ")"
     );
     // ---------------------------
 
-    // --- DOCX Generation (REMOVED) ---
-    const wordBase64 = "";
-    console.log("DOCX generation skipped.");
-    // ---------------------------------
+    // --- Upload PDF to Storage ---
+    const pdfFileName = `${productTitle.replace(/[^a-z0-9]/gi, "_")}-${
+      productCode.replace(/[^a-z0-9]/gi, "_") || productId
+    }.pdf`.toLowerCase();
+    const pdfStoragePath = `${userId}/generated_pdfs/${pdfFileName}`;
+    console.log(`Uploading PDF to: ${pdfStoragePath}`);
 
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("datasheet-assets")
+      .upload(pdfStoragePath, pdfBytes, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Error uploading PDF:", uploadError);
+      throw new Error(`Failed to upload generated PDF: ${uploadError.message}`);
+    }
+    console.log("PDF uploaded successfully.");
+    // ---------------------------
+
+    // --- Update Product Record with PDF Path ---
+    const { error: updateError } = await supabaseAdmin
+      .from("products")
+      .update({
+        pdf_storage_path: pdfStoragePath,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", productId);
+
+    if (updateError) {
+      console.error(
+        `Failed to update product ${productId} with PDF path:`,
+        updateError
+      );
+      // Decide if this is critical - maybe return success but log?
+      // For now, let's return success even if DB update fails, but log it.
+    } else {
+      console.log(`Product ${productId} updated with path: ${pdfStoragePath}`);
+    }
+    // ---------------------------------------
+
+    // --- Return Success Response ---
     return new Response(
-      JSON.stringify({ pdfData: pdfBase64, wordData: wordBase64 }),
+      JSON.stringify({ success: true, storagePath: pdfStoragePath }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       }
     );
+    // -------------------------------
   } catch (error: any) {
     console.error(
       "Error processing request:",

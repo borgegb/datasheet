@@ -32,26 +32,35 @@ async function getUserOrgId(
 }
 
 // --- Action to Fetch Products ---
-export async function fetchProductsForOrg() {
+export async function fetchProductsForOrg(catalogId?: string | null) {
   const supabase = await createClient();
   const organizationId = await getUserOrgId(supabase);
 
   if (!organizationId) {
-    // Return empty or throw error, depending on how page handles it
     return { data: [], error: { message: "User organization not found." } };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
-    .select("id, product_title, product_code") // Keep selection minimal for list view
-    .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false });
+    .select("id, product_title, product_code, pdf_storage_path")
+    .eq("organization_id", organizationId);
+
+  // Conditionally add the catalog filter if provided
+  if (catalogId) {
+    query = query.eq("catalog_id", catalogId);
+    console.log("Filtering products by catalog:", catalogId);
+  } else {
+    console.log("Fetching all products for org, no catalog filter.");
+  }
+
+  query = query.order("created_at", { ascending: false });
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Server Action Error (fetchProductsForOrg):", error);
   }
 
-  // Return data and error explicitly for the component to handle
   return { data: data ?? [], error };
 }
 

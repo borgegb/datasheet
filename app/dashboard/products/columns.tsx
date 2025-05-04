@@ -1,7 +1,13 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import {
+  ArrowUpDown,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Download,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +38,7 @@ export interface Product {
   id: string;
   product_title: string;
   product_code: string;
+  pdf_storage_path: string | null;
   // Add catalog_name etc. here if you join/fetch it
 }
 
@@ -39,7 +46,15 @@ export interface Product {
 // This avoids prop drilling through the main table component
 interface ProductCellContext {
   onDeleteRow?: (productId: string) => void;
+  onDownload?: (storagePath: string, filename: string) => void;
 }
+
+// Function to generate safe filename
+const getSafeFilename = (name: string, extension: string) => {
+  const safeName =
+    name.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "datasheet";
+  return `${safeName}.${extension}`;
+};
 
 export const columns: ColumnDef<Product>[] = [
   // Optional: Select Checkbox Column (can be removed if not needed)
@@ -93,12 +108,27 @@ export const columns: ColumnDef<Product>[] = [
     cell: ({ row, table }) => {
       const product = row.original;
       // Get the delete handler from table meta options (we will set this up in ProductsDataTable)
-      const tableMeta = table.options.meta as {
-        onDeleteRow?: (productId: string) => void;
-      };
+      const tableMeta = table.options.meta as ProductCellContext;
       const handleDelete = () => {
         if (tableMeta?.onDeleteRow) {
           tableMeta.onDeleteRow(product.id);
+        }
+      };
+
+      // Handler for row download
+      const handleDownload = () => {
+        if (tableMeta?.onDownload && product.pdf_storage_path) {
+          const filename = getSafeFilename(
+            product.product_code || product.product_title,
+            "pdf"
+          );
+          tableMeta.onDownload(product.pdf_storage_path, filename);
+        } else {
+          // Optionally show a toast if path is missing
+          console.warn(
+            "No PDF path available for download for product:",
+            product.id
+          );
         }
       };
 
@@ -120,8 +150,14 @@ export const columns: ColumnDef<Product>[] = [
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {/* TODO: Add Download action */}
-              <DropdownMenuItem disabled>Download PDF</DropdownMenuItem>
+              {/* Enable Download action */}
+              <DropdownMenuItem
+                onSelect={handleDownload}
+                disabled={!product.pdf_storage_path}
+                className="cursor-pointer"
+              >
+                <Download className="mr-2 h-4 w-4" /> Download PDF
+              </DropdownMenuItem>
               {/* Delete Action - Triggers AlertDialog */}
               <AlertDialogTrigger asChild>
                 <DropdownMenuItem

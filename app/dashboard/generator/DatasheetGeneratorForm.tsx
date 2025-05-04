@@ -73,22 +73,6 @@ interface ProductData {
 }
 // ---------------------------------
 
-// Helper function to create Data URL for download
-function createDataUrlLink(
-  base64Data: string,
-  mimeType: string
-): string | null {
-  try {
-    // Construct the Data URL string directly
-    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-    return dataUrl;
-  } catch (error) {
-    console.error("Error creating data URL link:", error);
-    toast.error("Failed to process generated file data.");
-    return null;
-  }
-}
-
 // Define props interface
 interface DatasheetGeneratorFormProps {
   initialData?: Partial<ProductData> | null; // Make optional, allow partial data
@@ -145,8 +129,6 @@ export default function DatasheetGeneratorForm({
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
-  const [wordDownloadUrl, setWordDownloadUrl] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // --- Server Action State with useActionState ---
@@ -262,43 +244,42 @@ export default function DatasheetGeneratorForm({
   }, [uploadProps.loading, uploadProps.successes, user]);
 
   const handleGenerate = async () => {
-    if (isGenerating || !user) return;
+    // Ensure we are editing an existing product before generating
+    if (isGenerating || !user || !editingProductId) {
+      toast.error(
+        "Cannot generate: Datasheet must be saved first or user/ID is missing."
+      );
+      return;
+    }
 
     setIsGenerating(true);
-    setPdfDownloadUrl(null);
-    setWordDownloadUrl(null);
 
     const supabase = createClient();
-    const formData = {
+    // Prepare data, ensuring we send the productId
+    const generationData = {
+      productId: editingProductId, // Send the ID!
       productTitle,
       productCode,
       description,
       techSpecs,
       price,
-      imagePath: uploadedImagePath,
-      weight,
-      keyFeatures,
-      warranty,
-      shippingInfo,
-      imageOrientation,
-      optionalLogos: {
-        ceMark: includeCeLogo,
-        origin: includeOriginLogo,
-      },
-      catalogId: selectedCatalogId || null,
+      imagePath: uploadedImagePath, // Still send path for image embedding
+      imageOrientation, // Send orientation for template selection
+      userId: user.id, // Send userId for storage path
+      // optionalLogos: { ... }, // Send if needed by PDF generation
     };
 
-    console.log("Invoking function with data:", formData);
-    toast.info("Generating datasheet...", { id: "generation-toast" });
+    console.log("Invoking generation function with data:", generationData);
+    toast.info("Generating datasheet PDF...", { id: "generation-toast" });
 
     const { data, error } = await supabase.functions.invoke(
       "generate-datasheet",
-      { body: formData }
+      { body: generationData } // Pass data including productId
     );
 
     if (error) {
       console.error("Edge Function Error:", error);
-      toast.error(`Datasheet generation failed: ${error.message}`, {
+      toast.error(`PDF generation failed: ${error.message}`, {
         id: "generation-toast",
       });
       setIsGenerating(false);
@@ -309,17 +290,19 @@ export default function DatasheetGeneratorForm({
 
     if (data.error) {
       console.error("Error from function logic:", data.error);
-      toast.error(`Datasheet generation failed: ${data.error}`, {
+      toast.error(`PDF generation failed: ${data.error}`, {
         id: "generation-toast",
       });
-    } else if (data.pdfData) {
-      toast.success("Datasheet generated successfully!", {
+    } else if (data.success) {
+      // PDF was generated and saved to storage by the function
+      toast.success("PDF generated and saved successfully!", {
         id: "generation-toast",
       });
-      const pdfUrl = createDataUrlLink(data.pdfData, "application/pdf");
-      setPdfDownloadUrl(pdfUrl);
+      console.log("PDF saved to storage path:", data.storagePath);
+      // No direct download link needed here anymore
+      // User will download from the products list page
     } else {
-      toast.error("Generation function returned incomplete data.", {
+      toast.error("Generation function returned unexpected data.", {
         id: "generation-toast",
       });
     }
@@ -668,29 +651,6 @@ export default function DatasheetGeneratorForm({
                 </div>
               )}
             </div>
-
-            {/* Download Links Area */}
-            {(pdfDownloadUrl || wordDownloadUrl) && (
-              <div className="col-span-full mt-6 p-4 border rounded-md bg-muted/50">
-                <h3 className="text-lg font-medium mb-2">Downloads:</h3>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {pdfDownloadUrl && (
-                    <Button asChild variant="outline">
-                      <a
-                        href={pdfDownloadUrl}
-                        download={getSafeFilename(
-                          productCode || productTitle,
-                          "pdf"
-                        )}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download PDF
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           <CardFooter className="flex justify-end pt-8 gap-x-3">
@@ -711,15 +671,15 @@ export default function DatasheetGeneratorForm({
                 ? "Update Datasheet"
                 : "Save Datasheet"}
             </Button>
-            {/* Generate button remains type="button" */}
+            {/* Disable Generate button if not editing (no productId) */}
             <Button
               type="button"
               onClick={handleGenerate}
               disabled={
-                isSavePending ||
+                !editingProductId ||
                 isGenerating ||
-                uploadProps.loading ||
-                isLoadingCatalogs
+                isSavePending ||
+                uploadProps.loading
               }
             >
               {isGenerating ? (

@@ -32,6 +32,14 @@ import {
   PlusIcon,
   TrashIcon,
 } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
 import {
@@ -75,13 +83,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -90,20 +92,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import Link from "next/link";
+
+interface Catalog {
+  id: string;
+  name: string;
+}
 
 interface ProductsDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  searchColumnId?: string;
   onDeleteRows?: (selectedRows: Row<TData>[]) => void;
   onDeleteRow?: (productId: string) => void;
+  onDownload?: (storagePath: string, filename: string) => void;
+  catalogs?: Catalog[];
+  currentCatalogFilter?: string | null;
+  isLoading?: boolean;
 }
 
 export default function ProductsDataTable<TData, TValue>({
   columns,
   data,
+  searchColumnId = "product_title",
   onDeleteRows,
   onDeleteRow,
+  onDownload,
+  catalogs = [],
+  currentCatalogFilter = null,
+  isLoading = false,
 }: ProductsDataTableProps<TData, TValue>) {
   const id = useId();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -115,6 +131,8 @@ export default function ProductsDataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
 
   const table = useReactTable({
     data,
@@ -139,8 +157,21 @@ export default function ProductsDataTable<TData, TValue>({
     },
     meta: {
       onDeleteRow,
+      onDownload,
     },
   });
+
+  const handleCatalogFilterChange = (catalogId: string) => {
+    const current = new URLSearchParams(window.location.search);
+    if (catalogId && catalogId !== "all") {
+      current.set("catalog", catalogId);
+    } else {
+      current.delete("catalog");
+    }
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.push(`${pathname}${query}`);
+  };
 
   const handleDeleteRows = () => {
     if (onDeleteRows) {
@@ -154,7 +185,7 @@ export default function ProductsDataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
             <Input
               id={`${id}-global-search-input`}
@@ -185,6 +216,28 @@ export default function ProductsDataTable<TData, TValue>({
               </button>
             )}
           </div>
+          <Select
+            value={currentCatalogFilter || "all"}
+            onValueChange={handleCatalogFilterChange}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="h-8 w-[180px]">
+              <SelectValue placeholder="Filter by Catalog..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Catalogs</SelectItem>
+              {catalogs.length === 0 && !isLoading && (
+                <SelectItem value="none" disabled>
+                  No Catalogs Found
+                </SelectItem>
+              )}
+              {catalogs.map((catalog) => (
+                <SelectItem key={catalog.id} value={catalog.id}>
+                  {catalog.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex-grow"></div>

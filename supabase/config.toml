@@ -1,0 +1,7 @@
+        # supabase/config.toml
+
+        [functions.generate-datasheet]
+        static_files = [
+         "./functions/_shared/fonts/*.ttf",
+         "./functions/_shared/assets/Appliedlogo.jpg"
+        ]

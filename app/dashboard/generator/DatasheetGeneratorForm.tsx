@@ -30,7 +30,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Download, Save } from "lucide-react";
+import { Loader2, Download, Save, Eye } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -112,6 +112,9 @@ export default function DatasheetGeneratorForm({
   const [includeOriginLogo, setIncludeOriginLogo] = useState(
     initialData?.optional_logos?.origin || false
   );
+  const [includeIrelandLogo, setIncludeIrelandLogo] = useState(
+    initialData?.optional_logos?.includeIrelandLogo || false
+  );
   const [selectedCatalogId, setSelectedCatalogId] = useState(
     initialData?.catalog_id || ""
   );
@@ -129,6 +132,7 @@ export default function DatasheetGeneratorForm({
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // --- Server Action State with useActionState ---
@@ -245,7 +249,7 @@ export default function DatasheetGeneratorForm({
 
   const handleGenerate = async () => {
     // Ensure we are editing an existing product before generating
-    if (isGenerating || !user || !editingProductId) {
+    if (isGenerating || isPreviewing || !user || !editingProductId) {
       toast.error(
         "Cannot generate: Datasheet must be saved first or user/ID is missing."
       );
@@ -274,7 +278,7 @@ export default function DatasheetGeneratorForm({
 
     const { data, error } = await supabase.functions.invoke(
       "generate-datasheet",
-      { body: generationData } // Pass data including productId
+      { body: { productId: editingProductId, userId: user.id } } // Only need IDs for final generation
     );
 
     if (error) {
@@ -293,14 +297,13 @@ export default function DatasheetGeneratorForm({
       toast.error(`PDF generation failed: ${data.error}`, {
         id: "generation-toast",
       });
-    } else if (data.success) {
+    } else if (data.message && data.pdfStoragePath) {
       // PDF was generated and saved to storage by the function
-      toast.success("PDF generated and saved successfully!", {
+      toast.success(data.message, {
         id: "generation-toast",
       });
-      console.log("PDF saved to storage path:", data.storagePath);
-      // No direct download link needed here anymore
-      // User will download from the products list page
+      console.log("PDF saved to storage path:", data.pdfStoragePath);
+      // Optionally update initialData or trigger a refresh if staying on the page
     } else {
       toast.error("Generation function returned unexpected data.", {
         id: "generation-toast",
@@ -309,6 +312,79 @@ export default function DatasheetGeneratorForm({
 
     setIsGenerating(false);
   };
+
+  // --- ADD handlePreview Function ---
+  const handlePreview = async () => {
+    if (isPreviewing || isGenerating || !user) {
+      toast.error("Cannot preview: Please wait or ensure user is loaded.");
+      return;
+    }
+
+    setIsPreviewing(true);
+    toast.info("Generating preview...", { id: "preview-toast" });
+
+    const supabase = createClient();
+    // Gather current form data for preview
+    const previewData = {
+      isPreview: true,
+      productTitle,
+      productCode,
+      description,
+      keyFeatures,
+      techSpecs,
+      weight,
+      warranty,
+      shippingInfo,
+      imagePath: uploadedImagePath,
+      imageOrientation,
+      optionalLogos: {
+        ceMark: includeCeLogo,
+        origin: includeOriginLogo,
+      },
+      catalogCategory,
+      userId: user.id,
+    };
+
+    console.log("Invoking preview function with data:", previewData);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-datasheet",
+        { body: previewData }
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.pdfData) {
+        // Decode base64 and open in new tab
+        const pdfBlob = await fetch(
+          `data:application/pdf;base64,${data.pdfData}`
+        ).then((res) => res.blob());
+        const dataUrl = URL.createObjectURL(pdfBlob);
+        window.open(dataUrl, "_blank");
+        URL.revokeObjectURL(dataUrl); // Clean up the object URL after opening
+        toast.success("Preview generated!", { id: "preview-toast" });
+      } else {
+        throw new Error(
+          "Preview function returned unexpected or incomplete data."
+        );
+      }
+    } catch (previewError: any) {
+      console.error("Preview Error:", previewError);
+      toast.error(`Preview failed: ${previewError.message}`, {
+        id: "preview-toast",
+      });
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+  // ---                          ---
 
   // Show toasts based on the server action state
   useEffect(() => {
@@ -337,6 +413,7 @@ export default function DatasheetGeneratorForm({
   console.log("Rendering form, states:", {
     isGenerating,
     isSavePending,
+    isPreviewing,
     isLoadingCatalogs,
   });
 
@@ -575,6 +652,22 @@ export default function DatasheetGeneratorForm({
                       Include Origin Logo
                     </Label>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      name="includeIrelandLogo"
+                      id="logo-ireland"
+                      checked={includeIrelandLogo}
+                      onCheckedChange={(checked) =>
+                        setIncludeIrelandLogo(Boolean(checked))
+                      }
+                    />
+                    <Label
+                      htmlFor="logo-ireland"
+                      className="font-normal cursor-pointer"
+                    >
+                      Include "Designed & Manufactured in Ireland" Logo
+                    </Label>
+                  </div>
                 </div>
               </div>
               <div className="space-y-1.5 sm:col-span-1">
@@ -658,7 +751,12 @@ export default function DatasheetGeneratorForm({
             <Button
               type="submit"
               variant="outline"
-              disabled={isSavePending || isGenerating || isLoadingCatalogs}
+              disabled={
+                isSavePending ||
+                isGenerating ||
+                isPreviewing ||
+                isLoadingCatalogs
+              }
             >
               {isSavePending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -672,12 +770,29 @@ export default function DatasheetGeneratorForm({
                 : "Save Datasheet"}
             </Button>
             {/* Disable Generate button if not editing (no productId) */}
+            {/* Preview Button */}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handlePreview}
+              disabled={isGenerating || isPreviewing || isSavePending}
+            >
+              {isPreviewing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Eye className="mr-2 h-4 w-4" />
+              )}
+              {isPreviewing ? "Previewing..." : "Preview PDF"}
+            </Button>
+
+            {/* Generate Button (only enabled when editing) */}
             <Button
               type="button"
               onClick={handleGenerate}
               disabled={
                 !editingProductId ||
                 isGenerating ||
+                isPreviewing ||
                 isSavePending ||
                 uploadProps.loading
               }

@@ -7,6 +7,8 @@ import {
   Edit,
   Trash2,
   Download,
+  Printer,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -47,10 +49,24 @@ export interface Product {
 interface ProductCellContext {
   onDeleteRow?: (productId: string) => void;
   onDownload?: (storagePath: string, filename: string) => void;
+  onPrint?: (storagePath: string, filename: string) => void;
+  onViewPdf?: (storagePath: string, filename: string) => void;
 }
 
-// Function to generate safe filename
-const getSafeFilename = (name: string, extension: string) => {
+// --- Try extending TableMeta this way ---
+import type { RowData } from "@tanstack/react-table";
+declare module "@tanstack/table-core" {
+  interface TableMeta<TData extends RowData> {
+    onDeleteRow?: (productId: string) => void;
+    onDownload?: (storagePath: string, filename: string) => void;
+    onPrint?: (storagePath: string, filename: string) => void;
+    onViewPdf?: (storagePath: string, filename: string) => void;
+  }
+}
+// --------------------------------------
+
+// Helper function to generate safe filenames
+const getSafeFilename = (name: string, extension: string): string => {
   const safeName =
     name.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "datasheet";
   return `${safeName}.${extension}`;
@@ -157,6 +173,33 @@ export const columns: ColumnDef<Product>[] = [
                 className="cursor-pointer"
               >
                 <Download className="mr-2 h-4 w-4" /> Download PDF
+              </DropdownMenuItem>
+              {/* --- ADD View PDF Action --- */}
+              <DropdownMenuItem
+                onClick={() =>
+                  table.options.meta?.onViewPdf?.(
+                    product.pdf_storage_path ?? "",
+                    getSafeFilename(product.product_title || "datasheet", "pdf")
+                  )
+                }
+                disabled={!product.pdf_storage_path}
+                className="cursor-pointer"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View PDF
+              </DropdownMenuItem>
+              {/* ----------------------- */}
+              {/* Print Action */}
+              <DropdownMenuItem
+                onClick={() =>
+                  table.options.meta?.onPrint?.(
+                    product.pdf_storage_path ?? "",
+                    getSafeFilename(product.product_title || "datasheet", "pdf")
+                  )
+                }
+                disabled={!product.pdf_storage_path}
+              >
+                <Printer className="mr-2 h-4 w-4" /> Print PDF
               </DropdownMenuItem>
               {/* Delete Action - Triggers AlertDialog */}
               <AlertDialogTrigger asChild>

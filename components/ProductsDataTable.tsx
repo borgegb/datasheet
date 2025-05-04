@@ -105,9 +105,12 @@ interface ProductsDataTableProps<TData, TValue> {
   onDeleteRows?: (selectedRows: Row<TData>[]) => void;
   onDeleteRow?: (productId: string) => void;
   onDownload?: (storagePath: string, filename: string) => void;
+  onPrint?: (storagePath: string, filename: string) => void;
+  onViewPdf?: (storagePath: string, filename: string) => void;
   catalogs?: Catalog[];
   currentCatalogFilter?: string | null;
   isLoading?: boolean;
+  hideCatalogFilter?: boolean;
 }
 
 export default function ProductsDataTable<TData, TValue>({
@@ -117,9 +120,12 @@ export default function ProductsDataTable<TData, TValue>({
   onDeleteRows,
   onDeleteRow,
   onDownload,
+  onPrint,
+  onViewPdf,
   catalogs = [],
   currentCatalogFilter = null,
   isLoading = false,
+  hideCatalogFilter = false,
 }: ProductsDataTableProps<TData, TValue>) {
   const id = useId();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -158,6 +164,8 @@ export default function ProductsDataTable<TData, TValue>({
     meta: {
       onDeleteRow,
       onDownload,
+      onPrint,
+      onViewPdf,
     },
   });
 
@@ -216,28 +224,30 @@ export default function ProductsDataTable<TData, TValue>({
               </button>
             )}
           </div>
-          <Select
-            value={currentCatalogFilter || "all"}
-            onValueChange={handleCatalogFilterChange}
-            disabled={isLoading}
-          >
-            <SelectTrigger className="h-8 w-[180px]">
-              <SelectValue placeholder="Filter by Catalog..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Catalogs</SelectItem>
-              {catalogs.length === 0 && !isLoading && (
-                <SelectItem value="none" disabled>
-                  No Catalogs Found
-                </SelectItem>
-              )}
-              {catalogs.map((catalog) => (
-                <SelectItem key={catalog.id} value={catalog.id}>
-                  {catalog.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!hideCatalogFilter && (
+            <Select
+              value={currentCatalogFilter || "all"}
+              onValueChange={handleCatalogFilterChange}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="h-8 w-[180px]">
+                <SelectValue placeholder="Filter by Catalog..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Catalogs</SelectItem>
+                {catalogs.length === 0 && !isLoading && (
+                  <SelectItem value="none" disabled>
+                    No Catalogs Found
+                  </SelectItem>
+                )}
+                {catalogs.map((catalog) => (
+                  <SelectItem key={catalog.id} value={catalog.id}>
+                    {catalog.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="flex-grow"></div>

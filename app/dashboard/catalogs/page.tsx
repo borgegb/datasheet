@@ -20,6 +20,11 @@ import { toast } from "sonner";
 // Import Server Actions
 import { fetchCatalogsForOrg, createCatalog } from "../actions";
 
+// --- Add Card and Link imports ---
+import Link from "next/link";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+// --------------------------------
+
 // TODO: Import Table components if needed for listing
 // TODO: Import types for Catalog
 interface Catalog {
@@ -133,21 +138,30 @@ export default function CatalogsPage() {
         </Dialog>
       </div>
 
-      {/* TODO: Add Table/List component to display fetched catalogs */}
-      <div className="border rounded-md p-4">
+      {/* Display Catalogs as Cards */}
+      <div className="mt-6">
         <h2 className="text-lg font-medium mb-4">Existing Catalogs</h2>
         {isLoadingCatalogs ? (
           <p className="text-muted-foreground">Loading catalogs...</p>
         ) : catalogs.length === 0 ? (
           <p className="text-muted-foreground">No catalogs created yet.</p>
         ) : (
-          <ul className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {catalogs.map((catalog) => (
-              <li key={catalog.id} className="border-b pb-1 text-sm">
-                {catalog.name}
-              </li>
+              <Link
+                key={catalog.id}
+                href={`/dashboard/catalogs/${catalog.id}`}
+                passHref
+              >
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                  <CardHeader>
+                    <CardTitle className="text-base">{catalog.name}</CardTitle>
+                  </CardHeader>
+                  {/* Optionally add CardContent or CardFooter later */}
+                </Card>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

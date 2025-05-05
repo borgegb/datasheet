@@ -72,7 +72,7 @@ export async function fetchProductsForOrg(catalogId?: string | null) {
 interface CatalogInfo {
   id: string;
   name: string;
-  image_url: string | null; // Keep optional image url
+  // image_url: string | null; // Remove this as it's not fetched
 }
 
 export async function fetchCatalogsForOrg(): Promise<{
@@ -93,8 +93,7 @@ export async function fetchCatalogsForOrg(): Promise<{
     .select(
       `
       id,
-      name,
-      image_url
+      name
     `
     )
     .eq("organization_id", organizationId)
@@ -110,7 +109,6 @@ export async function fetchCatalogsForOrg(): Promise<{
     data?.map((catalog) => ({
       id: catalog.id,
       name: catalog.name,
-      image_url: catalog.image_url,
     })) || [];
 
   return { data: processedData, error: null };

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, startTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle, Loader2, PackageIcon, DatabaseIcon } from "lucide-react";
 // Import Dialog components, Input, Label
 import {
   Dialog,
@@ -22,15 +22,18 @@ import { fetchCatalogsForOrg, createCatalog } from "../actions";
 
 // --- Add Card and Link imports ---
 import Link from "next/link";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import Image from 'next/image'; // Import Next Image
 // --------------------------------
 
-// TODO: Import Table components if needed for listing
-// TODO: Import types for Catalog
+// --- Define Catalog interface locally --- 
 interface Catalog {
   id: string;
   name: string;
+  image_url: string | null;
+  // product_count is no longer fetched/used
 }
+// --------------------------------------
 
 export default function CatalogsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -148,16 +151,30 @@ export default function CatalogsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {catalogs.map((catalog) => (
-              <Link
-                key={catalog.id}
-                href={`/dashboard/catalogs/${catalog.id}`}
-                passHref
-              >
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardHeader>
-                    <CardTitle className="text-base">{catalog.name}</CardTitle>
-                  </CardHeader>
-                  {/* Optionally add CardContent or CardFooter later */}
+              <Link key={catalog.id} href={`/dashboard/catalogs/${catalog.id}`} passHref className="block h-full">
+                {/* Add overflow-hidden to card for image rounding */}
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col overflow-hidden">
+                    {/* --- Add Catalog Image --- */}
+                    <div className="aspect-video w-full bg-muted relative">
+                         {/* Basic placeholder - replace with actual image logic later */}
+                         {catalog.image_url ? (
+                            <Image 
+                                src={catalog.image_url}
+                                alt={catalog.name}
+                                layout="fill"
+                                objectFit="cover"
+                                className="rounded-t-lg"
+                            />
+                         ) : (
+                            <div className="flex items-center justify-center h-full">
+                                <PackageIcon className="h-12 w-12 text-muted-foreground/50" />
+                            </div>
+                         )}
+                    </div>
+                    {/* ---------------------- */}
+                    <CardHeader>
+                        <CardTitle className="text-base">{catalog.name}</CardTitle>
+                    </CardHeader>
                 </Card>
               </Link>
             ))}

@@ -68,7 +68,18 @@ export async function fetchProductsForOrg(catalogId?: string | null) {
 }
 
 // --- Action to Fetch Catalogs ---
-export async function fetchCatalogsForOrg() {
+// --- Revert interface (remove count, keep image_url) ---
+interface CatalogInfo {
+  id: string;
+  name: string;
+  image_url: string | null; // Keep optional image url
+}
+
+export async function fetchCatalogsForOrg(): Promise<{
+  // Update return type
+  data: CatalogInfo[];
+  error: { message: string } | null;
+}> {
   const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
@@ -76,17 +87,33 @@ export async function fetchCatalogsForOrg() {
     return { data: [], error: { message: "User organization not found." } };
   }
 
+  // --- Remove product count logic ---
   const { data, error } = await supabase
     .from("catalogs")
-    .select("id, name")
+    .select(
+      `
+      id,
+      name,
+      image_url
+    `
+    )
     .eq("organization_id", organizationId)
     .order("name", { ascending: true });
 
   if (error) {
     console.error("Server Action Error (fetchCatalogsForOrg):", error);
+    return { data: [], error: { message: `Database error: ${error.message}` } };
   }
 
-  return { data: data ?? [], error };
+  // --- No processing needed for count ---
+  const processedData =
+    data?.map((catalog) => ({
+      id: catalog.id,
+      name: catalog.name,
+      image_url: catalog.image_url,
+    })) || [];
+
+  return { data: processedData, error: null };
 }
 
 // --- ADD fetchCategories action ---

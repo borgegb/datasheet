@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveDatasheet } from "../actions";
+import { useSearchParams } from "next/navigation";
 
 // Define type for Catalog
 interface Catalog {
@@ -83,6 +84,11 @@ export default function DatasheetGeneratorForm({
   initialData = null,
   editingProductId = null,
 }: DatasheetGeneratorFormProps) {
+  // --- Get search params ---
+  const searchParams = useSearchParams();
+  const catalogIdFromUrl = searchParams.get("catalogId");
+  // -----------------------
+
   // --- State Initialization using initialData prop ---
   const [productTitle, setProductTitle] = useState(
     initialData?.product_title || ""
@@ -120,7 +126,8 @@ export default function DatasheetGeneratorForm({
     initialData?.optional_logos?.includeIrelandLogo || false
   );
   const [selectedCatalogId, setSelectedCatalogId] = useState(
-    initialData?.catalog_id || ""
+    // Prioritize initialData, then URL param (for new sheets), then empty
+    initialData?.catalog_id || (initialData ? "" : catalogIdFromUrl) || ""
   );
   const [catalogCategory, setCatalogCategory] = useState(
     initialData?.catalog_category || ""
@@ -138,6 +145,11 @@ export default function DatasheetGeneratorForm({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // --- Add state for new flow ---
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  // -----------------------------
 
   // --- Server Action State with useActionState ---
   const [saveState, saveFormAction, isSavePending] = useActionState(
@@ -298,73 +310,94 @@ export default function DatasheetGeneratorForm({
     }
   }, [uploadProps.loading, uploadProps.successes, user]);
 
-  const handleGenerate = async () => {
-    // Ensure we are editing an existing product before generating
-    if (isGenerating || isPreviewing || !user || !editingProductId) {
-      toast.error(
-        "Cannot generate: Datasheet must be saved first or user/ID is missing."
+  // --- ADD useEffect to handle generation/download AFTER successful save ---
+  useEffect(() => {
+    // Check if save was successful and we have the product data (including ID)
+    if (saveState?.data?.id && !saveState.error && user) {
+      const savedProductId = saveState.data.id;
+      const savedProductName = saveState.data.product_title || "datasheet"; // For filename
+      const savedProductCode = saveState.data.product_code || "";
+      console.log(
+        `Save successful for ${savedProductId}, starting PDF generation...`
       );
-      return;
+
+      // Define async function inside useEffect to chain async calls
+      const generateAndOpenPdf = async () => {
+        setIsGeneratingPdf(true);
+        const supabase = createClient();
+        const generationToastId = toast.loading("Generating PDF...");
+
+        try {
+          // Call Edge function
+          const { data: generateData, error: generateError } =
+            await supabase.functions.invoke("generate-datasheet", {
+              body: { productId: savedProductId, userId: user.id },
+            });
+
+          if (generateError)
+            throw new Error(
+              `Generation function error: ${generateError.message}`
+            );
+          if (generateData.error)
+            throw new Error(`PDF generation failed: ${generateData.error}`);
+          if (!generateData.pdfStoragePath)
+            throw new Error("PDF storage path not returned from function.");
+
+          console.log("PDF generated, path:", generateData.pdfStoragePath);
+
+          // --- Generate Signed URL ---
+          const expiresIn = 60; // URL valid for 60 seconds
+          const { data: signedUrlData, error: signedUrlError } =
+            await supabase.storage
+              .from("datasheet-assets")
+              .createSignedUrl(generateData.pdfStoragePath, expiresIn);
+
+          if (signedUrlError)
+            throw new Error(
+              `Could not create signed URL: ${signedUrlError.message}`
+            );
+          if (!signedUrlData?.signedUrl)
+            throw new Error("Signed URL data is missing.");
+
+          const signedUrl = signedUrlData.signedUrl;
+          console.log("Generated Signed URL:", signedUrl);
+          // ---------------------------
+
+          // --- Show success toast with View Button ---
+          toast.success("PDF generated successfully!", {
+            id: generationToastId, // Use ID to dismiss previous loading toast
+            description: "Click the button to view your generated PDF.",
+            action: (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(signedUrl, "_blank")}
+              >
+                View PDF
+              </Button>
+            ),
+            duration: 15000, // Keep toast longer so user can click
+          });
+          // -----------------------------------------
+        } catch (error: any) {
+          console.error("Error during PDF generation/download:", error);
+          toast.dismiss(generationToastId);
+          toast.error(`Failed to generate or open PDF: ${error.message}`);
+        } finally {
+          setIsGeneratingPdf(false);
+          setIsDownloadingPdf(false);
+        }
+      };
+
+      // Trigger the async function
+      generateAndOpenPdf();
     }
+    // We ONLY want this effect to run when saveState changes specifically to a success state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveState, user]); // Add user dependency as it's used inside
+  // ----------------------------------------------------------------------
 
-    setIsGenerating(true);
-
-    const supabase = createClient();
-    // Prepare data, ensuring we send the productId
-    const generationData = {
-      productId: editingProductId, // Send the ID!
-      productTitle,
-      productCode,
-      description,
-      specs,
-      price,
-      imagePath: uploadedImagePath, // Still send path for image embedding
-      imageOrientation, // Send orientation for template selection
-      userId: user.id, // Send userId for storage path
-      // optionalLogos: { ... }, // Send if needed by PDF generation
-    };
-
-    console.log("Invoking generation function with data:", generationData);
-    toast.info("Generating datasheet PDF...", { id: "generation-toast" });
-
-    const { data, error } = await supabase.functions.invoke(
-      "generate-datasheet",
-      { body: { productId: editingProductId, userId: user.id } } // Only need IDs for final generation
-    );
-
-    if (error) {
-      console.error("Edge Function Error:", error);
-      toast.error(`PDF generation failed: ${error.message}`, {
-        id: "generation-toast",
-      });
-      setIsGenerating(false);
-      return;
-    }
-
-    console.log("Edge Function Response:", data);
-
-    if (data.error) {
-      console.error("Error from function logic:", data.error);
-      toast.error(`PDF generation failed: ${data.error}`, {
-        id: "generation-toast",
-      });
-    } else if (data.message && data.pdfStoragePath) {
-      // PDF was generated and saved to storage by the function
-      toast.success(data.message, {
-        id: "generation-toast",
-      });
-      console.log("PDF saved to storage path:", data.pdfStoragePath);
-      // Optionally update initialData or trigger a refresh if staying on the page
-    } else {
-      toast.error("Generation function returned unexpected data.", {
-        id: "generation-toast",
-      });
-    }
-
-    setIsGenerating(false);
-  };
-
-  // --- ADD handlePreview Function ---
+  // --- handlePreview remains the same ---
   const handlePreview = async () => {
     if (isPreviewing || isGenerating || !user) {
       toast.error("Cannot preview: Please wait or ensure user is loaded.");
@@ -440,18 +473,16 @@ export default function DatasheetGeneratorForm({
   // Show toasts based on the server action state
   useEffect(() => {
     if (saveState?.error) {
-      toast.error(`Save failed: ${saveState.error.message}`);
-    }
-    if (saveState?.data) {
-      toast.success(
-        editingProductId ? "Datasheet updated!" : "Datasheet saved!"
-      );
-      if (!editingProductId && formRef.current) {
-        // formRef.current.reset(); // Standard HTML reset
-        // Or manually reset state if needed for controlled components
+      // Error toast is now handled within the generateAndOpenPdf catch block if save succeeds but gen fails
+      // Only show save-specific errors here
+      if (!saveState.data) {
+        // Ensure it's a pure save error
+        toast.error(`Save failed: ${saveState.error.message}`);
       }
     }
-  }, [saveState, editingProductId]); // Depend on saveState
+    // Success toast moved to generateAndOpenPdf to indicate full process success
+    // if (saveState?.data) { ... }
+  }, [saveState]);
 
   // Function to get a safe filename
   const getSafeFilename = (name: string, extension: string) => {
@@ -496,6 +527,23 @@ export default function DatasheetGeneratorForm({
     const newSpecs = specs.filter((_, i) => i !== index);
     setSpecs(newSpecs);
   };
+
+  // --- Add useEffect to handle URL param if initialData loads later ---
+  // This handles cases where initialData might be null initially then populated
+  useEffect(() => {
+    // Only set from URL if we are NOT editing (no initialData.catalog_id)
+    // and a catalogId exists in the URL and is different from current state
+    if (
+      !initialData?.catalog_id &&
+      catalogIdFromUrl &&
+      catalogIdFromUrl !== selectedCatalogId
+    ) {
+      console.log("Setting catalog ID from URL param:", catalogIdFromUrl);
+      setSelectedCatalogId(catalogIdFromUrl);
+    }
+    // Don't run if selectedCatalogId changes, only if URL param or initialData changes
+  }, [catalogIdFromUrl, initialData?.catalog_id]);
+  // ---------------------------------------------------------------------
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -867,35 +915,44 @@ export default function DatasheetGeneratorForm({
           </div>
 
           <CardFooter className="flex justify-end pt-8 gap-x-3">
-            {/* Submit button triggers form action */}
+            {/* --- This is now the main "Generate & Save" Button --- */}
             <Button
               type="submit"
-              variant="outline"
+              variant="default" // Make it primary variant
               disabled={
-                isSavePending ||
-                isGenerating ||
+                isSavePending || // Disable while saving
+                isGeneratingPdf || // Disable while generating
+                isDownloadingPdf || // Disable while downloading
                 isPreviewing ||
-                isLoadingCatalogs
+                isLoadingCatalogs ||
+                uploadProps.loading // Disable while uploading image
               }
             >
-              {isSavePending ? (
+              {isSavePending || isGeneratingPdf || isDownloadingPdf ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-4 w-4" /> // Use Download icon?
               )}
               {isSavePending
                 ? "Saving..."
-                : editingProductId
-                ? "Update Datasheet"
-                : "Save Datasheet"}
+                : isGeneratingPdf
+                ? "Generating PDF..."
+                : isDownloadingPdf
+                ? "Downloading..."
+                : "Generate & Save Datasheet"}
             </Button>
-            {/* Disable Generate button if not editing (no productId) */}
-            {/* Preview Button */}
+
+            {/* Preview Button (Keep as is) */}
             <Button
               type="button"
               variant="secondary"
               onClick={handlePreview}
-              disabled={isGenerating || isPreviewing || isSavePending}
+              disabled={
+                isGeneratingPdf ||
+                isDownloadingPdf ||
+                isSavePending ||
+                isPreviewing
+              }
             >
               {isPreviewing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -903,26 +960,6 @@ export default function DatasheetGeneratorForm({
                 <Eye className="mr-2 h-4 w-4" />
               )}
               {isPreviewing ? "Previewing..." : "Preview PDF"}
-            </Button>
-
-            {/* Generate Button (only enabled when editing) */}
-            <Button
-              type="button"
-              onClick={handleGenerate}
-              disabled={
-                !editingProductId ||
-                isGenerating ||
-                isPreviewing ||
-                isSavePending ||
-                uploadProps.loading
-              }
-            >
-              {isGenerating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              {isGenerating ? "Generating..." : "Generate Datasheet"}
             </Button>
           </CardFooter>
         </form>

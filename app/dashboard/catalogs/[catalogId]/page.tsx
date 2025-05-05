@@ -5,6 +5,9 @@ import {
   fetchProductsForOrg,
   fetchCatalogsForOrg,
 } from "@/app/dashboard/actions"; // Import actions
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { PlusIcon } from "lucide-react";
 
 // Define props type including params
 interface CatalogProductsPageProps {
@@ -55,25 +58,26 @@ export default async function CatalogProductsPage({
   // --- Render the Page ---
   return (
     <div className="flex flex-col flex-1 p-4 md:p-6">
-      <h1 className="text-2xl font-semibold mb-6">
-        Datasheets in Catalog: {currentCatalog?.name || "Loading..."}
-      </h1>
+      {/* --- Add Header Row with Title and Button --- */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">
+          Datasheets in Catalog: {currentCatalog?.name || "Loading..."}
+        </h1>
+        <Button asChild size="sm">
+          <Link href={`/dashboard/generator?catalogId=${catalogId}`}>
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            Add Datasheet to this Catalog
+          </Link>
+        </Button>
+      </div>
+      {/* -------------------------------------------- */}
 
-      {/* Render the existing client component, passing the filtered products */}
-      {/* We pass products directly, client component won't need to fetch initial products */}
-      {/* However, ProductsPageClient expects to manage its own state/fetching for updates */}
-      {/* Consider refactoring ProductsPageClient or creating a simpler display component */}
-      {/* For now, we'll let it re-fetch based on the URL param it reads */}
-
-      {/* TODO: Review if ProductsPageClient needs modification or if a simpler 
-           client component wrapper around ProductsDataTable is better here. 
-           ProductsPageClient fetches catalogs again, which is redundant here. 
-           It also fetches products based on URL param, which duplicates our fetch. */}
       {/* --- Pass fetched data as props --- */}
       <ProductsPageClient
         initialProducts={products || []}
         initialCatalogs={allCatalogs || []}
         hideCatalogFilter={true}
+        hideAddButton={true} // Keep hiding the table's add button
       />
       {/* -------------------------------- */}
     </div>

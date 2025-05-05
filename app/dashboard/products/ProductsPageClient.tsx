@@ -29,6 +29,7 @@ interface ProductsPageClientProps {
   initialProducts?: Product[]; // Optional initial products
   initialCatalogs?: Catalog[]; // Optional initial catalogs
   hideCatalogFilter?: boolean; // <-- Add new prop
+  hideAddButton?: boolean; // <-- Add prop here
 }
 // ----------------------------------------
 
@@ -37,7 +38,8 @@ interface ProductsPageClientProps {
 export default function ProductsPageClient({
   initialProducts,
   initialCatalogs,
-  hideCatalogFilter = false, // <-- Destructure with default value
+  hideCatalogFilter = false,
+  hideAddButton = false,
 }: ProductsPageClientProps) {
   // ----------------------------------------------
   // --- Update state initialization with initial props ---
@@ -299,6 +301,7 @@ export default function ProductsPageClient({
         currentCatalogFilter={currentCatalogFilter}
         isLoading={isLoading}
         hideCatalogFilter={hideCatalogFilter}
+        hideAddButton={hideAddButton}
       />
     </>
   );

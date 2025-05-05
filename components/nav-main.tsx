@@ -30,7 +30,7 @@ const mainNavItems = [
     icon: FileTextIcon,
   },
   {
-    title: "Saved Datasheets",
+    title: "Datasheets",
     href: "/dashboard/products",
     icon: DatabaseIcon,
   },

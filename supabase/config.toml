@@ -2,6 +2,6 @@
 
         [functions.generate-datasheet]
         static_files = [
-         "./functions/_shared/fonts/*.ttf",
-         "./functions/_shared/assets/Appliedlogo.jpg"
+         "./functions/_shared/fonts/*",
+         "./functions/_shared/assets/*"
         ]

@@ -111,6 +111,7 @@ interface ProductsDataTableProps<TData, TValue> {
   currentCatalogFilter?: string | null;
   isLoading?: boolean;
   hideCatalogFilter?: boolean;
+  hideAddButton?: boolean;
 }
 
 export default function ProductsDataTable<TData, TValue>({
@@ -126,6 +127,7 @@ export default function ProductsDataTable<TData, TValue>({
   currentCatalogFilter = null,
   isLoading = false,
   hideCatalogFilter = false,
+  hideAddButton = false,
 }: ProductsDataTableProps<TData, TValue>) {
   const id = useId();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -312,12 +314,14 @@ export default function ProductsDataTable<TData, TValue>({
             </AlertDialog>
           )}
 
-          <Button asChild size="sm" className="h-8">
-            <Link href="/dashboard/generator">
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              Add Datasheet
-            </Link>
-          </Button>
+          {!hideAddButton && (
+            <Button asChild size="sm" className="h-8">
+              <Link href="/dashboard/generator">
+                <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+                Add Datasheet
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

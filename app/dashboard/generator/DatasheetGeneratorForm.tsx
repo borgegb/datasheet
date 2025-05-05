@@ -30,7 +30,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Download, Save, Eye } from "lucide-react";
+import { Loader2, Download, Save, Eye, X, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -93,7 +93,11 @@ export default function DatasheetGeneratorForm({
   const [description, setDescription] = useState(
     initialData?.description || ""
   );
-  const [techSpecs, setTechSpecs] = useState(initialData?.tech_specs || "");
+  const [specs, setSpecs] = useState<
+    { id: number; label: string; value: string }[]
+  >(
+    [] // Initialize empty
+  );
   const [price, setPrice] = useState(initialData?.price || "");
   const [weight, setWeight] = useState(initialData?.weight || "");
   const [keyFeatures, setKeyFeatures] = useState(
@@ -227,6 +231,53 @@ export default function DatasheetGeneratorForm({
     }
   }, [initialData?.image_path, uploadedImagePath]);
 
+  // --- Add useEffect to initialize specs state from initialData ---
+  useEffect(() => {
+    if (initialData?.tech_specs) {
+      try {
+        // Assuming tech_specs is stored as a JSON string representing the array
+        const parsedSpecs = JSON.parse(initialData.tech_specs);
+        if (Array.isArray(parsedSpecs)) {
+          // Add a unique ID to each spec for stable key prop during rendering
+          setSpecs(
+            parsedSpecs.map((spec, index) => ({
+              id: index, // Use index as simple ID for initial load
+              label: spec.label || "",
+              value: spec.value || "",
+            }))
+          );
+        } else {
+          console.warn("Initial tech_specs data is not an array:", parsedSpecs);
+          setSpecs([]); // Fallback to empty array
+        }
+      } catch (error) {
+        console.error("Error parsing initial tech_specs JSON:", error);
+        // Attempt to parse as old text format (Label: Value)
+        if (typeof initialData.tech_specs === "string") {
+          const lines = initialData.tech_specs
+            .split("\n")
+            .filter((l) => l.includes(":"));
+          setSpecs(
+            lines.map((line, index) => {
+              const parts = line.split(":");
+              return {
+                id: index,
+                label: parts[0].trim(),
+                value: parts.slice(1).join(":").trim(),
+              };
+            })
+          );
+          console.log("Parsed tech_specs from legacy text format.");
+        } else {
+          setSpecs([]); // Fallback if parsing fails
+        }
+      }
+    } else {
+      setSpecs([]); // Initialize empty if no initial data
+    }
+  }, [initialData]); // Rerun only if initialData changes
+  // ----------------------------------------------------------
+
   // Setup upload hook (pass user ID when available)
   const uploadProps = useSupabaseUpload({
     bucketName: "datasheet-assets",
@@ -265,7 +316,7 @@ export default function DatasheetGeneratorForm({
       productTitle,
       productCode,
       description,
-      techSpecs,
+      specs,
       price,
       imagePath: uploadedImagePath, // Still send path for image embedding
       imageOrientation, // Send orientation for template selection
@@ -331,7 +382,7 @@ export default function DatasheetGeneratorForm({
       productCode,
       description,
       keyFeatures,
-      techSpecs,
+      specs,
       weight,
       warranty,
       shippingInfo,
@@ -416,6 +467,35 @@ export default function DatasheetGeneratorForm({
     isPreviewing,
     isLoadingCatalogs,
   });
+
+  const handleSpecChange = (
+    index: number,
+    field: "label" | "value",
+    value: string
+  ) => {
+    const newSpecs = specs.map((spec, i) => {
+      if (i === index) {
+        // Explicitly update based on field
+        if (field === "label") {
+          return { ...spec, label: value };
+        } else {
+          // field === 'value'
+          return { ...spec, value: value };
+        }
+      }
+      return spec;
+    });
+    setSpecs(newSpecs);
+  };
+
+  const addSpec = () => {
+    setSpecs([...specs, { id: specs.length, label: "", value: "" }]);
+  };
+
+  const removeSpec = (index: number) => {
+    const newSpecs = specs.filter((_, i) => i !== index);
+    setSpecs(newSpecs);
+  };
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -532,15 +612,55 @@ export default function DatasheetGeneratorForm({
                   rows={5}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tech-specs">Technical Specifications</Label>
-                <Textarea
+              <div className="space-y-4 sm:col-span-2">
+                {" "}
+                {/* Span across both columns */}
+                <Label>Technical Specifications</Label>
+                <div className="space-y-3">
+                  {specs.map((spec, index) => (
+                    <div key={spec.id} className="flex items-center gap-2">
+                      <Input
+                        value={spec.label}
+                        onChange={(e) =>
+                          handleSpecChange(index, "label", e.target.value)
+                        }
+                        placeholder="Label (e.g., Voltage)"
+                        className="flex-1"
+                      />
+                      <Input
+                        value={spec.value}
+                        onChange={(e) =>
+                          handleSpecChange(index, "value", e.target.value)
+                        }
+                        placeholder="Value (e.g., 24V)"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeSpec(index)}
+                        aria-label="Remove specification"
+                        className="text-destructive hover:bg-destructive/10"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addSpec}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add Specification
+                </Button>
+                {/* Hidden input to store JSON string for form submission */}
+                <input
+                  type="hidden"
                   name="techSpecs"
-                  id="tech-specs"
-                  value={techSpecs}
-                  onChange={(e) => setTechSpecs(e.target.value)}
-                  placeholder="Enter specs, e.g., Label: Value per line (will be tabled)"
-                  rows={6}
+                  value={JSON.stringify(specs.map(({ id, ...rest }) => rest))}
                 />
               </div>
             </div>

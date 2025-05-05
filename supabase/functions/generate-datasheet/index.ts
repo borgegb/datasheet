@@ -50,29 +50,80 @@ console.log(
   `Function "generate-datasheet" v2 up and running! (Uses Design Guidelines)`
 );
 
-// --- Design Guideline Constants ---
+// --- Design Guideline Constants (Based on Guidelines & Image Analysis) ---
 const COLOR_PRIMARY_GREEN = rgb(44 / 255, 82 / 255, 52 / 255); // #2c5234
 const COLOR_BODY_TEXT = rgb(42 / 255, 42 / 255, 42 / 255); // #2A2A2A
-const COLOR_DIVIDER_GREY = rgb(128 / 255, 128 / 255, 128 / 255); // #808080
+const COLOR_GREY_TEXT = rgb(128 / 255, 128 / 255, 128 / 255); // #808080 (For subtitle, lines)
 const COLOR_TABLE_BACKGROUND = rgb(239 / 255, 242 / 255, 239 / 255); // #EFF2EF
 const COLOR_WHITE = rgb(1, 1, 1);
 
-// Convert mm to points (A4 is 210 x 297 mm)
-const MARGIN_LEFT = mmToPoints(22); // 22mm
-const MARGIN_RIGHT = mmToPoints(11); // 11mm
-const MARGIN_TOP = mmToPoints(15); // Use midpoint 11-22mm -> 16.5mm ~ 15mm for calculation convenience
-const MARGIN_BOTTOM = mmToPoints(15); // Generic bottom margin for content area before footer
-const FOOTER_HEIGHT = mmToPoints(15); // Height for the footer bar, adjust as needed
+// Margins (A4: 210x297mm approx 595x842 points)
+const PAGE_WIDTH = PageSizes.A4[0];
+const PAGE_HEIGHT = PageSizes.A4[1];
+const MARGIN_LEFT = mmToPoints(22); // 62.36 pt
+const MARGIN_RIGHT = mmToPoints(11); // 31.18 pt
+const MARGIN_TOP = mmToPoints(15); // 42.52 pt (Using previous midpoint)
+const MARGIN_BOTTOM = mmToPoints(15); // 42.52 pt (Assume same as top for content bottom)
+const FOOTER_HEIGHT = mmToPoints(15); // 42.52 pt
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 
-const FONT_SIZE_TITLE = 16; // Recommended 12-20pt
-const FONT_SIZE_H2 = 12; // Adjust H2 size
-const FONT_SIZE_BODY = 9; // Recommended 9pt
-const FONT_SIZE_SMALL = 8; // Smaller size for specs table/bullets
-const FONT_SIZE_FOOTER = 9.6; // Specific footer size
+// Font Sizes (assumed where not specified)
+const FONT_SIZE_TITLE = 16; // Min 12pt, max 20pt. Using 16pt.
+const FONT_SIZE_SUBTITLE = 8; // Assumed smaller size for subtitle
+const FONT_SIZE_H2 = 12; // Assumed size for headings like "Key Features"
+const FONT_SIZE_BODY = 9; // Recommended body size
+const FONT_SIZE_SPECS = 9; // Assumed same as body for specs table text
+const FONT_SIZE_FOOTER = 9.6; // Specified footer size
 
-const LINE_HEIGHT_BODY = FONT_SIZE_BODY * 1.4; // Adjust line height multiplier
-const LINE_HEIGHT_SMALL = FONT_SIZE_SMALL * 1.4;
-// ---                     ---
+// Spacing (example values, adjust as needed)
+const SPACE_AFTER_TITLE = 5;
+const SPACE_AFTER_SUBTITLE = 8;
+const SPACE_AFTER_DIVIDER = 15;
+const SPACE_AFTER_DESCRIPTION = 20;
+const SPACE_AFTER_FEATURES_IMAGE = 20;
+const SPACE_AFTER_SPECS = 20;
+const SPACE_AFTER_WARRANTY = 20;
+// --- Adjust space between list items ---
+const SPACE_BETWEEN_LIST_ITEMS = 8; // Increased slightly from 5
+// -------------------------------------
+const SPACE_BETWEEN_SPECS_ROWS = 4;
+// --- Adjust Max Section Heights to Reserve More Bottom Space ---
+const MAX_FEATURES_HEIGHT = 260; // Reduced from 250
+const MAX_SPECS_HEIGHT = 180; // Reduced from 200
+// ----------------------------------------------------------
+// --- End Design Constants ---
+
+// --- Helper function for Warranty Text Mapping (Step 7) ---
+const getWarrantyText = (code: string | null): string => {
+  switch (code) {
+    case "1y":
+      return "This product is covered by a 12-month warranty against defect in materials and workmanship.";
+    case "2y":
+      return "This product is covered by a 24-month warranty (Placeholder Text)."; // Placeholder
+    case "lifetime":
+      return "This product is covered by a limited lifetime warranty (Placeholder Text)."; // Placeholder
+    case "none":
+      return "This product is sold without warranty (Placeholder Text)."; // Placeholder
+    default:
+      return "Warranty information not specified.";
+  }
+};
+// --- End Helper Function ---
+
+// --- Helper function for Shipping Text Mapping (Step 8) ---
+const getShippingText = (code: string | null): string => {
+  switch (code) {
+    case "expedited":
+      return "The Applied 20 Litre Classic Blast Machine will be securely mounted on a wooden pallet measuring 1200mm x 1000mm. Please note that up to four units can be shipped on a single pallet. To maximise value and efficiency, we recommend shipping the full quantity per pallet whenever possible.";
+    case "std":
+      return "Standard shipping information placeholder."; // Placeholder
+    case "freight":
+      return "Freight shipping information placeholder."; // Placeholder
+    default:
+      return "Shipping information not specified.";
+  }
+};
+// --- End Helper Function ---
 
 // Create a single Supabase client instance (initialized with service_role key for admin access)
 // IMPORTANT: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Edge Function settings
@@ -207,22 +258,18 @@ serve(async (req: Request) => {
     }
     // ---                   ---
 
-    // --- Load Logo ---
+    // --- Load Logo --- // (Revert path reference BACK to new URL)
     let logoImageBytes: Uint8Array | null = null;
     let logoImage: PDFImage | null = null;
     let logoDims = { width: 0, height: 0 };
     try {
-      // Path relative to function location
-      // Use new URL(...) directly with Deno.readFile
-      // --- Attempt using absolute container paths ---
+      // Revert back to new URL()
       logoImageBytes = await Deno.readFile(
-        new URL("../_shared/assets/Appliedlogo.jpg", import.meta.url)
+        new URL("../_shared/assets/Appliedlogo.jpg", import.meta.url) // Reverted path
       );
-
-      console.log("Logo image file read.");
+      console.log("Logo image file read (using new URL)."); // Updated log message
     } catch (logoError: any) {
-      console.error("Error loading logo image:", logoError);
-      // Continue without logo
+      console.error("Error loading logo image (using new URL):", logoError);
     }
     // ---           ---
 
@@ -236,6 +283,7 @@ serve(async (req: Request) => {
     // --- Embed Fonts ---
     const poppinsBoldFont = await pdfDoc.embedFont(poppinsBoldFontBytes!); // Use non-null assertion as we throw if loading fails
     const interRegularFont = await pdfDoc.embedFont(interRegularFontBytes!);
+    // TODO: Add Inter-Bold if needed for Specs Values later
     // -----------------
 
     // --- Embed Logo ---
@@ -253,95 +301,267 @@ serve(async (req: Request) => {
     // ----------------
 
     let page = pdfDoc.addPage(PageSizes.A4); // Use A4 size
-    const { width, height } = page.getSize();
+    // --- Remove width/height re-declaration ---
+    // const { width, height } = page.getSize();
 
-    let currentY = height - MARGIN_TOP; // Track current Y position
-    const contentWidth = width - MARGIN_LEFT - MARGIN_RIGHT;
+    let currentY = PAGE_HEIGHT - MARGIN_TOP; // Initialize Y position
 
     // --- Draw Header (Logo Top Right) ---
+    let logoTopY = PAGE_HEIGHT - MARGIN_TOP; // Y coord for top of logo
     if (logoImage) {
       page.drawImage(logoImage, {
-        x: width - MARGIN_RIGHT - logoDims.width,
-        y: height - MARGIN_TOP - logoDims.height, // Adjust Y based on logo height and top margin
+        x: PAGE_WIDTH - MARGIN_RIGHT - logoDims.width,
+        y: PAGE_HEIGHT - MARGIN_TOP - logoDims.height, // Draw logo aligned to top margin
         width: logoDims.width,
         height: logoDims.height,
       });
-      // Adjust starting Y position if logo is tall
-      currentY = height - MARGIN_TOP - logoDims.height - 15; // Add some padding below logo
+      logoTopY = PAGE_HEIGHT - MARGIN_TOP; // Top Y remains at margin
     } else {
-      // Fallback if no logo - maybe draw placeholder text?
-      currentY -= 15; // Standard padding from top
+      // If no logo, reserve some space anyway or adjust logic
+      logoDims.height = 20; // Assume some default height if no logo
+      logoTopY = PAGE_HEIGHT - MARGIN_TOP;
     }
     // -----------------------------------
 
-    // --- Draw Product Title ---
-    page.drawText(dbProductData.product_title || "Product Title", {
+    // --- Draw Header Section (Step 3 - Revised Vertical Alignment) ---
+    // Calculate Text Block Height
+    const titleText = dbProductData.product_title || "Product Title";
+    const titleWidth = poppinsBoldFont.widthOfTextAtSize(
+      titleText,
+      FONT_SIZE_TITLE
+    );
+    const titleMaxX =
+      PAGE_WIDTH -
+      MARGIN_RIGHT -
+      (logoDims.width > 0 ? logoDims.width + 20 : 0); // Max X to avoid logo
+    const titleAvailableWidth = titleMaxX - MARGIN_LEFT;
+    const approxTitleLines = Math.max(
+      1,
+      Math.ceil(titleWidth / titleAvailableWidth)
+    );
+    const titleHeight = FONT_SIZE_TITLE * 1.2 * approxTitleLines;
+
+    const productCodeText = dbProductData.product_code || "N/A";
+    const weightText = dbProductData.weight
+      ? ` | Weight ${dbProductData.weight}`
+      : "";
+    const subtitleText = `Product Code ${productCodeText}${weightText}`;
+    const subtitleHeight = FONT_SIZE_SUBTITLE * 1.2; // Approx height
+
+    const textBlockHeight = titleHeight + SPACE_AFTER_TITLE + subtitleHeight;
+
+    // Determine Max Height and Calculate Text Start Y for Centering
+    const maxHeaderElementHeight = Math.max(logoDims.height, textBlockHeight);
+    // Center the text block vertically relative to the max height
+    // --- Add small downward offset for visual balance ---
+    const textVerticalOffset = 5; // Adjust as needed
+    const textStartY =
+      PAGE_HEIGHT -
+      MARGIN_TOP -
+      (maxHeaderElementHeight - textBlockHeight) / 2 -
+      textVerticalOffset;
+
+    let textCurrentY = textStartY; // Use a separate Y tracker for text within the header block
+
+    // 3.1: Product Title (Aligned Top Left, Vertically Centered Block)
+    page.drawText(titleText, {
       x: MARGIN_LEFT,
-      y: currentY,
+      y: textCurrentY - titleHeight, // Draw from the calculated start Y, adjusted for title height
       font: poppinsBoldFont,
       size: FONT_SIZE_TITLE,
       color: COLOR_PRIMARY_GREEN,
-      maxWidth: contentWidth * 0.7, // Allow space for logo potentially
+      maxWidth: titleAvailableWidth,
       lineHeight: FONT_SIZE_TITLE * 1.2,
     });
-    // Calculate title height approximately (very basic)
-    const titleLines = Math.ceil(
-      poppinsBoldFont.widthOfTextAtSize(
-        dbProductData.product_title || "Product Title",
-        FONT_SIZE_TITLE
-      ) /
-        (contentWidth * 0.7)
-    );
-    currentY -= FONT_SIZE_TITLE * 1.2 * titleLines + 5; // Add spacing below title
+    textCurrentY -= titleHeight + SPACE_AFTER_TITLE; // Move text Y down
 
-    // --- Draw Product Code ---
-    page.drawText(dbProductData.product_code || "Product Code", {
+    // 3.2: Subtitle (Below Title)
+    page.drawText(subtitleText, {
+      x: MARGIN_LEFT,
+      y: textCurrentY - subtitleHeight, // Draw below title pos
+      font: interRegularFont,
+      size: FONT_SIZE_SUBTITLE,
+      color: COLOR_GREY_TEXT,
+      maxWidth: titleAvailableWidth,
+      lineHeight: FONT_SIZE_SUBTITLE * 1.2,
+    });
+    // textCurrentY already represents the bottom of the subtitle block (+ space)
+    const textBlockBottomY = textCurrentY - subtitleHeight;
+
+    // Calculate overall bottom Y for the header section
+    const headerBottomY = PAGE_HEIGHT - MARGIN_TOP - maxHeaderElementHeight;
+
+    // 3.3: Horizontal Divider Line (Positioned below the header block)
+    const dividerY = headerBottomY - SPACE_AFTER_SUBTITLE; // Place divider below the max element height
+    page.drawLine({
+      start: { x: MARGIN_LEFT, y: dividerY },
+      end: { x: PAGE_WIDTH - MARGIN_RIGHT, y: dividerY },
+      thickness: 0.5,
+      color: COLOR_GREY_TEXT,
+    });
+
+    // Update main currentY to be below the divider
+    currentY = dividerY - SPACE_AFTER_DIVIDER;
+    // --- End Header Section ---
+
+    // --- Draw Description Section (Step 4) ---
+    const descriptionText = dbProductData.description || "";
+    // Estimate height needed for description (simple approach)
+    // A more accurate way involves calculating lines based on maxWidth and font
+    const approxDescLines =
+      descriptionText.split("\n").length +
+      Math.ceil(
+        interRegularFont.widthOfTextAtSize(descriptionText, FONT_SIZE_BODY) /
+          CONTENT_WIDTH /
+          2
+      ); // Rough estimate
+    const descriptionHeight = FONT_SIZE_BODY * 1.4 * approxDescLines; // Use 1.4 line height
+
+    if (descriptionText) {
+      page.drawText(descriptionText, {
+        x: MARGIN_LEFT,
+        y: currentY,
+        font: interRegularFont,
+        size: FONT_SIZE_BODY,
+        color: COLOR_BODY_TEXT,
+        maxWidth: CONTENT_WIDTH,
+        lineHeight: FONT_SIZE_BODY * 1.4,
+      });
+      // TODO: Need a more accurate way to calculate text height after wrapping
+      // For now, decrement by a fixed amount or estimate.
+      // We'll refine height calculation later if needed for page breaks.
+      currentY -= descriptionHeight + SPACE_AFTER_DESCRIPTION; // Placeholder decrement
+    }
+    // --- End Description Section ---
+
+    // --- Draw Key Features & Image Section (Step 5) ---
+    const featuresStartY = currentY;
+    const featureColWidth = CONTENT_WIDTH * 0.6 - 10; // 60% width, minus padding
+    const imageColX = MARGIN_LEFT + CONTENT_WIDTH * 0.6 + 10; // Start image column after feature col + padding
+    const imageColWidth = CONTENT_WIDTH * 0.4 - 10; // 40% width, minus padding
+
+    // 5.1: Left Column - Key Features Heading
+    page.drawText("Key Features", {
       x: MARGIN_LEFT,
       y: currentY,
-      font: interRegularFont,
-      size: FONT_SIZE_BODY, // Use body size for code
-      color: COLOR_DIVIDER_GREY, // Use grey for code
+      font: poppinsBoldFont, // Assumed
+      size: FONT_SIZE_H2, // Assumed
+      color: COLOR_PRIMARY_GREEN, // Assumed
     });
-    currentY -= LINE_HEIGHT_BODY * 1.5; // More spacing
+    currentY -= FONT_SIZE_H2 * 1.2 + 4; // Space below heading
 
-    // --- Divider Line ---
-    page.drawLine({
-      start: { x: MARGIN_LEFT, y: currentY },
-      end: { x: width - MARGIN_RIGHT, y: currentY },
-      thickness: 0.5,
-      color: COLOR_DIVIDER_GREY,
+    // 5.2: Left Column - Features List
+    const featuresText = dbProductData.key_features || "";
+    const featureLines = featuresText
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter((l: string) => l); // Split, trim, remove empty
+
+    const checkmarkPlaceholder = "✓ "; // Simple text placeholder for now
+    const checkmarkWidth = interRegularFont.widthOfTextAtSize(
+      checkmarkPlaceholder,
+      FONT_SIZE_BODY
+    );
+    const featureIndent = checkmarkWidth + 5; // Indent text past checkmark
+    const featureLineHeight = FONT_SIZE_BODY * 1.4; // Use body line height
+
+    // --- Refine Y tracking for features column ---
+    let featuresCurrentY = currentY; // Use separate Y tracker for this column
+    const featuresBottomBoundary = featuresStartY - MAX_FEATURES_HEIGHT; // Calculate lowest allowed Y
+    // ------------------------------------
+
+    featureLines.forEach((line: string) => {
+      // --- Calculate estimated height FIRST ---
+      const textWidth = interRegularFont.widthOfTextAtSize(
+        line,
+        FONT_SIZE_BODY
+      );
+      const approxLines = Math.max(
+        1,
+        Math.ceil(textWidth / (featureColWidth - featureIndent))
+      );
+      const estimatedHeight = approxLines * featureLineHeight;
+      // ---------------------------------------
+
+      // --- Check space BEFORE drawing item (using estimated height AND boundary) ---
+      if (featuresCurrentY - estimatedHeight < featuresBottomBoundary) {
+        console.log("Max height reached for features section, stopping.");
+        return; // Stop drawing features
+      }
+      // ----------------------------------------------------------------------
+
+      // --- Draw Checkmark (Circle + Text) ---
+      const checkmarkY = featuresCurrentY - featureLineHeight * 0.7; // Align checkmark with first line
+      const circleRadius = FONT_SIZE_BODY * 0.6;
+      page.drawCircle({
+        x: MARGIN_LEFT + circleRadius,
+        y: checkmarkY,
+        size: circleRadius,
+        color: COLOR_PRIMARY_GREEN,
+      });
+      const checkmarkChar = "✓";
+      const checkmarkCharWidth = interRegularFont.widthOfTextAtSize(
+        checkmarkChar,
+        FONT_SIZE_BODY * 0.8
+      );
+      page.drawText(checkmarkChar, {
+        x: MARGIN_LEFT + circleRadius - checkmarkCharWidth / 2,
+        y: checkmarkY - (FONT_SIZE_BODY * 0.8) / 2.5,
+        font: interRegularFont,
+        size: FONT_SIZE_BODY * 0.8,
+        color: COLOR_WHITE,
+      });
+      // --------------------------------------
+
+      // Draw Feature Text
+      page.drawText(line, {
+        x: MARGIN_LEFT + featureIndent,
+        y: featuresCurrentY - featureLineHeight, // Start drawing near top of line
+        font: interRegularFont,
+        size: FONT_SIZE_BODY,
+        color: COLOR_BODY_TEXT,
+        maxWidth: featureColWidth - featureIndent,
+        lineHeight: featureLineHeight,
+      });
+
+      // --- Decrement Y by CALCULATED height + SPACE_BETWEEN_LIST_ITEMS ---
+      featuresCurrentY -= estimatedHeight + SPACE_BETWEEN_LIST_ITEMS;
+      // -------------------------------------------------------------------
     });
-    currentY -= 15; // Space below divider
+    // --- Update featuresEndY (actual end) but use boundary for main currentY ---
+    const featuresEndY = featuresCurrentY;
+    // --------------------------------------------------------------------
 
-    // --- Embed Product Image (if path provided AND NOT preview) --- //
+    // 5.3: Right Column - Product Image
+    // Don't reset main currentY here. Calculate image position relative to featuresStartY.
+    let imageEndY = featuresStartY; // Default to top if no image or doesn't fit
+
+    // --- Re-integrate Image Loading & Embedding (only if NOT preview) ---
     let embeddedProductImage: PDFImage | null = null;
     let productImageDims = { width: 0, height: 0 };
     if (!isPreview) {
-      const productImagePath = dbProductData.image_path; // Use path from DB data
+      const productImagePath = dbProductData.image_path;
       if (productImagePath) {
         try {
           console.log(
             `Downloading product image from storage: ${productImagePath}`
           );
-
           const { data: blobData, error: downloadError } =
             await supabaseAdmin.storage
-              .from("datasheet-assets") // Bucket name
-              .download(productImagePath); // Use the direct path
+              .from("datasheet-assets")
+              .download(productImagePath);
 
-          if (downloadError) {
+          if (downloadError)
             throw new Error(`Storage download error: ${downloadError.message}`);
-          }
-          if (!blobData) {
+          if (!blobData)
             throw new Error("Downloaded product image data (Blob) is null.");
-          }
 
-          const imageBytes = await blobData.arrayBuffer(); // Get ArrayBuffer from Blob
+          const imageBytes = await blobData.arrayBuffer();
           console.log(
             `Fetched product image successfully (${imageBytes.byteLength} bytes)`
           );
 
-          // Infer image type or use fallback
+          // Infer image type (same logic as before)
           if (productImagePath.toLowerCase().endsWith(".png")) {
             embeddedProductImage = await pdfDoc.embedPng(imageBytes);
           } else if (
@@ -349,34 +569,15 @@ serve(async (req: Request) => {
             productImagePath.toLowerCase().endsWith(".jpeg")
           ) {
             embeddedProductImage = await pdfDoc.embedJpg(imageBytes);
-          } else {
-            // Try embedding as PNG then JPG as fallback
-            try {
-              embeddedProductImage = await pdfDoc.embedPng(imageBytes);
-            } catch {
-              try {
-                embeddedProductImage = await pdfDoc.embedJpg(imageBytes);
-              } catch (embedError: any) {
-                console.error(
-                  "Failed to embed product image as PNG or JPG:",
-                  embedError.message
-                );
-              }
-            }
-          }
+          } // Add fallback logic if needed
 
           if (embeddedProductImage) {
             console.log("Product image embedded, calculating scale...");
-            // Determine max width/height based on orientation and layout
-            const maxImageWidth =
-              contentWidth *
-              (currentImageOrientation === "landscape" ? 0.5 : 0.4); // Use the flag
-            const maxImageHeight = height * 0.3; // Limit vertical space
+            // Scale to fit image column width, maintain aspect ratio
             const scale = Math.min(
-              maxImageWidth / embeddedProductImage.width,
-              maxImageHeight / embeddedProductImage.height,
-              1 // Don't scale up
-            );
+              imageColWidth / embeddedProductImage.width,
+              1
+            ); // Fit width, don't scale up
             productImageDims = embeddedProductImage.scale(scale);
             console.log(
               "Product image dimensions for drawing:",
@@ -387,287 +588,390 @@ serve(async (req: Request) => {
           }
         } catch (imgError: any) {
           console.error("Error processing product image:", imgError.message);
-          // Continue PDF generation without the image
         }
       } else {
-        console.log("No product image to draw.");
+        console.log("No product image path found.");
       }
     } else {
       console.log("Skipping product image embedding for preview.");
     }
-    // ---------------------------------------------------------
+    // --- End Image Loading --- //
 
-    // --- Load Ireland Logo Conditionally ---
-    let irelandLogoBytes: Uint8Array | null = null;
-    let irelandLogoImage: PDFImage | null = null;
-    let irelandLogoDims = { width: 0, height: 0 };
-    if (includeIrelandLogo && !isPreview) {
-      // Only load if flag is true and not preview
-      try {
-        irelandLogoBytes = await Deno.readFile(
-          new URL(
-            "../_shared/assets/transparent-DESIGNED   & MANUFACTURED  IN IRELAND-512px.png",
-            import.meta.url
-          )
-        );
-        console.log("Ireland logo loaded.");
-      } catch (logoError: any) {
-        console.error("Error loading Ireland logo:", logoError.message);
-      }
+    if (embeddedProductImage) {
+      const imageDrawX =
+        imageColX + (imageColWidth - productImageDims.width) / 2;
+      // Calculate potential Y position based on section start
+      const imageDrawY = featuresStartY - productImageDims.height;
 
-      if (irelandLogoBytes) {
-        try {
-          irelandLogoImage = await pdfDoc.embedPng(irelandLogoBytes);
-          const logoScale = 30 / irelandLogoImage.height; // Scale to ~30 points height
-          irelandLogoDims = irelandLogoImage.scale(logoScale);
-          console.log("Ireland logo embedded.");
-        } catch (embedError: any) {
-          console.error("Error embedding Ireland logo:", embedError.message);
-          irelandLogoImage = null;
-        }
+      // Check if the image fits ON THE PAGE AT ALL
+      if (imageDrawY > MARGIN_BOTTOM + FOOTER_HEIGHT) {
+        page.drawImage(embeddedProductImage, {
+          x: imageDrawX,
+          y: imageDrawY,
+          width: productImageDims.width,
+          height: productImageDims.height,
+        });
+        imageEndY = imageDrawY; // Record actual bottom Y of the image
+        console.log("Product image drawn.");
+      } else {
+        console.log("Not enough space for product image ON PAGE.");
+        // imageEndY remains featuresStartY
       }
+    } else {
+      console.log("No product image to draw.");
+      // imageEndY remains featuresStartY
     }
-    // ---                                ---
 
-    // --- Layout columns (Description/Features on Left, Image/Specs on Right) ---
-    const leftColumnX = MARGIN_LEFT;
-    const leftColumnWidth = contentWidth * 0.55 - 10; // 55% width with padding
-    const rightColumnX = MARGIN_LEFT + contentWidth * 0.55 + 10;
-    const rightColumnWidth = contentWidth * 0.45 - 10; // 45% width with padding
+    // 5.4: Update main currentY - Start NEXT section below allocated feature space boundary
+    currentY = featuresBottomBoundary - SPACE_AFTER_FEATURES_IMAGE;
+    // --- End Key Features & Image Section ---
 
-    const columnStartY = currentY; // Remember starting Y for columns
-
-    // --- Left Column: Description ---
-    page.drawText("Description", {
-      x: leftColumnX,
-      y: currentY,
-      font: poppinsBoldFont,
-      size: FONT_SIZE_H2,
+    // --- Draw Specifications Section (Step 6) ---
+    // 6.1: Green Header Bar
+    const specsHeaderHeight = FONT_SIZE_H2 * 1.5; // Example height, adjust as needed
+    page.drawRectangle({
+      x: MARGIN_LEFT,
+      y: currentY - specsHeaderHeight,
+      width: CONTENT_WIDTH,
+      height: specsHeaderHeight,
       color: COLOR_PRIMARY_GREEN,
     });
-    currentY -= FONT_SIZE_H2 * 1.2 + 4; // Spacing
 
-    const descriptionText = dbProductData.description || "";
-    const descLines = descriptionText.split("\n");
-    descLines.forEach((line: string) => {
-      if (currentY < MARGIN_BOTTOM + FOOTER_HEIGHT + 20) return; // Check space before drawing
-      // TODO: Implement text wrapping for long lines if needed
-      page.drawText(line, {
-        x: leftColumnX,
-        y: currentY,
+    // 6.2: "Specifications" Text on Bar
+    const specsHeaderText = "Specifications";
+    const specsHeaderTextWidth = poppinsBoldFont.widthOfTextAtSize(
+      specsHeaderText,
+      FONT_SIZE_H2
+    );
+    page.drawText(specsHeaderText, {
+      x: MARGIN_LEFT + (CONTENT_WIDTH - specsHeaderTextWidth) / 2, // Center horizontally
+      y:
+        currentY -
+        specsHeaderHeight +
+        (specsHeaderHeight - FONT_SIZE_H2) / 2 +
+        1, // Center vertically (adjust offset)
+      font: poppinsBoldFont, // Assumed
+      size: FONT_SIZE_H2, // Assumed
+      color: COLOR_WHITE, // White text on green bar
+    });
+    // --- Calculate Specs start Y and boundary ---
+    const specsStartY = currentY;
+    const specsBottomBoundary = specsStartY - MAX_SPECS_HEIGHT;
+    // -------------------------------------------
+    currentY -= specsHeaderHeight + SPACE_BETWEEN_SPECS_ROWS; // Move Y below header bar + padding
+
+    // 6.3: Prepare Spec Data & Table Layout
+    const specsText = dbProductData.tech_specs || "";
+    let specPairs: { label: string; value: string }[] = []; // Default to empty array
+    try {
+      console.log("Attempting to parse tech_specs:", specsText); // Log raw input
+      const parsed = JSON.parse(specsText || "[]"); // Attempt parse
+      if (Array.isArray(parsed)) {
+        specPairs = parsed; // Assign if valid array
+        console.log("Parsed specPairs successfully:", specPairs);
+      } else {
+        console.warn("Parsed tech_specs is not an array, using empty.");
+        specPairs = [];
+      }
+    } catch (e) {
+      console.error(
+        "!!! Failed to parse tech_specs JSON, using empty array:",
+        e
+      );
+      specPairs = []; // Use empty array on error
+    }
+
+    const specRowHeight = FONT_SIZE_SPECS * 1.4 + SPACE_BETWEEN_SPECS_ROWS * 2; // Approx height per row with padding
+    const specTableHeight = specPairs.length * specRowHeight;
+    const specLabelWidth = CONTENT_WIDTH * 0.4; // Example: 40% for label
+    const specValueX = MARGIN_LEFT + specLabelWidth + 10; // Start value col after label + padding
+    const specValueWidth = CONTENT_WIDTH - specLabelWidth - 10; // Remaining width for value
+
+    // 6.4: Draw Table Background (Value Column Only)
+    page.drawRectangle({
+      x: specValueX - 5, // Start slightly left of value text for padding
+      y: currentY - specTableHeight, // Position background behind all rows
+      width: PAGE_WIDTH - MARGIN_RIGHT - (specValueX - 5), // Width from value start to right margin
+      height: specTableHeight,
+      color: COLOR_TABLE_BACKGROUND,
+    });
+
+    // 6.5: Draw Spec Rows (Label, Value, Line)
+    let actualSpecsEndY = currentY; // Track actual Y after drawing
+    specPairs.forEach(
+      (pair: { label: string; value: string }, index: number) => {
+        // --- Check space BEFORE drawing item (using row height AND boundary) ---
+        if (currentY - specRowHeight < specsBottomBoundary) {
+          console.log("Max height reached for specs section, stopping.");
+          return; // Stop drawing specs
+        }
+        // -------------------------------------------------------------------
+
+        // --- Add Log Inside Loop ---
+        console.log(
+          `Drawing spec row ${index}: Label='${pair.label}', Value='${pair.value}'`
+        );
+        // -------------------------
+        if (currentY < MARGIN_BOTTOM + FOOTER_HEIGHT + 20) return; // Basic space check
+        const rowY = currentY - specRowHeight / 2; // Center text vertically in conceptual row
+
+        // Draw Label
+        page.drawText(pair.label, {
+          x: MARGIN_LEFT + 5, // Add padding from left edge
+          y: rowY,
+          font: interRegularFont, // Assumed
+          size: FONT_SIZE_SPECS, // Assumed
+          color: COLOR_BODY_TEXT, // Charcoal
+          maxWidth: specLabelWidth - 10, // Allow padding
+          lineHeight: FONT_SIZE_SPECS * 1.2, // Adjust line height if needed
+        });
+
+        // Draw Value
+        page.drawText(pair.value, {
+          x: specValueX,
+          y: rowY,
+          font: interRegularFont, // Assumed Regular weight
+          size: FONT_SIZE_SPECS, // Assumed
+          color: COLOR_BODY_TEXT, // Charcoal
+          maxWidth: specValueWidth - 5, // Allow padding
+          lineHeight: FONT_SIZE_SPECS * 1.2,
+        });
+
+        // Move Y for next row calculation
+        currentY -= specRowHeight;
+
+        // Draw Separator Line (draw below the content, using the new currentY)
+        page.drawLine({
+          start: { x: MARGIN_LEFT, y: currentY },
+          end: { x: PAGE_WIDTH - MARGIN_RIGHT, y: currentY },
+          thickness: 0.5,
+          color: COLOR_GREY_TEXT, // Use light grey
+        });
+      }
+    );
+
+    // --- Set currentY to the defined boundary after drawing ---
+    currentY = specsBottomBoundary - SPACE_AFTER_SPECS;
+    // ------------------------------------------------------
+    // --- End Specifications Section ---
+
+    // --- Draw Warranty Section (Re-added Here - Step 7) ---
+    const warrantyCode = dbProductData.warranty;
+    const warrantyText = getWarrantyText(warrantyCode);
+    const approxWarrantyLines = Math.max(
+      1,
+      Math.ceil(
+        interRegularFont.widthOfTextAtSize(warrantyText, FONT_SIZE_BODY) /
+          CONTENT_WIDTH /
+          1.5
+      )
+    ); // Rough estimate
+    const warrantyHeight = FONT_SIZE_BODY * 1.4 * approxWarrantyLines; // Use 1.4 line height
+
+    // Check space for warranty before drawing
+    if (currentY - warrantyHeight < MARGIN_BOTTOM + FOOTER_HEIGHT) {
+      console.log("Not enough space for warranty text.");
+    } else {
+      page.drawText(warrantyText, {
+        x: MARGIN_LEFT,
+        y: currentY - warrantyHeight, // Adjust Y to draw from baseline
         font: interRegularFont,
         size: FONT_SIZE_BODY,
         color: COLOR_BODY_TEXT,
-        maxWidth: leftColumnWidth,
-        lineHeight: LINE_HEIGHT_BODY,
+        maxWidth: CONTENT_WIDTH,
+        lineHeight: FONT_SIZE_BODY * 1.4,
       });
-      currentY -= LINE_HEIGHT_BODY;
-    });
-    const leftColumnEndY_Desc = currentY; // Y position after description
+      currentY -= warrantyHeight + SPACE_AFTER_WARRANTY; // Decrement Y
+    }
+    // --- End Warranty Section ---
 
-    // --- Left Column: Key Features ---
-    currentY -= 15; // Space before Key Features
-    page.drawText("Key Features", {
-      x: leftColumnX,
+    // --- Draw Shipping Info & Logos Section (Step 8) ---
+    const shippingStartY = currentY;
+    const shippingColWidth = CONTENT_WIDTH * 0.6 - 10; // 60% width, minus padding
+    const logoColX = MARGIN_LEFT + CONTENT_WIDTH * 0.6 + 10; // Start logo column after shipping col + padding
+    const logoColWidth = CONTENT_WIDTH * 0.4 - 10; // 40% width, minus padding
+
+    // 8.1: Left Column - Shipping Info Heading
+    page.drawText("Shipping Information", {
+      x: MARGIN_LEFT,
       y: currentY,
-      font: poppinsBoldFont,
-      size: FONT_SIZE_H2,
-      color: COLOR_PRIMARY_GREEN,
+      font: poppinsBoldFont, // Assumed
+      size: FONT_SIZE_H2, // Assumed
+      color: COLOR_PRIMARY_GREEN, // Assumed
     });
-    currentY -= FONT_SIZE_H2 * 1.2 + 4; // Spacing
+    currentY -= FONT_SIZE_H2 * 1.2 + 4; // Space below heading
 
-    const featuresText = dbProductData.key_features || "";
-    const featureLines = featuresText
-      .split("\n")
-      .map((l: string) => l.trim())
-      .filter((l: string) => l); // Split, trim, remove empty lines
-    const bulletIndent = 10;
-    featureLines.forEach((line: string) => {
-      if (currentY < MARGIN_BOTTOM + FOOTER_HEIGHT + 20) return;
-      page.drawCircle({
-        x: leftColumnX + bulletIndent / 2,
-        y: currentY + FONT_SIZE_SMALL * 0.3, // Align bullet vertically
-        size: 1.5, // Bullet size
-        color: COLOR_BODY_TEXT,
-      });
-      page.drawText(line, {
-        x: leftColumnX + bulletIndent + 5, // Indent text past bullet
-        y: currentY,
-        font: interRegularFont,
-        size: FONT_SIZE_SMALL, // Use smaller font for features/specs
-        color: COLOR_BODY_TEXT,
-        maxWidth: leftColumnWidth - (bulletIndent + 5),
-        lineHeight: LINE_HEIGHT_SMALL,
-      });
-      currentY -= LINE_HEIGHT_SMALL; // Use small line height
+    // 8.2: Left Column - Shipping Info Text
+    const shippingCode = dbProductData.shipping_info;
+    const shippingText = getShippingText(shippingCode);
+    const approxShippingLines = Math.max(
+      1,
+      Math.ceil(
+        interRegularFont.widthOfTextAtSize(shippingText, FONT_SIZE_BODY) /
+          shippingColWidth /
+          1.5
+      )
+    ); // Rough estimate
+    const shippingHeight = FONT_SIZE_BODY * 1.4 * approxShippingLines; // Use 1.4 line height
+
+    page.drawText(shippingText, {
+      x: MARGIN_LEFT,
+      y: currentY,
+      font: interRegularFont,
+      size: FONT_SIZE_BODY,
+      color: COLOR_BODY_TEXT,
+      maxWidth: shippingColWidth,
+      lineHeight: FONT_SIZE_BODY * 1.4,
     });
-    const leftColumnEndY_Features = currentY; // Y position after features
+    // TODO: Accurate height calculation after wrapping
+    currentY -= shippingHeight; // Move Y down after text
+    const shippingEndY = currentY; // Record Y after shipping info
 
-    // --- Left Column: Add Ireland Logo if applicable ---
-    let leftColumnEndY_IrelandLogo = leftColumnEndY_Features;
+    // 8.3: Right Column - Logos
+    // Reset Y to the top of the section for this column's calculation
+    let logoY = shippingStartY; // Y position for drawing logos (aligned to top of shipping info)
+    const logoSectionMaxHeight = 0; // Track max height for final Y update
+
+    // --- Load Ireland Logo --- (Keep existing loading logic)
+    let irelandLogoImage: PDFImage | null = null;
+    let irelandLogoDims = { width: 0, height: 0 };
+    const shouldIncludeIreland =
+      currentOptionalLogos.includeIrelandLogo === true;
+    if (shouldIncludeIreland && !isPreview) {
+      try {
+        const irelandLogoBytes = await Deno.readFile(
+          new URL("../_shared/assets/ireland_logo_512.png", import.meta.url)
+        );
+        if (irelandLogoBytes) {
+          irelandLogoImage = await pdfDoc.embedPng(irelandLogoBytes);
+          const desiredLogoHeight = 80;
+          const logoScale = desiredLogoHeight / irelandLogoImage.height;
+          irelandLogoDims = irelandLogoImage.scale(logoScale);
+          console.log("Ireland logo embedded for drawing.", irelandLogoDims);
+        }
+      } catch (logoError: any) {
+        console.error(
+          "Error loading/embedding Ireland logo:",
+          logoError.message
+        );
+        irelandLogoImage = null;
+      }
+    }
+    // --- End Ireland Logo Load ---
+
+    // --- Check Flags ---
+    const includeCeLogo = currentOptionalLogos.ceMark === true;
+    const includeOriginLogo = currentOptionalLogos.origin === true;
+    console.log("Logo Flags:", {
+      includeCeLogo,
+      includeOriginLogo,
+      includeIrelandLogo: shouldIncludeIreland,
+    });
+
+    // --- Calculate widths and total width for HORIZONTAL layout ---
+    const logoSpacing = 10; // Horizontal space between logos
+    let totalLogosWidth = 0;
+    let maxLogoHeight = 0;
+
+    // PED Placeholder Dimensions
+    const pedPlaceholderText = "[PED]"; // Shorter text
+    const pedPlaceholderWidth = includeOriginLogo
+      ? interRegularFont.widthOfTextAtSize(pedPlaceholderText, FONT_SIZE_BODY)
+      : 0;
+    const pedPlaceholderHeight = includeOriginLogo ? FONT_SIZE_BODY * 1.2 : 0;
+    if (includeOriginLogo) {
+      totalLogosWidth += pedPlaceholderWidth;
+      maxLogoHeight = Math.max(maxLogoHeight, pedPlaceholderHeight);
+    }
+
+    // CE Placeholder Dimensions
+    const cePlaceholderText = "[CE]"; // Shorter text
+    const cePlaceholderWidth = includeCeLogo
+      ? interRegularFont.widthOfTextAtSize(cePlaceholderText, FONT_SIZE_BODY)
+      : 0;
+    const cePlaceholderHeight = includeCeLogo ? FONT_SIZE_BODY * 1.2 : 0;
+    if (includeCeLogo) {
+      if (totalLogosWidth > 0) totalLogosWidth += logoSpacing; // Add spacing if not first logo
+      totalLogosWidth += cePlaceholderWidth;
+      maxLogoHeight = Math.max(maxLogoHeight, cePlaceholderHeight);
+    }
+
+    // Ireland Logo Dimensions
+    const irelandLogoWidth = irelandLogoImage ? irelandLogoDims.width : 0;
+    const irelandLogoHeight = irelandLogoImage ? irelandLogoDims.height : 0;
     if (irelandLogoImage) {
-      currentY -= 15; // Space before logo
-      if (currentY < MARGIN_BOTTOM + FOOTER_HEIGHT + irelandLogoDims.height) {
-        console.log("Not enough space for Ireland logo on this page.");
-        // TODO: Add logic for new page if needed
+      if (totalLogosWidth > 0) totalLogosWidth += logoSpacing;
+      totalLogosWidth += irelandLogoWidth;
+      maxLogoHeight = Math.max(maxLogoHeight, irelandLogoHeight);
+    }
+
+    // Calculate starting X to center the block of logos within the logo column
+    const logoStartX = logoColX + (logoColWidth - totalLogosWidth) / 2;
+    let currentLogoX = logoStartX; // X tracker for drawing logos
+    const logoDrawY = logoY - maxLogoHeight; // Align bottom of logos
+
+    // --- Draw logos horizontally ---
+
+    // Draw PED Placeholder FIRST
+    if (includeOriginLogo && !isPreview) {
+      if (logoDrawY > MARGIN_BOTTOM + FOOTER_HEIGHT) {
+        page.drawText(pedPlaceholderText, {
+          x: currentLogoX,
+          y: logoDrawY + (maxLogoHeight - pedPlaceholderHeight) / 2, // Center placeholder vertically within max height
+          font: interRegularFont,
+          size: FONT_SIZE_BODY,
+          color: COLOR_GREY_TEXT,
+        });
+        currentLogoX += pedPlaceholderWidth + logoSpacing;
       } else {
+        console.log("Not enough space for PED placeholder.");
+      }
+    }
+
+    // Draw CE Placeholder SECOND
+    if (includeCeLogo && !isPreview) {
+      if (logoDrawY > MARGIN_BOTTOM + FOOTER_HEIGHT) {
+        page.drawText(cePlaceholderText, {
+          x: currentLogoX,
+          y: logoDrawY + (maxLogoHeight - cePlaceholderHeight) / 2, // Center placeholder vertically
+          font: interRegularFont,
+          size: FONT_SIZE_BODY,
+          color: COLOR_GREY_TEXT,
+        });
+        currentLogoX += cePlaceholderWidth + logoSpacing;
+      } else {
+        console.log("Not enough space for CE placeholder.");
+      }
+    }
+
+    // Draw Ireland Logo THIRD (bottom)
+    if (irelandLogoImage) {
+      if (logoDrawY > MARGIN_BOTTOM + FOOTER_HEIGHT) {
         page.drawImage(irelandLogoImage, {
-          x: leftColumnX,
-          y: currentY - irelandLogoDims.height, // Draw from bottom up
+          x: currentLogoX,
+          y: logoDrawY + (maxLogoHeight - irelandLogoHeight) / 2, // Center image vertically
           width: irelandLogoDims.width,
           height: irelandLogoDims.height,
         });
-        currentY -= irelandLogoDims.height + 5; // Space after logo
-        leftColumnEndY_IrelandLogo = currentY;
-        console.log("Ireland logo drawn.");
+        console.log("Ireland logo drawn at X,Y:", currentLogoX, logoDrawY);
+        // currentLogoX += irelandLogoWidth; // No need to increment X after last logo
+      } else {
+        console.log("Not enough space for Ireland logo.");
       }
     }
-    // ---                                           ---
+    // -------------------------------------------------------------
 
-    // --- Right Column: Product Image ---
-    currentY = columnStartY; // Reset Y to top of column area for the right side
-    if (embeddedProductImage) {
-      const imageDrawX =
-        rightColumnX + (rightColumnWidth - productImageDims.width) / 2; // Center image in right column
-      const imageDrawY = currentY - productImageDims.height; // Place below column start
-      page.drawImage(embeddedProductImage, {
-        x: imageDrawX,
-        y: imageDrawY,
-        width: productImageDims.width,
-        height: productImageDims.height,
-      });
-      currentY = imageDrawY - 15; // Update Y below the image with padding
-      console.log("Product image drawn.");
-    } else {
-      console.log("No product image to draw.");
-      // Optionally draw a placeholder box
-      currentY -= 30; // Add some space if no image
-    }
-    const rightColumnEndY_Image = currentY; // Y after image
+    // Calculate the Y coordinate for the bottom of the logos section
+    const logosEndY = logoDrawY;
 
-    // --- Right Column: Specifications Table ---
-    currentY -= 5; // Add little space before specs header
-    page.drawText("Specifications", {
-      x: rightColumnX,
-      y: currentY,
-      font: poppinsBoldFont,
-      size: FONT_SIZE_H2,
-      color: COLOR_PRIMARY_GREEN,
-    });
-    currentY -= FONT_SIZE_H2 * 1.2 + 4; // Spacing
+    // 8.4: Update main currentY below the lowest point of shipping text or logos
+    currentY = Math.min(shippingEndY, logosEndY) - 20; // Use generic spacing for now
+    // --- End Shipping Info & Logos Section ---
 
-    const specsText = dbProductData.tech_specs || "";
-    const specPairs = specsText
-      .split("\n")
-      .map((l: string) => {
-        const parts = l.split(":");
-        if (parts.length >= 2) {
-          return {
-            label: parts[0].trim(),
-            value: parts.slice(1).join(":").trim(),
-          };
-        }
-        return null; // Ignore lines without a colon
-      })
-      .filter(
-        (
-          p: { label: string; value: string } | null
-        ): p is { label: string; value: string } => p !== null
-      ); // Type guard + Explicit Type
-
-    // Draw specs table (simplified)
-    let tableY = currentY;
-    const rowHeight = LINE_HEIGHT_SMALL * 1.5; // Add padding between rows
-    const labelWidth = rightColumnWidth * 0.4;
-    const valueWidth = rightColumnWidth * 0.6 - 5;
-
-    // Background for the table (optional)
-    // page.drawRectangle({
-    //   x: rightColumnX,
-    //   y: tableY - (specPairs.length * rowHeight), // Estimate background height
-    //   width: rightColumnWidth,
-    //   height: specPairs.length * rowHeight, // Estimate background height
-    //   color: COLOR_TABLE_BACKGROUND,
-    // });
-
-    specPairs.forEach((pair: any) => {
-      if (!pair) return;
-      if (tableY < MARGIN_BOTTOM + FOOTER_HEIGHT + 20) return; // Check space
-
-      // Draw Label
-      page.drawText(pair.label, {
-        x: rightColumnX,
-        y: tableY,
-        font: poppinsBoldFont, // Bold label
-        size: FONT_SIZE_SMALL,
-        color: COLOR_BODY_TEXT,
-        maxWidth: labelWidth,
-        lineHeight: LINE_HEIGHT_SMALL,
-      });
-
-      // Draw Value
-      page.drawText(pair.value, {
-        x: rightColumnX + labelWidth + 5,
-        y: tableY,
-        font: interRegularFont, // Regular value
-        size: FONT_SIZE_SMALL,
-        color: COLOR_BODY_TEXT,
-        maxWidth: valueWidth,
-        lineHeight: LINE_HEIGHT_SMALL,
-      });
-
-      tableY -= rowHeight; // Move to next row
-    });
-    currentY = tableY; // Update main Y tracker
-    const rightColumnEndY_Specs = currentY; // Y after specs
-
-    // --- Determine Lowest Y Position ---
-    // Compare the final Y positions of the left and right columns
-    const finalContentY = Math.min(
-      leftColumnEndY_IrelandLogo, // Use the Y after the last element in left column
-      rightColumnEndY_Specs
-    );
-    // -----------------------------------
-
-    // --- Add Other Fields (Weight, Warranty, Shipping) below columns ---
-    // Position below the lowest point reached by either column
-    currentY = Math.min(leftColumnEndY_Features, rightColumnEndY_Specs) - 20;
-
-    // Check for page break before adding more content
-    if (currentY < MARGIN_BOTTOM + FOOTER_HEIGHT + 50) {
-      page = pdfDoc.addPage(); // Add a new page
-      currentY = height - MARGIN_TOP; // Reset Y for new page (leave space for potential header elements if needed)
-      // Optionally redraw header/logo on new page? For now, just reset content Y.
-    }
-
-    // Draw Weight, Warranty, Shipping Info (simple key-value pairs)
-    const otherInfo = [
-      { label: "Weight", value: dbProductData.weight },
-      { label: "Warranty", value: dbProductData.warranty },
-      { label: "Shipping Info", value: dbProductData.shipping_info },
-      // Add optional logos text if needed
-    ].filter((info) => info.value); // Filter out items with no value
-
-    otherInfo.forEach((info) => {
-      if (currentY < MARGIN_BOTTOM + FOOTER_HEIGHT + 20) return;
-      page.drawText(`${info.label}: ${info.value}`, {
-        x: MARGIN_LEFT,
-        y: currentY,
-        font: interRegularFont,
-        size: FONT_SIZE_BODY,
-        color: COLOR_BODY_TEXT,
-        maxWidth: contentWidth,
-        lineHeight: LINE_HEIGHT_BODY,
-      });
-      currentY -= LINE_HEIGHT_BODY * 1.2; // Add spacing
-    });
-
-    // --- Footer ---
-    // Draw footer on *every* page
+    // --- Update Footer Section (Step 9) ---
     pdfDoc.getPages().forEach((footerPage: PDFPage) => {
-      const { width: footerPageWidth, height: footerPageHeight } =
-        footerPage.getSize();
-      // Green Background Bar
+      const { width: footerPageWidth } = footerPage.getSize(); // Get width for positioning
+      // Green Background Bar (reuse existing)
       footerPage.drawRectangle({
         x: 0,
         y: 0,
@@ -676,21 +980,34 @@ serve(async (req: Request) => {
         color: COLOR_PRIMARY_GREEN,
       });
 
-      // Centered White Text
-      const footerText = "www.appliedpi.com  |  www.ptocompressors.com"; // Add separator
-      const textWidth = interRegularFont.widthOfTextAtSize(
-        footerText,
+      // Footer Text
+      const footerTextLeft = "www.appliedpi.com";
+      const footerTextRight = "www.ptocompressors.com";
+      const textY = (FOOTER_HEIGHT - FONT_SIZE_FOOTER) / 2 + 1; // Vertical center (adjust offset slightly)
+
+      // Draw Left Text (aligned with left content margin)
+      footerPage.drawText(footerTextLeft, {
+        x: MARGIN_LEFT, // Align with left margin
+        y: textY,
+        font: interRegularFont,
+        size: FONT_SIZE_FOOTER,
+        color: COLOR_WHITE,
+      });
+
+      // Draw Right Text (aligned with right content margin)
+      const textWidthRight = interRegularFont.widthOfTextAtSize(
+        footerTextRight,
         FONT_SIZE_FOOTER
       );
-      footerPage.drawText(footerText, {
-        x: (footerPageWidth - textWidth) / 2,
-        y: (FOOTER_HEIGHT - FONT_SIZE_FOOTER) / 2 + 2, // Center vertically within the bar (adjust offset as needed)
+      footerPage.drawText(footerTextRight, {
+        x: footerPageWidth - MARGIN_RIGHT - textWidthRight, // Position text end at right margin
+        y: textY,
         font: interRegularFont,
         size: FONT_SIZE_FOOTER,
         color: COLOR_WHITE,
       });
     });
-    // ------------
+    // --- End Footer Section ---
 
     // --- Serialize PDF ---
     const pdfBytes = await pdfDoc.save();

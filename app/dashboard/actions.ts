@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation"; // If needed later
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerActionClient } from "@/lib/supabase/server";
+// --- Import Supabase client explicitly for admin client ---
+import { createClient } from "@supabase/supabase-js";
+// ---------------------------------------------------------
 
 // --- Action to get user's organization ID ---
 // (Needed by other actions, avoids repeating logic)
 async function getUserOrgId(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createServerActionClient>>
 ): Promise<string | null> {
   const {
     data: { user },
@@ -33,7 +36,7 @@ async function getUserOrgId(
 
 // --- Action to Fetch Products ---
 export async function fetchProductsForOrg(catalogId?: string | null) {
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
   if (!organizationId) {
@@ -66,7 +69,7 @@ export async function fetchProductsForOrg(catalogId?: string | null) {
 
 // --- Action to Fetch Catalogs ---
 export async function fetchCatalogsForOrg() {
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
   if (!organizationId) {
@@ -89,7 +92,7 @@ export async function fetchCatalogsForOrg() {
 // --- ADD fetchCategories action ---
 export async function fetchCategories() {
   "use server";
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
 
   // Assuming categories are global for now
   // Add .eq("organization_id", organizationId) if they become org-specific
@@ -110,7 +113,7 @@ export async function fetchCategories() {
 
 // --- Action to Create Catalog ---
 export async function createCatalog(catalogName: string) {
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
   if (!catalogName?.trim()) {
@@ -142,7 +145,7 @@ export async function deleteProducts(productIds: string[]) {
     return { error: { message: "No product IDs provided for deletion." } };
   }
 
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
   if (!organizationId) {
@@ -182,7 +185,7 @@ export async function saveDatasheet(
   formData: FormData // Use FormData directly
 ): Promise<SaveDatasheetState> {
   // Use the defined type
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
 
   // Get current user
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -318,7 +321,7 @@ export async function fetchProductById(productId: string) {
     return { data: null, error: { message: "Product ID is required." } };
   }
 
-  const supabase = await createClient();
+  const supabase = await createServerActionClient();
 
   try {
     const { data: user, error: userError } = await supabase.auth.getUser();
@@ -359,3 +362,235 @@ export async function fetchProductById(productId: string) {
     };
   }
 }
+
+// --- Action to Invite User to Organization ---
+type InviteUserResult = { error: { message: string } | null };
+
+export async function inviteUserToOrg(
+  emailToInvite: string
+): Promise<InviteUserResult> {
+  "use server";
+
+  // Basic email validation
+  if (
+    !emailToInvite ||
+    !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(emailToInvite)
+  ) {
+    return { error: { message: "Invalid email format." } };
+  }
+
+  const supabase = await createServerActionClient();
+
+  try {
+    // 1. Get current user and their profile (including role and org id)
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      console.error("Invite Error: User not authenticated.");
+      return { error: { message: "Authentication required." } };
+    }
+    const userId = userData.user.id;
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id, role")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error(
+        `Invite Error: Profile not found for user ${userId}.`,
+        profileError
+      );
+      return { error: { message: "User profile not found." } };
+    }
+
+    // 2. Check if the current user is an owner and has an organization
+    if (profile.role !== "owner") {
+      console.warn(`Invite Attempt Denied: User ${userId} is not an owner.`);
+      return {
+        error: { message: "Only organization owners can invite users." },
+      };
+    }
+    if (!profile.organization_id) {
+      console.error(
+        `Invite Error: Owner ${userId} does not have an organization_id.`
+      );
+      return { error: { message: "Organization information missing." } };
+    }
+    const ownerOrgId = profile.organization_id;
+
+    // 3. Call the admin invite function
+    // --- Create explicit admin client for this specific call ---
+    const supabaseAdmin = createClient(
+      // Use imported createClient
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, // Ensure this key is correct!
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    // ---------------------------------------------------------
+
+    console.log(`Inviting ${emailToInvite} to organization ${ownerOrgId}...`);
+    // --- Use the supabaseAdmin client ---
+    const { data: inviteData, error: inviteError } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(
+        // ----------------------------------
+        emailToInvite,
+        {
+          data: {
+            initial_organization_id: ownerOrgId,
+            initial_role: "member", // Invite new users as 'member' by default
+          },
+          redirectTo: "/dashboard", // Where user lands after confirming invite
+        }
+      );
+
+    // 4. Handle invite result
+    if (inviteError) {
+      console.error(`Invite Error for ${emailToInvite}:`, inviteError);
+      // Provide more specific feedback if possible
+      if (inviteError.message.includes("already registered")) {
+        return {
+          error: { message: `User ${emailToInvite} is already registered.` },
+        };
+      }
+      if (inviteError.message.includes("Unable to validate email address")) {
+        return { error: { message: "Invalid email format provided." } };
+      }
+      return {
+        error: { message: `Failed to send invitation: ${inviteError.message}` },
+      };
+    }
+
+    console.log(
+      `Invitation sent successfully to ${emailToInvite}. Data:`,
+      inviteData
+    );
+    return { error: null }; // Success
+  } catch (e: any) {
+    console.error("Unexpected error inviting user:", e);
+    return {
+      error: { message: `An unexpected error occurred: ${e.message || e}` },
+    };
+  }
+}
+// --- End Invite User Action ---
+
+// --- Action to Fetch Organization Members ---
+// Define a type for the member data we want to return
+type OrgMember = {
+  id: string;
+  full_name: string | null;
+  email: string | null; // We might need to fetch this from auth.users
+  role: string | null;
+};
+
+type FetchMembersResult = {
+  data: OrgMember[];
+  error: { message: string } | null;
+};
+
+export async function fetchOrgMembers(): Promise<FetchMembersResult> {
+  "use server";
+
+  const supabase = await createServerActionClient(); // Use server action client for initial checks
+
+  try {
+    // 1. Get current user and their organization ID (using server action client)
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      return { data: [], error: { message: "Authentication required." } };
+    }
+    const userId = userData.user.id;
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !profile?.organization_id) {
+      console.error(
+        `FetchMembers Error: Org ID not found for user ${userId}.`,
+        profileError
+      );
+      return { data: [], error: { message: "User organization not found." } };
+    }
+    const organizationId = profile.organization_id;
+
+    // 2. Fetch profiles belonging to the same organization (using server action client)
+    const { data: membersData, error: membersError } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .eq("organization_id", organizationId)
+      .order("role", { ascending: true })
+      .order("full_name", { ascending: true });
+
+    if (membersError) {
+      console.error(
+        `FetchMembers Error: Failed fetching profiles for org ${organizationId}.`,
+        membersError
+      );
+      return {
+        data: [],
+        error: { message: `Database error: ${membersError.message}` },
+      };
+    }
+
+    if (!membersData) {
+      return { data: [], error: null };
+    }
+
+    // 3. Fetch emails for the members (using EXPLICIT admin client)
+    // --- Create explicit admin client ---
+    const supabaseAdmin = createClient(
+      // Use imported createClient
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, // Ensure this key is correct!
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    // ----------------------------------
+
+    const memberIds = membersData.map((m) => m.id);
+    let emailsMap = new Map<string, string | null>();
+
+    if (memberIds.length > 0) {
+      // --- Use supabaseAdmin and await ---
+      const { data: usersData, error: usersError } =
+        await supabaseAdmin.auth.admin.listUsers({
+          // ... potential pagination ...
+        });
+      // ---------------------------------
+
+      if (usersError) {
+        console.error(
+          `FetchMembers Warning: Failed fetching user emails for org ${organizationId}.`,
+          usersError
+        );
+      } else if (usersData?.users) {
+        // --- Add explicit type for user ---
+        usersData.users.forEach((user: { id: string; email?: string }) => {
+          // --------------------------------
+          if (memberIds.includes(user.id)) {
+            emailsMap.set(user.id, user.email || null);
+          }
+        });
+      }
+    }
+
+    // 4. Combine profile data with email data
+    const combinedMembers = membersData.map((member) => ({
+      ...member,
+      email: emailsMap.get(member.id) || null,
+    }));
+
+    return { data: combinedMembers, error: null };
+  } catch (e: any) {
+    console.error("Unexpected error fetching organization members:", e);
+    return {
+      data: [],
+      error: { message: `An unexpected error occurred: ${e.message || e}` },
+    };
+  }
+}
+
+// --- End Fetch Org Members Action ---

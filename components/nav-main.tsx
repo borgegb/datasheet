@@ -5,6 +5,7 @@ import {
   FileTextIcon,
   DatabaseIcon,
   PackageIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +39,11 @@ const mainNavItems = [
     href: "/dashboard/catalogs",
     icon: PackageIcon,
   },
+  {
+    title: "Organization",
+    href: "/dashboard/organization",
+    icon: UsersIcon,
+  },
 ];
 
 export function NavMain() {
@@ -50,7 +56,7 @@ export function NavMain() {
               <SidebarMenuButton tooltip={item.title} asChild>
                 <Link href={item.href}>
                   {item.icon && <item.icon className="h-4 w-4" />}
-                <span>{item.title}</span>
+                  <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

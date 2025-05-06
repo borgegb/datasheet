@@ -943,7 +943,7 @@ export default function DatasheetGeneratorForm({
             </Button>
 
             {/* Preview Button (Keep as is) */}
-            <Button
+            {/* <Button
               type="button"
               variant="secondary"
               onClick={handlePreview}
@@ -960,7 +960,7 @@ export default function DatasheetGeneratorForm({
                 <Eye className="mr-2 h-4 w-4" />
               )}
               {isPreviewing ? "Previewing..." : "Preview PDF"}
-            </Button>
+            </Button> */}
           </CardFooter>
         </form>
       </CardContent>

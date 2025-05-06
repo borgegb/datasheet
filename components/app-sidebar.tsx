@@ -110,7 +110,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <Link href="/dashboard">
                 <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">DataSheetGen</span>
+                <span className="text-base font-semibold">Applied Studio</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

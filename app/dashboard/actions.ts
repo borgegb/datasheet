@@ -136,6 +136,198 @@ export async function fetchCategories() {
 }
 // ---                           ---
 
+// --- ADD createCategory action ---
+export async function createCategory(categoryName: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    console.error("Create Category Error: User not authenticated.");
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+
+  // 2. Verify user is owner
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id") // Need role, and org_id if categories were org-specific
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile) {
+    console.error(
+      `Create Category Error: Profile not found for user ${userId}.`,
+      profileError
+    );
+    return { error: { message: "User profile not found." } };
+  }
+
+  if (profile.role !== "owner") {
+    console.warn(`Create Category Denied: User ${userId} is not an owner.`);
+    return {
+      error: { message: "Only organization owners can create categories." },
+    };
+  }
+
+  // 3. Validate input
+  const trimmedName = categoryName.trim();
+  if (!trimmedName) {
+    return { error: { message: "Category name cannot be empty." } };
+  }
+
+  // 4. Insert into DB (assuming global categories for now)
+  // If org-specific, add .insert({ name: trimmedName, organization_id: profile.organization_id })
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({ name: trimmedName })
+    .select("id") // Optionally return the new ID
+    .single();
+
+  if (error) {
+    console.error("Server Action Error (createCategory):", error);
+    // Handle potential unique constraint violation more gracefully?
+    if (error.code === "23505") {
+      // unique_violation
+      return {
+        error: { message: `Category '${trimmedName}' already exists.` },
+      };
+    }
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  // 5. Revalidate relevant paths
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator"); // Revalidate generator form (for dropdowns)
+
+  console.log(`Category '${trimmedName}' created successfully.`);
+  return { data, error: null }; // Return the new category ID
+}
+// ---                         ---
+
+// --- ADD updateCategory action ---
+export async function updateCategory(categoryId: string, newName: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Get current user & verify owner (similar to createCategory)
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can update categories." },
+    };
+  }
+
+  // 2. Validate input
+  const trimmedName = newName.trim();
+  if (!trimmedName) {
+    return { error: { message: "Category name cannot be empty." } };
+  }
+  if (!categoryId) {
+    return { error: { message: "Category ID is required." } };
+  }
+
+  // 3. Update in DB
+  const { data, error } = await supabase
+    .from("categories")
+    .update({ name: trimmedName })
+    .eq("id", categoryId)
+    .select("id") // Optionally return the updated ID
+    .single();
+
+  if (error) {
+    console.error("Server Action Error (updateCategory):", error);
+    if (error.code === "23505") {
+      // unique_violation
+      return {
+        error: { message: `Category name '${trimmedName}' already exists.` },
+      };
+    }
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  // 4. Revalidate paths
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator");
+
+  console.log(`Category '${trimmedName}' updated successfully.`);
+  return { data, error: null };
+}
+// ---                         ---
+
+// --- ADD deleteCategory action ---
+export async function deleteCategory(categoryId: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Get current user & verify owner (similar to createCategory)
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can delete categories." },
+    };
+  }
+
+  // 2. Validate input
+  if (!categoryId) {
+    return { error: { message: "Category ID is required for deletion." } };
+  }
+
+  // 3. Delete from DB
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", categoryId);
+
+  if (error) {
+    console.error("Server Action Error (deleteCategory):", error);
+    // Check for foreign key violation (if category is in use)
+    // Supabase error code for foreign_key_violation is '23503'
+    if (error.code === "23503") {
+      return {
+        error: {
+          message:
+            "This category is currently in use by products and cannot be deleted.",
+        },
+      };
+    }
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  // 4. Revalidate paths
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator");
+
+  console.log(`Category ID '${categoryId}' deleted successfully.`);
+  return { error: null }; // No data to return on successful delete
+}
+// ---                         ---
+
 // --- Action to Create Catalog ---
 export async function createCatalog(catalogName: string) {
   const supabase = await createServerActionClient();

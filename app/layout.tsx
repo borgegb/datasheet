@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DataSheet Generator",
+  title: "Applied Studio",
   description: "Effortlessly create professional product datasheets",
 };
 

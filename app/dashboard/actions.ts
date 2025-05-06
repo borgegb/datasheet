@@ -68,15 +68,14 @@ export async function fetchProductsForOrg(catalogId?: string | null) {
 }
 
 // --- Action to Fetch Catalogs ---
-// --- Revert interface (remove count, keep image_url) ---
 interface CatalogInfo {
   id: string;
   name: string;
-  // image_url: string | null; // Remove this as it's not fetched
+  image_path: string | null;
+  signedImageUrl?: string | null; // Add optional signed URL field
 }
 
 export async function fetchCatalogsForOrg(): Promise<{
-  // Update return type
   data: CatalogInfo[];
   error: { message: string } | null;
 }> {
@@ -87,29 +86,57 @@ export async function fetchCatalogsForOrg(): Promise<{
     return { data: [], error: { message: "User organization not found." } };
   }
 
-  // --- Remove product count logic ---
-  const { data, error } = await supabase
+  const { data: catalogsData, error: fetchError } = await supabase
     .from("catalogs")
     .select(
       `
       id,
-      name
+      name,
+      image_path 
     `
     )
     .eq("organization_id", organizationId)
     .order("name", { ascending: true });
 
-  if (error) {
-    console.error("Server Action Error (fetchCatalogsForOrg):", error);
-    return { data: [], error: { message: `Database error: ${error.message}` } };
+  if (fetchError) {
+    console.error("Server Action Error (fetchCatalogsForOrg):", fetchError);
+    return {
+      data: [],
+      error: { message: `Database error: ${fetchError.message}` },
+    };
   }
 
-  // --- No processing needed for count ---
-  const processedData =
-    data?.map((catalog) => ({
-      id: catalog.id,
-      name: catalog.name,
-    })) || [];
+  if (!catalogsData) {
+    return { data: [], error: null }; // No catalogs found
+  }
+
+  // --- Generate Signed URLs ---
+  const processedData = await Promise.all(
+    catalogsData.map(async (catalog) => {
+      let signedUrl = null;
+      if (catalog.image_path) {
+        const { data: urlData, error: urlError } = await supabase.storage
+          .from("datasheet-assets") // Ensure this is your bucket name
+          .createSignedUrl(catalog.image_path, 60 * 5); // 5 minutes expiry
+
+        if (urlError) {
+          console.error(
+            `Error generating signed URL for ${catalog.image_path}:`,
+            urlError
+          );
+          // Decide how to handle: return null URL, or maybe even filter out?
+          // For now, just log error and return null.
+        } else {
+          signedUrl = urlData.signedUrl;
+        }
+      }
+      return {
+        ...catalog,
+        signedImageUrl: signedUrl, // Add the signed URL to the object
+      };
+    })
+  );
+  // --- End Generate Signed URLs ---
 
   return { data: processedData, error: null };
 }
@@ -329,21 +356,53 @@ export async function deleteCategory(categoryId: string) {
 // ---                         ---
 
 // --- Action to Create Catalog ---
-export async function createCatalog(catalogName: string) {
+export async function createCatalog(
+  catalogName: string,
+  imagePath?: string | null
+) {
   const supabase = await createServerActionClient();
-  const organizationId = await getUserOrgId(supabase);
+
+  // --- Add Owner Verification ---
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id") // Ensure organization_id is selected
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can create catalogs." },
+    };
+  }
+  if (!profile.organization_id) {
+    return {
+      error: { message: "User is not associated with an organization." },
+    }; // Should not happen if owner
+  }
+  const organizationId = profile.organization_id;
+  // --- End Owner Verification ---
 
   if (!catalogName?.trim()) {
     return { error: { message: "Catalog name cannot be empty." } };
   }
-  if (!organizationId) {
-    return { error: { message: "User organization not found." } };
-  }
+  // organizationId is now available from the profile check above, no need for getUserOrgId(supabase)
 
   const { data, error } = await supabase
     .from("catalogs")
-    .insert({ name: catalogName.trim(), organization_id: organizationId })
-    .select("id") // Optionally return the new ID
+    .insert({
+      name: catalogName.trim(),
+      organization_id: organizationId, // Use organizationId from profile
+      image_path: imagePath,
+    })
+    .select("id")
     .single();
 
   if (error) {
@@ -351,8 +410,8 @@ export async function createCatalog(catalogName: string) {
     return { error };
   }
 
-  revalidatePath("/dashboard/catalogs"); // Revalidate the catalogs page
-  revalidatePath("/dashboard/generator"); // Revalidate generator form (for dropdown)
+  revalidatePath("/dashboard/catalogs");
+  revalidatePath("/dashboard/generator");
   return { data, error: null };
 }
 

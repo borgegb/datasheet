@@ -32,6 +32,7 @@ import {
   ListFilterIcon,
   PlusIcon,
   TrashIcon,
+  Loader2,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -458,9 +459,8 @@ export default function DatasheetsTable<TData, TValue>({
       </div>
       {/* --- End Filters Section --- */}
 
-      {/* Table (unchanged) */}
+      {/* Table */}
       <div className="bg-background overflow-hidden rounded-md border">
-        {/* ... Table, TableHeader, TableBody ... */}
         <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -524,7 +524,21 @@ export default function DatasheetsTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              // --- Loading State ---
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  <div className="flex justify-center items-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : // --- End Loading State ---
+            table.getRowModel().rows?.length ? (
+              // --- Rows Exist State ---
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -541,14 +555,17 @@ export default function DatasheetsTable<TData, TValue>({
                 </TableRow>
               ))
             ) : (
+              // --- End Rows Exist State ---
+              // --- No Results State ---
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  No results found.
                 </TableCell>
               </TableRow>
+              // --- End No Results State ---
             )}
           </TableBody>
         </Table>

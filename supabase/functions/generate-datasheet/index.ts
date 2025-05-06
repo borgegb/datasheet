@@ -533,13 +533,12 @@ serve(async (req: Request) => {
     // --------------------------------------------------------------------
 
     // 5.3: Right Column - Product Image
-    // Don't reset main currentY here. Calculate image position relative to featuresStartY.
-    let imageEndY = featuresStartY; // Default to top if no image or doesn't fit
-
-    // --- Re-integrate Image Loading & Embedding (only if NOT preview) ---
+    let imageEndY = featuresStartY; // Default end Y if no image
     let embeddedProductImage: PDFImage | null = null;
     let productImageDims = { width: 0, height: 0 };
+
     if (!isPreview) {
+      // Only load/embed for final generation
       const productImagePath = dbProductData.image_path;
       if (productImagePath) {
         try {
@@ -550,18 +549,16 @@ serve(async (req: Request) => {
             await supabaseAdmin.storage
               .from("datasheet-assets")
               .download(productImagePath);
-
           if (downloadError)
             throw new Error(`Storage download error: ${downloadError.message}`);
           if (!blobData)
             throw new Error("Downloaded product image data (Blob) is null.");
-
           const imageBytes = await blobData.arrayBuffer();
           console.log(
             `Fetched product image successfully (${imageBytes.byteLength} bytes)`
           );
 
-          // Infer image type (same logic as before)
+          // Embed based on type
           if (productImagePath.toLowerCase().endsWith(".png")) {
             embeddedProductImage = await pdfDoc.embedPng(imageBytes);
           } else if (
@@ -569,25 +566,35 @@ serve(async (req: Request) => {
             productImagePath.toLowerCase().endsWith(".jpeg")
           ) {
             embeddedProductImage = await pdfDoc.embedJpg(imageBytes);
-          } // Add fallback logic if needed
+          }
 
           if (embeddedProductImage) {
-            console.log("Product image embedded, calculating scale...");
-            // Scale to fit image column width, maintain aspect ratio
-            const scale = Math.min(
-              imageColWidth / embeddedProductImage.width,
-              1
-            ); // Fit width, don't scale up
-            productImageDims = embeddedProductImage.scale(scale);
             console.log(
-              "Product image dimensions for drawing:",
-              productImageDims
+              "Product image embedded. Calculating scale based on orientation:",
+              currentImageOrientation
             );
+
+            // --- Define Image Area Constraints ---
+            const imageAvailableWidth = imageColWidth;
+            const imageAvailableHeight = MAX_FEATURES_HEIGHT; // Use max section height as vertical constraint
+            // -----------------------------------
+
+            // --- Calculate Scaling Factor (Fit within bounds) ---
+            const scaleX = imageAvailableWidth / embeddedProductImage.width;
+            const scaleY = imageAvailableHeight / embeddedProductImage.height;
+            const scale = Math.min(scaleX, scaleY, 1); // Fit both width & height, don't scale up (max scale 1)
+            // -------------------------------------------------
+
+            productImageDims = embeddedProductImage.scale(scale);
+            console.log("Scaled product image dimensions:", productImageDims);
           } else {
-            console.log("Product image could not be embedded.");
+            console.log(
+              "Product image could not be embedded (unsupported format?)."
+            );
           }
         } catch (imgError: any) {
           console.error("Error processing product image:", imgError.message);
+          embeddedProductImage = null; // Ensure it's null on error
         }
       } else {
         console.log("No product image path found.");
@@ -595,15 +602,16 @@ serve(async (req: Request) => {
     } else {
       console.log("Skipping product image embedding for preview.");
     }
-    // --- End Image Loading --- //
 
+    // --- Draw the Scaled Image ---
     if (embeddedProductImage) {
+      // Center horizontally within the image column
       const imageDrawX =
         imageColX + (imageColWidth - productImageDims.width) / 2;
-      // Calculate potential Y position based on section start
+      // Align top of image with the top of the features section (featuresStartY)
       const imageDrawY = featuresStartY - productImageDims.height;
 
-      // Check if the image fits ON THE PAGE AT ALL
+      // Check if image fits vertically ON THE PAGE
       if (imageDrawY > MARGIN_BOTTOM + FOOTER_HEIGHT) {
         page.drawImage(embeddedProductImage, {
           x: imageDrawX,
@@ -611,19 +619,23 @@ serve(async (req: Request) => {
           width: productImageDims.width,
           height: productImageDims.height,
         });
-        imageEndY = imageDrawY; // Record actual bottom Y of the image
+        imageEndY = imageDrawY; // Update the actual bottom Y of the drawn image
         console.log("Product image drawn.");
       } else {
-        console.log("Not enough space for product image ON PAGE.");
-        // imageEndY remains featuresStartY
+        console.log(
+          "Not enough space for product image ON PAGE. Image skipped."
+        );
+        // imageEndY remains featuresStartY if not drawn
       }
     } else {
       console.log("No product image to draw.");
       // imageEndY remains featuresStartY
     }
+    // --- End Draw Image ---
 
-    // 5.4: Update main currentY - Start NEXT section below allocated feature space boundary
-    currentY = featuresBottomBoundary - SPACE_AFTER_FEATURES_IMAGE;
+    // 5.4: Update main currentY below the lowest point of features OR image
+    // Use the actual end Y of features list (featuresEndY) and image (imageEndY)
+    currentY = Math.min(featuresEndY, imageEndY) - SPACE_AFTER_FEATURES_IMAGE;
     // --- End Key Features & Image Section ---
 
     // --- Draw Specifications Section (Step 6) ---

@@ -653,6 +653,92 @@ export async function deleteProducts(productIds: string[]) {
   return { error: null };
 }
 
+// --- Action to Fetch Product COUNT for Org ---
+export async function fetchProductCountForOrg() {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return { count: 0, error: { message: "User organization not found." } };
+  }
+
+  const { count, error } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true }) // Select only count
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("Server Action Error (fetchProductCountForOrg):", error);
+    return { count: 0, error };
+  }
+
+  return { count: count ?? 0, error: null };
+}
+// ---                         ---
+
+// --- Action to Fetch Catalog COUNT for Org ---
+export async function fetchCatalogCountForOrg() {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return { count: 0, error: { message: "User organization not found." } };
+  }
+
+  const { count, error } = await supabase
+    .from("catalogs")
+    .select("id", { count: "exact", head: true }) // Select only count
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("Server Action Error (fetchCatalogCountForOrg):", error);
+    return { count: 0, error };
+  }
+
+  return { count: count ?? 0, error: null };
+}
+// ---                         ---
+
+// --- Action to Fetch RECENT Products for Org ---
+interface RecentProduct {
+  id: string;
+  product_title: string | null;
+  product_code: string | null;
+  updated_at: string | null; // Or created_at depending on desired logic
+  pdf_storage_path: string | null; // Add PDF path
+}
+
+export async function fetchRecentProductsForOrg(limit: number = 5): Promise<{
+  data: RecentProduct[];
+  error: { message: string } | null;
+}> {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return { data: [], error: { message: "User organization not found." } };
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    // Select the necessary fields including pdf_storage_path
+    .select("id, product_title, product_code, updated_at, pdf_storage_path")
+    .eq("organization_id", organizationId)
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Server Action Error (fetchRecentProductsForOrg):", error);
+    return { data: [], error: { message: `Database error: ${error.message}` } };
+  }
+
+  return { data: data ?? [], error: null };
+}
+// ---                         ---
+
 // --- Define State Type for saveDatasheet ---
 type SaveDatasheetState = {
   data: any | null; // Can be product data on success/update, or null

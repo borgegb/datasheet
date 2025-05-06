@@ -14,9 +14,47 @@ import {
   UsersIcon,
   DatabaseIcon,
   PlusIcon,
+  ArrowRightIcon,
 } from "lucide-react";
+import {
+  fetchProductCountForOrg,
+  fetchCatalogCountForOrg,
+  fetchRecentProductsForOrg,
+} from "./actions"; // Corrected import path
+import { RecentProductList } from "@/components/RecentProductList"; // Import the new component
 
-export default function Page() {
+// Type for recent product data
+interface RecentProduct {
+  id: string;
+  product_title: string | null;
+  product_code: string | null;
+  updated_at: string | null;
+}
+
+export default async function Page() {
+  // Fetch data server-side
+  const productCountPromise = fetchProductCountForOrg();
+  const catalogCountPromise = fetchCatalogCountForOrg();
+  const recentProductsPromise = fetchRecentProductsForOrg(5); // Fetch top 5
+
+  // Wait for all promises to resolve
+  const [productCountResult, catalogCountResult, recentProductsResult] =
+    await Promise.all([
+      productCountPromise,
+      catalogCountPromise,
+      recentProductsPromise,
+    ]);
+
+  // Extract data (handle potential errors gracefully in UI)
+  const productCount = productCountResult.error
+    ? "Error"
+    : productCountResult.count;
+  const catalogCount = catalogCountResult.error
+    ? "Error"
+    : catalogCountResult.count;
+  const recentProducts = recentProductsResult.data || [];
+  const recentProductsError = recentProductsResult.error;
+
   return (
     // The surrounding layout is now handled by app/dashboard/layout.tsx
     <div className="flex flex-col flex-1 p-4 md:p-6 space-y-6">
@@ -38,7 +76,7 @@ export default function Page() {
             <DatabaseIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div> {/* Placeholder */}
+            <div className="text-2xl font-bold">{productCount}</div>
             <p className="text-xs text-muted-foreground">
               Saved in your organization
             </p>
@@ -52,7 +90,7 @@ export default function Page() {
             <PackageIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div> {/* Placeholder */}
+            <div className="text-2xl font-bold">{catalogCount}</div>
             <p className="text-xs text-muted-foreground">
               Available product catalogs
             </p>
@@ -88,8 +126,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Recent Activity Section (Placeholder) */}
-      {/* TODO: Implement fetching and displaying recent datasheets */}
+      {/* Recent Activity Section */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Recent Activity</h2>
         <Card>
@@ -98,14 +135,18 @@ export default function Page() {
               Recently Updated Datasheets
             </CardTitle>
             <CardDescription>
-              Your most recently created or modified items.
+              Your organization's most recently created or modified items.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground italic">
-              Recent activity list coming soon...
-            </p>
-            {/* Later: Map over fetched recent datasheets here */}
+            {recentProductsError && (
+              <p className="text-sm text-destructive">
+                Error loading recent activity: {recentProductsError.message}
+              </p>
+            )}
+            {!recentProductsError && (
+              <RecentProductList items={recentProducts} />
+            )}
           </CardContent>
         </Card>
       </div>

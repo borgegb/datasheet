@@ -273,24 +273,126 @@ export default function DatasheetGeneratorForm({
   // --- Update useEffect to initialize form state including categories ---
   useEffect(() => {
     if (initialData) {
-      // ... set other fields like productTitle, productCode etc. ...
+      // Set standard fields
+      setProductTitle(initialData.product_title || "");
+      setProductCode(initialData.product_code || "");
+      setDescription(initialData.description || "");
+      setPrice(initialData.price || "");
+      setWeight(initialData.weight || "");
+      setKeyFeatures(initialData.key_features || "");
+      setWarranty(initialData.warranty || "");
+      setShippingInfo(initialData.shipping_info || "");
+      setImageOrientation(initialData.image_orientation || "portrait");
+      setUploadedImagePath(initialData.image_path || null);
+      // Logos need careful handling of null/undefined optional_logos
+      const logos = initialData.optional_logos || {};
+      setIncludeCeLogo(logos.ceMark || false);
+      setIncludeOriginLogo(logos.origin || false);
+      setIncludeIrelandLogo(logos.includeIrelandLogo || false);
+      // Restore selected catalog ID
+      setSelectedCatalogId(initialData.catalog_id || "");
 
-      // Initialize selected categories if initialData provides category_ids
+      // Initialize selected categories
       if (initialData.category_ids && Array.isArray(initialData.category_ids)) {
         setSelectedCategoryIds(initialData.category_ids);
       } else {
-        setSelectedCategoryIds([]); // Default to empty if not provided or invalid
+        setSelectedCategoryIds([]);
       }
 
-      // Initialize specs (existing logic)
+      // Initialize specs (with improved parsing)
       if (initialData.tech_specs) {
-        // ... existing specs parsing logic ...
+        let parsedSpecsArray = [];
+        try {
+          // Attempt 1: Parse directly
+          parsedSpecsArray = JSON.parse(initialData.tech_specs);
+        } catch (e1) {
+          // Attempt 2: Check for double-quoted string "[...]"
+          if (
+            typeof initialData.tech_specs === "string" &&
+            initialData.tech_specs.startsWith('"') &&
+            initialData.tech_specs.endsWith('"')
+          ) {
+            try {
+              // Remove outer quotes and try parsing the inner content
+              const innerJson = initialData.tech_specs.slice(1, -1);
+              parsedSpecsArray = JSON.parse(innerJson);
+            } catch (e2) {
+              console.error("Error parsing inner JSON for tech_specs:", e2);
+              parsedSpecsArray = []; // Fallback if inner parse fails
+            }
+          } else {
+            // Attempt 3: Try parsing as legacy text format (Label: Value)
+            if (typeof initialData.tech_specs === "string") {
+              console.log(
+                "Attempting to parse tech_specs as legacy text format."
+              );
+              const lines = initialData.tech_specs
+                .split("\n")
+                .map((l) => l.trim())
+                .filter((l) => l.includes(":"));
+
+              if (lines.length > 0) {
+                parsedSpecsArray = lines.map((line) => {
+                  const parts = line.split(":");
+                  return {
+                    // id: index, // ID will be added below
+                    label: parts[0]?.trim() || "",
+                    value: parts.slice(1).join(":")?.trim() || "",
+                  };
+                });
+                console.log("Parsed tech_specs from legacy text format.");
+              } else {
+                console.warn(
+                  "Tech_specs string did not match JSON, double-quoted JSON, or legacy format."
+                );
+              }
+            } else {
+              console.warn(
+                "Tech_specs was not a string and initial JSON parse failed."
+              );
+            }
+          }
+        }
+
+        // Ensure it's an array before mapping and setting state
+        if (Array.isArray(parsedSpecsArray)) {
+          setSpecs(
+            parsedSpecsArray.map((spec: any, index: number) => ({
+              id: index, // Assign stable ID during mapping
+              label: spec.label || "",
+              value: spec.value || "",
+            }))
+          );
+        } else {
+          console.warn(
+            "Final parsed tech_specs data is not an array:",
+            parsedSpecsArray
+          );
+          setSpecs([]); // Fallback to empty array if parsing resulted in non-array
+        }
       } else {
-        setSpecs([]);
+        setSpecs([]); // Initialize empty if no initial tech_specs data
       }
-      // ... other initializations if needed ...
+    } else {
+      // Reset all fields if initialData becomes null (e.g., switching from edit to create)
+      setProductTitle("");
+      setProductCode("");
+      setDescription("");
+      setSpecs([]);
+      setPrice("");
+      setWeight("");
+      setKeyFeatures("");
+      setWarranty("");
+      setShippingInfo("");
+      setImageOrientation("portrait");
+      setIncludeCeLogo(false);
+      setIncludeOriginLogo(false);
+      setIncludeIrelandLogo(false);
+      setSelectedCategoryIds([]);
+      setUploadedImagePath(null);
+      setUploadedFileName(null);
+      setSelectedCatalogId("");
     }
-    // Add initialData.category_ids to dependencies if it can change independently
   }, [initialData]);
   // --------------------------------------------------------------------
 

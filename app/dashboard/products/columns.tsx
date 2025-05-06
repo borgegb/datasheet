@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, FilterFn, RowData } from "@tanstack/react-table";
 import {
   ArrowUpDown,
   MoreHorizontal,
@@ -9,19 +9,10 @@ import {
   Download,
   Printer,
   ExternalLink,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
-
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,14 +25,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import React from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Define the shape of our Product data (matching the fetch in page.tsx)
 export interface Product {
   id: string;
-  product_title: string;
-  product_code: string;
+  product_title: string | null;
+  product_code: string | null;
   pdf_storage_path: string | null;
-  // Add catalog_name etc. here if you join/fetch it
+  category_ids: string[] | null;
 }
 
 // Define the type for the cell context, including our custom delete function
@@ -51,26 +53,49 @@ interface ProductCellContext {
   onDownload?: (storagePath: string, filename: string) => void;
   onPrint?: (storagePath: string, filename: string) => void;
   onViewPdf?: (storagePath: string, filename: string) => void;
+  availableCategories?: Category[];
 }
 
-// --- Try extending TableMeta this way ---
-import type { RowData } from "@tanstack/react-table";
-declare module "@tanstack/table-core" {
+// Define Category type used in meta and rendering
+interface Category {
+  id: string;
+  name: string;
+}
+
+// Custom filter function for categories (imported or redefined)
+const categoriesFilterFn: FilterFn<any> = (
+  row,
+  columnId,
+  filterValue: string[]
+) => {
+  if (!filterValue?.length) return true;
+  const rowCategoryIds = row.getValue(columnId) as string[] | null | undefined;
+  if (!rowCategoryIds || rowCategoryIds.length === 0) return false;
+  return rowCategoryIds.some((id) => filterValue.includes(id));
+};
+
+// Helper function to generate safe filenames
+const getSafeFilename = (
+  name: string | null | undefined,
+  code: string | null | undefined,
+  extension: string
+): string => {
+  const safeBase = (name || code || "datasheet")
+    .replace(/[^a-z0-9]/gi, "_")
+    .toLowerCase();
+  return `${safeBase}.${extension}`;
+};
+
+// Extend TableMeta interface to include availableCategories
+declare module "@tanstack/react-table" {
   interface TableMeta<TData extends RowData> {
     onDeleteRow?: (productId: string) => void;
     onDownload?: (storagePath: string, filename: string) => void;
     onPrint?: (storagePath: string, filename: string) => void;
     onViewPdf?: (storagePath: string, filename: string) => void;
+    availableCategories?: Category[];
   }
 }
-// --------------------------------------
-
-// Helper function to generate safe filenames
-const getSafeFilename = (name: string, extension: string): string => {
-  const safeName =
-    name.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "datasheet";
-  return `${safeName}.${extension}`;
-};
 
 export const columns: ColumnDef<Product>[] = [
   // Optional: Select Checkbox Column (can be removed if not needed)
@@ -93,6 +118,7 @@ export const columns: ColumnDef<Product>[] = [
         aria-label="Select row"
       />
     ),
+    size: 40,
     enableSorting: false,
     enableHiding: false,
   },
@@ -109,48 +135,82 @@ export const columns: ColumnDef<Product>[] = [
         </Button>
       );
     },
+    size: 250,
+    cell: ({ row }) => {
+      return (
+        <div className="font-medium">
+          {row.getValue("product_title") || (
+            <span className="text-muted-foreground italic">
+              Untitled Datasheet
+            </span>
+          )}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "product_code",
     header: "Product Code",
+    size: 150,
+    cell: ({ row }) => {
+      return (
+        row.getValue("product_code") || (
+          <span className="text-muted-foreground italic">No Code</span>
+        )
+      );
+    },
   },
-  // TODO: Add Catalog column if needed
-  // {
-  //   accessorKey: "catalog_name", // Assumes you fetch/join catalog name
-  //   header: "Catalog",
-  // },
   {
-    id: "actions",
+    accessorKey: "category_ids",
+    header: "Categories",
+    size: 200,
+    filterFn: categoriesFilterFn,
+    enableSorting: false,
     cell: ({ row, table }) => {
-      const product = row.original;
-      // Get the delete handler from table meta options (we will set this up in ProductsDataTable)
-      const tableMeta = table.options.meta as ProductCellContext;
-      const handleDelete = () => {
-        if (tableMeta?.onDeleteRow) {
-          tableMeta.onDeleteRow(product.id);
-        }
-      };
+      const categoryIds = row.getValue("category_ids") as string[] | null;
+      const availableCategories = table.options.meta?.availableCategories;
 
-      // Handler for row download
-      const handleDownload = () => {
-        if (tableMeta?.onDownload && product.pdf_storage_path) {
-          const filename = getSafeFilename(
-            product.product_code || product.product_title,
-            "pdf"
-          );
-          tableMeta.onDownload(product.pdf_storage_path, filename);
-        } else {
-          // Optionally show a toast if path is missing
-          console.warn(
-            "No PDF path available for download for product:",
-            product.id
-          );
-        }
-      };
+      if (!categoryIds || categoryIds.length === 0 || !availableCategories) {
+        return (
+          <span className="text-muted-foreground text-xs italic">None</span>
+        );
+      }
+
+      const categoryNames = categoryIds
+        .map((id) => availableCategories.find((cat) => cat.id === id)?.name)
+        .filter((name) => name !== undefined) as string[];
+
+      if (categoryNames.length === 0) {
+        return (
+          <span className="text-muted-foreground text-xs italic">Unknown</span>
+        );
+      }
 
       return (
-        // Use AlertDialog to wrap the delete action
-        <AlertDialog>
+        <div className="flex flex-wrap gap-1">
+          {categoryNames.map((name) => (
+            <Badge key={name} variant="secondary" className="font-normal">
+              {name}
+            </Badge>
+          ))}
+        </div>
+      );
+    },
+  },
+  {
+    id: "actions",
+    size: 60,
+    enableHiding: false,
+    cell: ({ row, table }) => {
+      const product = row.original;
+      const safeFilename = getSafeFilename(
+        product.product_title,
+        product.product_code,
+        "pdf"
+      );
+
+      return (
+        <div className="flex justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -160,76 +220,60 @@ export const columns: ColumnDef<Product>[] = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href={`/dashboard/generator/${product.id}`}>
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/dashboard/generator/${product.id}`}
+                  className="cursor-pointer"
+                >
                   <Edit className="mr-2 h-4 w-4" /> Edit
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {/* Enable Download action */}
               <DropdownMenuItem
-                onSelect={handleDownload}
                 disabled={!product.pdf_storage_path}
+                onSelect={() =>
+                  table.options.meta?.onViewPdf?.(
+                    product.pdf_storage_path!,
+                    safeFilename
+                  )
+                }
+                className="cursor-pointer"
+              >
+                <Eye className="mr-2 h-4 w-4" /> View PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!product.pdf_storage_path}
+                onSelect={() =>
+                  table.options.meta?.onDownload?.(
+                    product.pdf_storage_path!,
+                    safeFilename
+                  )
+                }
                 className="cursor-pointer"
               >
                 <Download className="mr-2 h-4 w-4" /> Download PDF
               </DropdownMenuItem>
-              {/* --- ADD View PDF Action --- */}
               <DropdownMenuItem
-                onClick={() =>
-                  table.options.meta?.onViewPdf?.(
-                    product.pdf_storage_path ?? "",
-                    getSafeFilename(product.product_title || "datasheet", "pdf")
-                  )
-                }
                 disabled={!product.pdf_storage_path}
-                className="cursor-pointer"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                View PDF
-              </DropdownMenuItem>
-              {/* ----------------------- */}
-              {/* Print Action */}
-              <DropdownMenuItem
-                onClick={() =>
+                onSelect={() =>
                   table.options.meta?.onPrint?.(
-                    product.pdf_storage_path ?? "",
-                    getSafeFilename(product.product_title || "datasheet", "pdf")
+                    product.pdf_storage_path!,
+                    safeFilename
                   )
                 }
-                disabled={!product.pdf_storage_path}
+                className="cursor-pointer"
               >
                 <Printer className="mr-2 h-4 w-4" /> Print PDF
               </DropdownMenuItem>
-              {/* Delete Action - Triggers AlertDialog */}
-              <AlertDialogTrigger asChild>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive cursor-pointer"
-                  onSelect={(e) => e.preventDefault()} // Prevent closing dropdown immediately
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </DropdownMenuItem>
-              </AlertDialogTrigger>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive cursor-pointer"
+                onSelect={() => table.options.meta?.onDeleteRow?.(product.id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* Alert Dialog Content for Delete Confirmation */}
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the
-                datasheet titled "{product.product_title}".
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              {/* Call the handleDelete passed via context/meta */}
-              <AlertDialogAction onClick={handleDelete}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        </div>
       );
     },
   },

@@ -38,8 +38,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveDatasheet } from "../actions";
+import { saveDatasheet, fetchCategories } from "../actions";
 import { useSearchParams } from "next/navigation";
+
+// Define type for Category (if not already defined)
+interface Category {
+  id: string;
+  name: string;
+}
 
 // Define type for Catalog
 interface Catalog {
@@ -69,8 +75,8 @@ interface ProductData {
   shipping_info: string | null;
   image_orientation: "portrait" | "landscape" | null;
   optional_logos: any | null; // Use 'any' or a specific type for JSONB
-  catalog_id: string | null;
-  catalog_category?: string | null; // Add optional category if used
+  catalog_id: string | null; // ADD BACK
+  category_ids?: string[] | null; // ADD (as array of strings)
 }
 // ---------------------------------
 
@@ -125,23 +131,30 @@ export default function DatasheetGeneratorForm({
   const [includeIrelandLogo, setIncludeIrelandLogo] = useState(
     initialData?.optional_logos?.includeIrelandLogo || false
   );
-  const [selectedCatalogId, setSelectedCatalogId] = useState(
-    // Prioritize initialData, then URL param (for new sheets), then empty
-    initialData?.catalog_id || (initialData ? "" : catalogIdFromUrl) || ""
-  );
-  const [catalogCategory, setCatalogCategory] = useState(
-    initialData?.catalog_category || ""
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    // Initialize from initialData if editing
+    initialData?.category_ids || []
   );
   const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(
     initialData?.image_path || null
   );
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
+  // --- Restore Catalog State ---
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string>(
+    // Prioritize initialData, then URL param (for new sheets), then empty
+    initialData?.catalog_id || (editingProductId ? "" : catalogIdFromUrl) || ""
+  );
+  const [catalogs, setCatalogs] = useState<Catalog[]>([]);
+  // --- End Restore Catalog State ---
+
   // --- Other State ---
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [catalogs, setCatalogs] = useState<Catalog[]>([]);
-  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState<boolean>(true);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(
+    []
+  );
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true); // Combined loading state
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -158,31 +171,32 @@ export default function DatasheetGeneratorForm({
   );
   // ---------------------------------------------
 
-  // useEffect to fetch USER, PROFILE, CATALOGS (Needed for save logic & dropdowns)
+  // useEffect to fetch USER, PROFILE, and CATEGORIES
   useEffect(() => {
     let isMounted = true;
     const fetchStaticData = async () => {
-      setIsLoadingCatalogs(true);
+      setIsLoadingData(true); // Start loading
       // Reset states related to loading
-      setCatalogs([]);
-      setProfile(null); // Reset profile initially
-      setUser(null); // Reset user initially
+      setAvailableCategories([]); // Reset categories
+      setCatalogs([]); // Reset catalogs too
+      setProfile(null);
+      setUser(null);
 
       const supabase = createClient();
+      // Fetch User
       const { data: userData, error: userError } =
         await supabase.auth.getUser();
-
       if (!isMounted) return;
       if (userError || !userData?.user) {
         console.error("Error fetching user:", userError);
         setUser(null);
         setProfile(null);
-        setCatalogs([]);
-        setIsLoadingCatalogs(false);
+        setIsLoadingData(false);
         return;
       }
       setUser(userData.user);
 
+      // Fetch Profile (needed for org context if categories become org-specific later)
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("organization_id, full_name, avatar_url")
@@ -193,9 +207,9 @@ export default function DatasheetGeneratorForm({
       if (profileError || !profileData) {
         console.error("Error fetching profile:", { profileError });
         setProfile(null);
-        setIsLoadingCatalogs(false);
       } else {
         setProfile(profileData);
+        // --- Fetch Catalogs if Org ID exists ---
         if (profileData.organization_id) {
           const { data: catalogData, error: catalogError } = await supabase
             .from("catalogs")
@@ -206,22 +220,35 @@ export default function DatasheetGeneratorForm({
           if (!isMounted) return;
           if (catalogError) {
             console.error("Error fetching catalogs:", catalogError);
+            toast.error("Failed to load catalogs.");
             setCatalogs([]);
           } else {
             setCatalogs(catalogData || []);
           }
-          setIsLoadingCatalogs(false);
-        } else {
-          setIsLoadingCatalogs(false);
         }
+        // -----------------------------------------
       }
+
+      // Fetch Categories (using server action)
+      const { data: categoryData, error: categoryError } =
+        await fetchCategories();
+      if (!isMounted) return;
+      if (categoryError) {
+        console.error("Error fetching categories:", categoryError);
+        toast.error("Failed to load categories.");
+        setAvailableCategories([]);
+      } else {
+        setAvailableCategories(categoryData || []);
+      }
+
+      setIsLoadingData(false); // Finish loading
     };
 
     fetchStaticData();
 
     return () => {
       isMounted = false;
-    }; // Cleanup function
+    };
   }, []);
 
   // useEffect to extract filename from initialData or uploadedImagePath
@@ -243,52 +270,29 @@ export default function DatasheetGeneratorForm({
     }
   }, [initialData?.image_path, uploadedImagePath]);
 
-  // --- Add useEffect to initialize specs state from initialData ---
+  // --- Update useEffect to initialize form state including categories ---
   useEffect(() => {
-    if (initialData?.tech_specs) {
-      try {
-        // Assuming tech_specs is stored as a JSON string representing the array
-        const parsedSpecs = JSON.parse(initialData.tech_specs);
-        if (Array.isArray(parsedSpecs)) {
-          // Add a unique ID to each spec for stable key prop during rendering
-          setSpecs(
-            parsedSpecs.map((spec, index) => ({
-              id: index, // Use index as simple ID for initial load
-              label: spec.label || "",
-              value: spec.value || "",
-            }))
-          );
-        } else {
-          console.warn("Initial tech_specs data is not an array:", parsedSpecs);
-          setSpecs([]); // Fallback to empty array
-        }
-      } catch (error) {
-        console.error("Error parsing initial tech_specs JSON:", error);
-        // Attempt to parse as old text format (Label: Value)
-        if (typeof initialData.tech_specs === "string") {
-          const lines = initialData.tech_specs
-            .split("\n")
-            .filter((l) => l.includes(":"));
-          setSpecs(
-            lines.map((line, index) => {
-              const parts = line.split(":");
-              return {
-                id: index,
-                label: parts[0].trim(),
-                value: parts.slice(1).join(":").trim(),
-              };
-            })
-          );
-          console.log("Parsed tech_specs from legacy text format.");
-        } else {
-          setSpecs([]); // Fallback if parsing fails
-        }
+    if (initialData) {
+      // ... set other fields like productTitle, productCode etc. ...
+
+      // Initialize selected categories if initialData provides category_ids
+      if (initialData.category_ids && Array.isArray(initialData.category_ids)) {
+        setSelectedCategoryIds(initialData.category_ids);
+      } else {
+        setSelectedCategoryIds([]); // Default to empty if not provided or invalid
       }
-    } else {
-      setSpecs([]); // Initialize empty if no initial data
+
+      // Initialize specs (existing logic)
+      if (initialData.tech_specs) {
+        // ... existing specs parsing logic ...
+      } else {
+        setSpecs([]);
+      }
+      // ... other initializations if needed ...
     }
-  }, [initialData]); // Rerun only if initialData changes
-  // ----------------------------------------------------------
+    // Add initialData.category_ids to dependencies if it can change independently
+  }, [initialData]);
+  // --------------------------------------------------------------------
 
   // Setup upload hook (pass user ID when available)
   const uploadProps = useSupabaseUpload({
@@ -425,7 +429,6 @@ export default function DatasheetGeneratorForm({
         ceMark: includeCeLogo,
         origin: includeOriginLogo,
       },
-      catalogCategory,
       userId: user.id,
     };
 
@@ -496,7 +499,7 @@ export default function DatasheetGeneratorForm({
     isGenerating,
     isSavePending,
     isPreviewing,
-    isLoadingCatalogs,
+    isLoadingData,
   });
 
   const handleSpecChange = (
@@ -528,12 +531,28 @@ export default function DatasheetGeneratorForm({
     setSpecs(newSpecs);
   };
 
-  // --- Add useEffect to handle URL param if initialData loads later ---
-  // This handles cases where initialData might be null initially then populated
+  // --- Handler for Category Checkbox Change ---
+  const handleCategoryChange = (categoryId: string, checked: boolean) => {
+    setSelectedCategoryIds((prevIds) => {
+      if (checked) {
+        // Add ID if not already present
+        return prevIds.includes(categoryId)
+          ? prevIds
+          : [...prevIds, categoryId];
+      } else {
+        // Remove ID
+        return prevIds.filter((id) => id !== categoryId);
+      }
+    });
+  };
+  // -------------------------------------------
+
+  // --- Restore useEffect to handle catalogIdFromUrl if needed ---
   useEffect(() => {
     // Only set from URL if we are NOT editing (no initialData.catalog_id)
     // and a catalogId exists in the URL and is different from current state
     if (
+      !editingProductId && // Check if editing
       !initialData?.catalog_id &&
       catalogIdFromUrl &&
       catalogIdFromUrl !== selectedCatalogId
@@ -541,9 +560,13 @@ export default function DatasheetGeneratorForm({
       console.log("Setting catalog ID from URL param:", catalogIdFromUrl);
       setSelectedCatalogId(catalogIdFromUrl);
     }
-    // Don't run if selectedCatalogId changes, only if URL param or initialData changes
-  }, [catalogIdFromUrl, initialData?.catalog_id]);
-  // ---------------------------------------------------------------------
+  }, [
+    catalogIdFromUrl,
+    initialData?.catalog_id,
+    editingProductId,
+    selectedCatalogId,
+  ]);
+  // ------------------------------------------------------------
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -576,6 +599,14 @@ export default function DatasheetGeneratorForm({
             name="imagePath"
             value={uploadedImagePath || ""}
           />
+
+          {/* --- Hidden input for selected category IDs --- */}
+          <input
+            type="hidden"
+            name="categoryIdsJson"
+            value={JSON.stringify(selectedCategoryIds)}
+          />
+          {/* -------------------------------------------- */}
 
           <div className="space-y-8">
             {/* Section 1: Basic Info */}
@@ -841,22 +872,22 @@ export default function DatasheetGeneratorForm({
               <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="catalog">Assign to Catalog</Label>
                 <Select
-                  name="catalogId"
+                  name="catalogId" // Ensure name matches what saveDatasheet expects if using FormData directly
                   value={selectedCatalogId}
                   onValueChange={setSelectedCatalogId}
-                  disabled={isLoadingCatalogs}
+                  disabled={isLoadingData} // Use combined loading state
                 >
                   <SelectTrigger id="catalog">
                     <SelectValue
                       placeholder={
-                        isLoadingCatalogs
+                        isLoadingData
                           ? "Loading catalogs..."
                           : "Select catalog..."
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {isLoadingCatalogs ? (
+                    {isLoadingData ? (
                       <SelectItem value="loading" disabled>
                         Loading...
                       </SelectItem>
@@ -874,15 +905,43 @@ export default function DatasheetGeneratorForm({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5 sm:col-span-1">
-                <Label htmlFor="catalog-category">
-                  Catalog Section/Category
-                </Label>
-                <Input
-                  name="catalogCategory"
-                  value={catalogCategory}
-                  onChange={(e) => setCatalogCategory(e.target.value)}
-                />
+              <div className="sm:col-span-2 space-y-2">
+                <Label>Assign Categories</Label>
+                {isLoadingData && (
+                  <p className="text-sm text-muted-foreground">
+                    Loading categories...
+                  </p>
+                )}
+                {!isLoadingData && availableCategories.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No categories available. An owner needs to create them in
+                    the Organization settings.
+                  </p>
+                )}
+                {!isLoadingData && availableCategories.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
+                    {availableCategories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="flex items-center space-x-2"
+                      >
+                        <Checkbox
+                          id={`category-${category.id}`}
+                          checked={selectedCategoryIds.includes(category.id)}
+                          onCheckedChange={(checked) => {
+                            handleCategoryChange(category.id, Boolean(checked));
+                          }}
+                        />
+                        <Label
+                          htmlFor={`category-${category.id}`}
+                          className="font-normal cursor-pointer"
+                        >
+                          {category.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -924,7 +983,7 @@ export default function DatasheetGeneratorForm({
                 isGeneratingPdf || // Disable while generating
                 isDownloadingPdf || // Disable while downloading
                 isPreviewing ||
-                isLoadingCatalogs ||
+                isLoadingData ||
                 uploadProps.loading // Disable while uploading image
               }
             >

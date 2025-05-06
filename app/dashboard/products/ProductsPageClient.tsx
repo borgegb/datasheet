@@ -6,7 +6,7 @@ import React, {
   startTransition,
   useCallback,
 } from "react";
-import ProductsDataTable from "@/components/ProductsDataTable";
+import DatasheetsTable from "@/components/DatasheetsTable";
 import { columns, Product } from "./columns";
 import {
   fetchProductsForOrg,
@@ -24,12 +24,19 @@ interface Catalog {
   name: string;
 }
 
+// Define Category type for props
+interface Category {
+  id: string;
+  name: string;
+}
+
 // --- Define Props for ProductsPageClient ---
 interface ProductsPageClientProps {
   initialProducts?: Product[]; // Optional initial products
   initialCatalogs?: Catalog[]; // Optional initial catalogs
   hideCatalogFilter?: boolean; // <-- Add new prop
   hideAddButton?: boolean; // <-- Add prop here
+  availableCategories: Category[];
 }
 // ----------------------------------------
 
@@ -40,6 +47,7 @@ export default function ProductsPageClient({
   initialCatalogs,
   hideCatalogFilter = false,
   hideAddButton = false,
+  availableCategories,
 }: ProductsPageClientProps) {
   // ----------------------------------------------
   // --- Update state initialization with initial props ---
@@ -289,7 +297,7 @@ export default function ProductsPageClient({
   return (
     <>
       {/* Table and its associated UI (Filters, Pagination) */}
-      <ProductsDataTable
+      <DatasheetsTable
         columns={columns}
         data={isLoading ? [] : products}
         onDeleteRows={handleDeleteSelectedRows}
@@ -302,6 +310,7 @@ export default function ProductsPageClient({
         isLoading={isLoading}
         hideCatalogFilter={hideCatalogFilter}
         hideAddButton={hideAddButton}
+        availableCategories={availableCategories}
       />
     </>
   );

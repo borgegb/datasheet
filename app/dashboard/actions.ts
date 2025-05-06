@@ -45,7 +45,7 @@ export async function fetchProductsForOrg(catalogId?: string | null) {
 
   let query = supabase
     .from("products")
-    .select("id, product_title, product_code, pdf_storage_path")
+    .select("id, product_title, product_code, pdf_storage_path, category_ids")
     .eq("organization_id", organizationId);
 
   // Conditionally add the catalog filter if provided
@@ -64,7 +64,13 @@ export async function fetchProductsForOrg(catalogId?: string | null) {
     console.error("Server Action Error (fetchProductsForOrg):", error);
   }
 
-  return { data: data ?? [], error };
+  const processedData =
+    data?.map((product) => ({
+      ...product,
+      category_ids: product.category_ids ?? [],
+    })) || [];
+
+  return { data: processedData, error };
 }
 
 // --- Action to Fetch Catalogs ---
@@ -621,6 +627,54 @@ export async function deleteCatalog(catalogId: string) {
 }
 // ---                         ---
 
+// --- ADD fetchCatalogById action ---
+interface CatalogDetails {
+  id: string;
+  name: string;
+  // Add other fields if needed later
+}
+
+export async function fetchCatalogById(catalogId: string): Promise<{
+  data: CatalogDetails | null;
+  error: { message: string } | null;
+}> {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return { data: null, error: { message: "User organization not found." } };
+  }
+  if (!catalogId) {
+    return { data: null, error: { message: "Catalog ID is required." } };
+  }
+
+  const { data, error } = await supabase
+    .from("catalogs")
+    .select("id, name") // Select fields needed for display
+    .eq("id", catalogId)
+    .eq("organization_id", organizationId) // Ensure user can only fetch from their org
+    .single();
+
+  if (error) {
+    console.error(
+      `Server Action Error (fetchCatalogById: ${catalogId}):`,
+      error
+    );
+    if (error.code === "PGRST116") {
+      // Not found
+      return { data: null, error: { message: "Catalog not found." } };
+    }
+    return {
+      data: null,
+      error: { message: `Database error: ${error.message}` },
+    };
+  }
+
+  return { data, error: null };
+}
+// ---                         ---
+
 // --- Action to Delete Products ---
 export async function deleteProducts(productIds: string[]) {
   if (!productIds || productIds.length === 0) {
@@ -747,12 +801,10 @@ type SaveDatasheetState = {
 // ----------------------------------------
 
 // --- Action to Save/Update Datasheet (Product) ---
-// Update signature to accept previous state and FormData
 export async function saveDatasheet(
-  prevState: SaveDatasheetState | null, // Use the defined type
-  formData: FormData // Use FormData directly
+  prevState: SaveDatasheetState | null,
+  formData: FormData
 ): Promise<SaveDatasheetState> {
-  // Use the defined type
   const supabase = await createServerActionClient();
 
   // Get current user
@@ -773,6 +825,28 @@ export async function saveDatasheet(
   // Extract editingProductId if present
   const editingProductId = formData.get("editingProductId") as string | null;
 
+  // --- Extract and parse category IDs ---
+  let categoryIds: string[] = [];
+  const categoryIdsJson = formData.get("categoryIdsJson") as string | null;
+  if (categoryIdsJson) {
+    try {
+      categoryIds = JSON.parse(categoryIdsJson);
+      if (!Array.isArray(categoryIds)) {
+        console.warn(
+          "Parsed categoryIdsJson is not an array, defaulting to empty."
+        );
+        categoryIds = [];
+      }
+    } catch (e) {
+      console.error("Error parsing categoryIdsJson:", e);
+      return {
+        data: null,
+        error: { message: "Invalid category data format." },
+      };
+    }
+  }
+  // -----------------------------------
+
   // Prepare data object for Supabase
   const productData = {
     product_title: formData.get("productTitle") as string,
@@ -788,7 +862,6 @@ export async function saveDatasheet(
       | "portrait"
       | "landscape"
       | null,
-    // Construct JSONB object for optional logos
     optional_logos: {
       includeIrelandLogo: formData.get("includeIrelandLogo") === "on",
       ceMark: formData.get("includeCeLogo") === "on",
@@ -796,10 +869,9 @@ export async function saveDatasheet(
     },
     catalog_id: formData.get("catalogId") as string | null,
     image_path: formData.get("imagePath") as string | null,
-    user_id: userId, // Always associate with the current user
-    organization_id: organizationId, // Associate with the user's org
-    // updated_at will be set by the database or manually below
-    // created_at is handled by default DB value on insert
+    user_id: userId,
+    organization_id: organizationId,
+    category_ids: categoryIds,
   };
 
   // --- Input Validation (Example) ---
@@ -823,15 +895,13 @@ export async function saveDatasheet(
     if (editingProductId) {
       // --- UPDATE ---
       console.log(`Updating product ID: ${editingProductId}`);
-      // Exclude user_id and organization_id from update payload if they shouldn't change
-      // Or rely on RLS to prevent changing them if the user isn't allowed
       const { data: updateData, error: updateError } = await supabase
         .from("products")
         .update({ ...productData, updated_at: new Date().toISOString() })
         .eq("id", editingProductId)
-        .eq("organization_id", organizationId) // Ensure update is within user's org
-        .select() // Optionally select the updated data
-        .single(); // Assuming update affects one row
+        .eq("organization_id", organizationId)
+        .select()
+        .single();
 
       data = updateData;
       error = updateError;
@@ -843,9 +913,9 @@ export async function saveDatasheet(
       console.log("Inserting new product...");
       const { data: insertData, error: insertError } = await supabase
         .from("products")
-        .insert(productData) // organization_id and user_id are included here
-        .select() // Select the inserted data (including new ID)
-        .single(); // Assuming insert affects one row
+        .insert(productData)
+        .select()
+        .single();
 
       data = insertData;
       error = insertError;
@@ -854,7 +924,6 @@ export async function saveDatasheet(
       }
     }
 
-    // Check for errors from DB operation
     if (error) {
       console.error("Error saving datasheet:", error);
       return {
@@ -863,21 +932,19 @@ export async function saveDatasheet(
       };
     }
 
-    // Revalidate and return success
-    revalidatePath("/dashboard/products"); // Revalidate the products list page
-    // Revalidate the specific generator page (for create or update)
+    revalidatePath("/dashboard/products");
     const resultId = editingProductId || data?.id;
     if (resultId) {
       revalidatePath(`/dashboard/generator/${resultId}`);
     }
-    revalidatePath("/dashboard/generator"); // Revalidate the base generator page (if needed)
-    return { data, error: null }; // Fits SaveDatasheetState
+    revalidatePath("/dashboard/generator");
+    return { data, error: null };
   } catch (e: any) {
     console.error("Unexpected error saving datasheet:", e);
     return {
       data: null,
       error: { message: `Unexpected error: ${e.message || e}` },
-    }; // Fits SaveDatasheetState
+    };
   }
 }
 

@@ -7,7 +7,13 @@ import React, {
   useCallback,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2, PackageIcon } from "lucide-react";
+import {
+  PlusCircle,
+  Loader2,
+  PackageIcon,
+  EditIcon,
+  TrashIcon,
+} from "lucide-react";
 // Import Dialog components, Input, Label
 import {
   Dialog,
@@ -23,7 +29,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 // Import Server Actions
-import { fetchCatalogsForOrg, createCatalog } from "../actions";
+import {
+  fetchCatalogsForOrg,
+  createCatalog,
+  updateCatalog,
+  deleteCatalog,
+} from "../actions";
 
 // --- Add Card and Link imports ---
 import Link from "next/link";
@@ -37,6 +48,8 @@ import {
   DropzoneEmptyState,
 } from "@/components/dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
+import { DeleteCatalogDialog } from "@/components/delete-catalog"; // Import the new component
+
 // --------------------------------
 
 // --- Define Catalog interface locally ---
@@ -68,6 +81,19 @@ export default function CatalogsPage() {
   const [profile, setProfile] = useState<Profile | null>(null); // State for profile
   const [isLoadingProfile, setIsLoadingProfile] = useState(true); // For profile loading state
 
+  // --- State for Edit Catalog Dialog ---
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCatalog, setEditingCatalog] = useState<Catalog | null>(null);
+  const [editCatalogName, setEditCatalogName] = useState("");
+  const [editUploadedImagePath, setEditUploadedImagePath] = useState<
+    string | null
+  >(null);
+  const [editUploadedFileName, setEditUploadedFileName] = useState<
+    string | null
+  >(null);
+  const [isUpdating, setIsUpdating] = useState(false); // Separate state for update pending
+  // ------------------------------------
+
   // Fetch user and their profile on component mount
   useEffect(() => {
     const supabase = createClient();
@@ -97,50 +123,102 @@ export default function CatalogsPage() {
     fetchUserAndProfile();
   }, []);
 
-  const uploadProps = useSupabaseUpload({
+  // --- Upload Hooks (Need one for Create and one for Edit) ---
+  const createUploadProps = useSupabaseUpload({
     bucketName: "datasheet-assets",
-    // Use organization_id for the path if available
     path: profile?.organization_id
       ? `organizations/${profile.organization_id}/catalog_images/`
       : undefined,
     allowedMimeTypes: ["image/*"],
     maxFiles: 1,
   });
+  const editUploadProps = useSupabaseUpload({
+    bucketName: "datasheet-assets",
+    path: profile?.organization_id
+      ? `organizations/${profile.organization_id}/catalog_images/`
+      : undefined,
+    allowedMimeTypes: ["image/*"],
+    maxFiles: 1,
+  });
+  // --- End Upload Hooks ---
 
-  // useEffect to handle upload completion (uses profile.organization_id in path)
+  // --- useEffect to handle Create upload completion ---
   useEffect(() => {
-    if (!uploadProps.loading && profile?.organization_id) {
-      if (uploadProps.successes.length > 0) {
+    if (!createUploadProps.loading && profile?.organization_id) {
+      if (createUploadProps.successes.length > 0) {
         const successFileName =
-          uploadProps.successes[uploadProps.successes.length - 1];
+          createUploadProps.successes[createUploadProps.successes.length - 1];
         if (successFileName !== uploadedFileName) {
           setUploadedFileName(successFileName);
-          // Construct path using organization_id
           const fullPath = `organizations/${profile.organization_id}/catalog_images/${successFileName}`;
           setUploadedImagePath(fullPath);
-          console.log("Catalog image uploaded, path stored:", fullPath);
-          toast.success(`Image "${successFileName}" uploaded successfully.`);
+          console.log(
+            "(Create) Catalog image uploaded, path stored:",
+            fullPath
+          );
+          toast.success(
+            `Image "${successFileName}" ready for catalog creation.`
+          );
         }
-      } else if (uploadProps.errors.length > 0) {
-        const lastError = uploadProps.errors[uploadProps.errors.length - 1];
-        if (uploadProps.files.find((f) => f.name === lastError.name)) {
+      } else if (createUploadProps.errors.length > 0) {
+        const lastError =
+          createUploadProps.errors[createUploadProps.errors.length - 1];
+        if (createUploadProps.files.find((f) => f.name === lastError.name)) {
           toast.error(
-            `Image upload failed for ${lastError.name}: ${
+            `Create: Image upload failed - ${
               lastError.message || "Please try again."
-            }
-             `
+            }`
           );
         }
       }
     }
+    // Depend on createUploadProps properties
   }, [
-    uploadProps.loading,
-    uploadProps.successes,
-    uploadProps.errors,
+    createUploadProps.loading,
+    createUploadProps.successes,
+    createUploadProps.errors,
     profile,
     uploadedFileName,
-    uploadProps.files,
+    createUploadProps.files,
   ]);
+  // --- End Create upload handler ---
+
+  // --- useEffect to handle Edit upload completion ---
+  useEffect(() => {
+    if (!editUploadProps.loading && profile?.organization_id) {
+      if (editUploadProps.successes.length > 0) {
+        const successFileName =
+          editUploadProps.successes[editUploadProps.successes.length - 1];
+        // Update edit state directly
+        if (successFileName !== editUploadedFileName) {
+          setEditUploadedFileName(successFileName);
+          const fullPath = `organizations/${profile.organization_id}/catalog_images/${successFileName}`;
+          setEditUploadedImagePath(fullPath);
+          console.log("(Edit) Catalog image uploaded, path stored:", fullPath);
+          toast.success(`Image "${successFileName}" ready for catalog update.`);
+        }
+      } else if (editUploadProps.errors.length > 0) {
+        const lastError =
+          editUploadProps.errors[editUploadProps.errors.length - 1];
+        if (editUploadProps.files.find((f) => f.name === lastError.name)) {
+          toast.error(
+            `Edit: Image upload failed - ${
+              lastError.message || "Please try again."
+            }`
+          );
+        }
+      }
+    }
+    // Depend on editUploadProps properties
+  }, [
+    editUploadProps.loading,
+    editUploadProps.successes,
+    editUploadProps.errors,
+    profile,
+    editUploadedFileName,
+    editUploadProps.files,
+  ]);
+  // --- End Edit upload handler ---
 
   // Function to load catalogs
   const loadCatalogs = useCallback(() => {
@@ -182,7 +260,7 @@ export default function CatalogsPage() {
         setNewCatalogName("");
         setUploadedImagePath(null);
         setUploadedFileName(null);
-        uploadProps.setFiles([]);
+        createUploadProps.setFiles([]);
         setIsDialogOpen(false);
         loadCatalogs();
       }
@@ -196,21 +274,101 @@ export default function CatalogsPage() {
       setNewCatalogName("");
       setUploadedImagePath(null);
       setUploadedFileName(null);
-      if (uploadProps.files.length > 0) {
+      if (createUploadProps.files.length > 0) {
         // Only call setFiles if there are files to clear
-        uploadProps.setFiles([]);
+        createUploadProps.setFiles([]);
       }
       // It might also be useful to clear errors from the hook if they persist
-      // if (uploadProps.errors.length > 0) {
-      //   uploadProps.setErrors([]);
+      // if (createUploadProps.errors.length > 0) {
+      //   createUploadProps.setErrors([]);
       // }
     }
   }, [
     isDialogOpen,
-    uploadProps.setFiles,
-    uploadProps.files,
-    uploadProps.errors,
+    createUploadProps.setFiles,
+    createUploadProps.files,
+    createUploadProps.errors,
   ]); // More specific dependencies
+
+  // --- handleUpdateCatalog (uses editUploadProps) ---
+  const handleUpdateCatalog = async () => {
+    if (!editingCatalog) {
+      toast.error("No catalog selected for editing.");
+      return;
+    }
+    if (!editCatalogName.trim()) {
+      toast.warning("Catalog name cannot be empty.");
+      return;
+    }
+    setIsUpdating(true);
+    // Pass the editUploadedImagePath. If it's null, the action retains the old path.
+    // If it's explicitly set to null (e.g., by a remove image button), pass undefined or handle in action.
+    // For now, we assume editUploadedImagePath holds the *new* path or null if no *new* image was uploaded.
+    const imagePathToUpdate = editUploadedImagePath; // Path from edit upload
+
+    startTransition(async () => {
+      const { data, error } = await updateCatalog(
+        editingCatalog.id,
+        editCatalogName.trim(),
+        imagePathToUpdate
+      );
+      if (error) {
+        console.error("Error updating catalog via action:", error);
+        toast.error(`Failed to update catalog: ${error.message}`);
+      } else {
+        toast.success(`Catalog "${editCatalogName.trim()}" updated!`);
+        setIsEditDialogOpen(false); // Close dialog
+        setEditingCatalog(null); // Clear editing state
+        loadCatalogs(); // Reload catalogs
+      }
+      setIsUpdating(false);
+    });
+  };
+  // --- End handleUpdateCatalog ---
+
+  // --- handleDeleteCatalog ---
+  const handleDeleteCatalog = async (
+    catalogId: string,
+    catalogName: string
+  ) => {
+    const deleteToastId = toast.loading(`Deleting catalog "${catalogName}"...`);
+    startTransition(async () => {
+      const result = await deleteCatalog(catalogId);
+      toast.dismiss(deleteToastId);
+      if (result.error) {
+        toast.error(
+          `Failed to delete catalog "${catalogName}": ${result.error.message}`
+        );
+      } else {
+        toast.success(`Catalog "${catalogName}" deleted successfully!`);
+        loadCatalogs(); // Reload catalogs
+      }
+    });
+  };
+  // --- End handleDeleteCatalog ---
+
+  // --- useEffect for Dialog Closing Resets ---
+  useEffect(() => {
+    if (!isDialogOpen) {
+      // Reset Create Dialog state
+      setNewCatalogName("");
+      setUploadedImagePath(null);
+      setUploadedFileName(null);
+      if (createUploadProps.files.length > 0) createUploadProps.setFiles([]);
+    }
+  }, [isDialogOpen, createUploadProps.files, createUploadProps.setFiles]);
+
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      // Reset Edit Dialog state
+      setEditingCatalog(null);
+      setEditCatalogName("");
+      setEditUploadedImagePath(null);
+      setEditUploadedFileName(null);
+      if (editUploadProps.files.length > 0) editUploadProps.setFiles([]);
+    }
+  }, [isEditDialogOpen, editUploadProps.files, editUploadProps.setFiles]);
+  // --- End Dialog Closing Resets ---
 
   return (
     <div className="flex flex-col flex-1 p-4 md:p-6">
@@ -244,7 +402,7 @@ export default function CatalogsPage() {
                     placeholder="e.g., 2025 Products"
                     disabled={
                       isCreating ||
-                      uploadProps.loading ||
+                      createUploadProps.loading ||
                       !profile?.organization_id
                     }
                   />
@@ -252,7 +410,10 @@ export default function CatalogsPage() {
                 <div className="space-y-1.5">
                   <Label htmlFor="catalog-image">Image (Optional)</Label>
                   {profile?.organization_id ? (
-                    <Dropzone {...uploadProps} className="mt-1 border-border">
+                    <Dropzone
+                      {...createUploadProps}
+                      className="mt-1 border-border"
+                    >
                       <DropzoneEmptyState />
                       <DropzoneContent />
                     </Dropzone>
@@ -264,7 +425,7 @@ export default function CatalogsPage() {
                       </p>
                     </div>
                   )}
-                  {uploadedFileName && !uploadProps.loading && (
+                  {uploadedFileName && !createUploadProps.loading && (
                     <div className="mt-2 text-xs text-muted-foreground">
                       Selected: "{uploadedFileName}"
                     </div>
@@ -275,7 +436,7 @@ export default function CatalogsPage() {
                 <DialogClose asChild>
                   <Button
                     variant="outline"
-                    disabled={isCreating || uploadProps.loading}
+                    disabled={isCreating || createUploadProps.loading}
                   >
                     Cancel
                   </Button>
@@ -284,17 +445,18 @@ export default function CatalogsPage() {
                   onClick={handleCreateCatalog}
                   disabled={
                     isCreating ||
-                    uploadProps.loading ||
+                    createUploadProps.loading ||
                     !profile?.organization_id ||
                     (!newCatalogName.trim() && !uploadedImagePath)
                   }
                 >
-                  {isCreating || (uploadProps.loading && !uploadedImagePath) ? (
+                  {isCreating ||
+                  (createUploadProps.loading && !uploadedImagePath) ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
                   {isCreating
                     ? "Creating..."
-                    : uploadProps.loading && !uploadedImagePath
+                    : createUploadProps.loading && !uploadedImagePath
                     ? "Uploading..."
                     : "Create Catalog"}
                 </Button>
@@ -316,40 +478,169 @@ export default function CatalogsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {catalogs.map((catalog) => (
-              <Link
-                key={catalog.id}
-                href={`/dashboard/catalogs/${catalog.id}`}
-                passHref
-                className="block h-full group"
-              >
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col overflow-hidden border group-hover:border-primary">
-                  <div className="aspect-[16/10] w-full bg-muted relative overflow-hidden">
-                    {catalog.signedImageUrl ? (
-                      <Image
-                        src={catalog.signedImageUrl}
-                        alt={catalog.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="transition-transform duration-300 group-hover:scale-105"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground/50">
-                        <PackageIcon className="h-16 w-16" />
-                      </div>
-                    )}
+              <div key={catalog.id} className="relative group">
+                {" "}
+                {/* Use div wrapper for buttons */}
+                <Link
+                  href={`/dashboard/catalogs/${catalog.id}`}
+                  passHref
+                  className="block h-full"
+                >
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col overflow-hidden border group-hover:border-primary">
+                    <div className="aspect-[16/10] w-full bg-muted relative overflow-hidden">
+                      {catalog.signedImageUrl ? (
+                        <Image
+                          src={catalog.signedImageUrl}
+                          alt={catalog.name}
+                          layout="fill"
+                          objectFit="cover"
+                          className="transition-transform duration-300 group-hover:scale-105"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground/50">
+                          <PackageIcon className="h-16 w-16" />
+                        </div>
+                      )}
+                    </div>
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-md font-medium truncate group-hover:text-primary">
+                        {catalog.name}
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                </Link>
+                {/* --- Add Edit/Delete Buttons for Owners --- */}
+                {!isLoadingProfile && profile?.role === "owner" && (
+                  <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-7 w-7 rounded-full shadow-md bg-background/80 backdrop-blur-sm hover:bg-background"
+                      onClick={() => {
+                        setEditingCatalog(catalog);
+                        setEditCatalogName(catalog.name);
+                        setEditUploadedImagePath(null);
+                        setEditUploadedFileName(null);
+                        editUploadProps.setFiles([]);
+                        setIsEditDialogOpen(true);
+                      }}
+                      title="Edit Catalog"
+                    >
+                      <EditIcon className="h-3.5 w-3.5" />
+                    </Button>
+                    <DeleteCatalogDialog
+                      catalogId={catalog.id}
+                      catalogName={catalog.name}
+                      onDeleteSuccess={loadCatalogs}
+                      triggerButton={
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="h-7 w-7 rounded-full shadow-md bg-background/80 backdrop-blur-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete Catalog"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                    />
                   </div>
-                  <CardHeader className="p-4">
-                    <CardTitle className="text-md font-medium truncate group-hover:text-primary">
-                      {catalog.name}
-                    </CardTitle>
-                  </CardHeader>
-                </Card>
-              </Link>
+                )}
+                {/* --- End Edit/Delete Buttons --- */}
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* --- Edit Catalog Dialog --- */}
+      {editingCatalog && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Catalog</DialogTitle>
+              <DialogDescription>
+                Update the name and optionally the image for "
+                <strong>{editingCatalog.name}</strong>".
+              </DialogDescription>
+            </DialogHeader>
+            {/* Using simple handler, not action state for simplicity here */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateCatalog();
+              }}
+            >
+              <div className="grid gap-4 py-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-catalog-name">Name</Label>
+                  <Input
+                    id="edit-catalog-name"
+                    value={editCatalogName}
+                    onChange={(e) => setEditCatalogName(e.target.value)}
+                    disabled={isUpdating || editUploadProps.loading}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Image</Label>
+                  {/* Display current image (optional) */}
+                  {editingCatalog.signedImageUrl && !editUploadedImagePath && (
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Current image set. Upload a new one to replace it.
+                    </div>
+                  )}
+                  {/* Dropzone for new image */}
+                  {profile?.organization_id ? (
+                    <Dropzone
+                      {...editUploadProps}
+                      className="mt-1 border-border"
+                    >
+                      <DropzoneEmptyState />
+                      <DropzoneContent />
+                    </Dropzone>
+                  ) : (
+                    <div>Org details missing</div>
+                  )}
+                  {editUploadedFileName && !editUploadProps.loading && (
+                    <div className="mt-2 text-xs text-green-600">
+                      New image selected: "{editUploadedFileName}"
+                    </div>
+                  )}
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button
+                    variant="outline"
+                    disabled={isUpdating || editUploadProps.loading}
+                  >
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button
+                  type="submit"
+                  disabled={
+                    isUpdating ||
+                    editUploadProps.loading ||
+                    !editCatalogName.trim()
+                  }
+                >
+                  {isUpdating ||
+                  (editUploadProps.loading && !editUploadedImagePath) ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {isUpdating
+                    ? "Saving..."
+                    : editUploadProps.loading && !editUploadedImagePath
+                    ? "Uploading..."
+                    : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+      {/* --- End Edit Catalog Dialog --- */}
     </div>
   );
 }

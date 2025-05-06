@@ -415,6 +415,212 @@ export async function createCatalog(
   return { data, error: null };
 }
 
+// --- ADD updateCatalog action ---
+export async function updateCatalog(
+  catalogId: string,
+  newName: string,
+  newImagePath?: string | null // Optional new image path
+) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Verify user is owner
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id")
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can update catalogs." },
+    };
+  }
+  if (!profile.organization_id) {
+    return { error: { message: "User organization context missing." } };
+  }
+
+  // 2. Validate input
+  const trimmedName = newName.trim();
+  if (!trimmedName) {
+    return { error: { message: "Catalog name cannot be empty." } };
+  }
+  if (!catalogId) {
+    return { error: { message: "Catalog ID is required." } };
+  }
+
+  // 3. Fetch current catalog data (to check old image path if needed)
+  const { data: currentCatalog, error: fetchCurrentError } = await supabase
+    .from("catalogs")
+    .select("image_path")
+    .eq("id", catalogId)
+    .eq("organization_id", profile.organization_id) // Ensure it belongs to the user's org
+    .single();
+
+  if (fetchCurrentError) {
+    console.error(
+      "Error fetching current catalog for update:",
+      fetchCurrentError
+    );
+    return { error: { message: "Could not find the catalog to update." } };
+  }
+
+  // 4. Prepare update payload
+  const updatePayload: { name: string; image_path?: string | null } = {
+    name: trimmedName,
+  };
+  // Only include image_path in update if it's explicitly provided (even if null)
+  if (newImagePath !== undefined) {
+    updatePayload.image_path = newImagePath;
+  }
+
+  // 5. Update DB
+  const { data, error: updateError } = await supabase
+    .from("catalogs")
+    .update(updatePayload)
+    .eq("id", catalogId)
+    .eq("organization_id", profile.organization_id) // Redundant check, but good practice
+    .select("id")
+    .single();
+
+  if (updateError) {
+    console.error("Server Action Error (updateCatalog):", updateError);
+    return {
+      error: {
+        message: `Database error updating catalog: ${updateError.message}`,
+      },
+    };
+  }
+
+  // 6. Handle old image deletion (if image path changed)
+  const oldImagePath = currentCatalog?.image_path;
+  if (
+    newImagePath !== undefined &&
+    oldImagePath &&
+    oldImagePath !== newImagePath
+  ) {
+    console.log(`Deleting old catalog image: ${oldImagePath}`);
+    const { error: deleteImageError } = await supabase.storage
+      .from("datasheet-assets") // Use correct bucket name
+      .remove([oldImagePath]);
+    if (deleteImageError) {
+      console.error("Failed to delete old catalog image:", deleteImageError);
+      // Non-fatal error, maybe log it but don't block the update success message?
+      // toast.warning("Catalog updated, but failed to delete old image."); // Can't use toast on server
+    }
+  }
+
+  // 7. Revalidate paths
+  revalidatePath("/dashboard/catalogs");
+  revalidatePath("/dashboard/generator"); // Dropdown might need update
+
+  console.log(`Catalog '${trimmedName}' updated successfully.`);
+  return { data, error: null };
+}
+// ---                         ---
+
+// --- ADD deleteCatalog action ---
+export async function deleteCatalog(catalogId: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Verify user is owner
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id")
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can delete catalogs." },
+    };
+  }
+  if (!profile.organization_id) {
+    return { error: { message: "User organization context missing." } };
+  }
+
+  // 2. Validate input
+  if (!catalogId) {
+    return { error: { message: "Catalog ID is required for deletion." } };
+  }
+
+  // 3. Fetch catalog info (mainly for image path)
+  const { data: catalogToDelete, error: fetchError } = await supabase
+    .from("catalogs")
+    .select("image_path")
+    .eq("id", catalogId)
+    .eq("organization_id", profile.organization_id)
+    .single();
+
+  if (fetchError) {
+    console.error("Error fetching catalog for deletion:", fetchError);
+    // If not found, maybe it was already deleted? Treat as success? Or specific error?
+    return { error: { message: "Could not find the catalog to delete." } };
+  }
+
+  // 4. Delete from DB
+  const { error: deleteDbError } = await supabase
+    .from("catalogs")
+    .delete()
+    .eq("id", catalogId)
+    .eq("organization_id", profile.organization_id);
+
+  if (deleteDbError) {
+    console.error("Server Action Error (deleteCatalog - DB):", deleteDbError);
+    // Check for foreign key violation (if catalog is in use by products)
+    if (deleteDbError.code === "23503") {
+      return {
+        error: {
+          message:
+            "This catalog is currently in use by products and cannot be deleted.",
+        },
+      };
+    }
+    return {
+      error: {
+        message: `Database error deleting catalog: ${deleteDbError.message}`,
+      },
+    };
+  }
+
+  // 5. Delete associated image from storage (if exists)
+  if (catalogToDelete?.image_path) {
+    console.log(`Deleting catalog image: ${catalogToDelete.image_path}`);
+    const { error: deleteImageError } = await supabase.storage
+      .from("datasheet-assets") // Use correct bucket name
+      .remove([catalogToDelete.image_path]);
+    if (deleteImageError) {
+      console.error("Failed to delete catalog image:", deleteImageError);
+      // Non-fatal? Log and continue, or return a warning?
+    }
+  }
+
+  // 6. Revalidate paths
+  revalidatePath("/dashboard/catalogs");
+  revalidatePath("/dashboard/generator"); // Dropdown might need update
+
+  console.log(`Catalog ID '${catalogId}' deleted successfully.`);
+  return { error: null };
+}
+// ---                         ---
+
 // --- Action to Delete Products ---
 export async function deleteProducts(productIds: string[]) {
   if (!productIds || productIds.length === 0) {

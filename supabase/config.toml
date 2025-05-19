@@ -3,5 +3,6 @@
         [functions.generate-datasheet]
         static_files = [
          "./functions/_shared/fonts/*",
-         "./functions/_shared/assets/*"
+         "./functions/_shared/assets/*",
+         "./functions/_shared/templates/*"
         ]

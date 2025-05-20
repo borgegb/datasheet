@@ -16,6 +16,7 @@ import { encode as base64Encode } from "https://deno.land/std@0.177.0/encoding/b
 // --- PDFME Imports ---
 import { generate } from "https://esm.sh/@pdfme/generator@^5.3.0";
 import type { Template, Font } from "https://esm.sh/@pdfme/common@^5.3.0";
+import { rgb } from "https://esm.sh/pdf-lib@^1.17.1"; // Import rgb from pdf-lib
 // Import the schemas you will use as plugins
 import {
   text,
@@ -25,6 +26,234 @@ import {
   rectangle,
 } from "https://esm.sh/@pdfme/schemas@^5.3.0";
 //
+
+// --- SVG Checkmark Definition ---
+const CHECKMARK_SVG =
+  '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#2c5234"/><path d="M11.97 5.97a.75.75 0 0 0-1.06-1.06L7.25 8.56 5.53 6.84a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l4.19-4.18z" fill="#ffffff"/></svg>';
+// --- END SVG Checkmark ---
+
+// --- Helper function to convert hex color to pdf-lib RGB format ---
+const hexToRgb = (
+  hex: string
+): { red: number; green: number; blue: number } => {
+  if (!hex || typeof hex !== "string") return { red: 0, green: 0, blue: 0 }; // Default to black for invalid input
+  hex = hex.replace(/^#/, "");
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  if (hex.length !== 6) {
+    return { red: 0, green: 0, blue: 0 }; // Default to black if not 3 or 6 chars (after #)
+  }
+  const bigint = parseInt(hex, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return { red: r / 255, green: g / 255, blue: b / 255 };
+};
+// --- END Helper ---
+
+// --- Helper: mm → pt (1 mm = 72 / 25.4 pt) ---
+const mm2pt = (mm: number): number => mm * 2.83464567;
+// --- END Helper ---
+
+// --- Custom PDFME Plugin for IconTextList ---
+const iconTextList = {
+  ui: async (arg: any) => {
+    // Minimal UI renderer for server-side Deno: displays simple text fallback.
+    const { rootElement, schema, value } = arg;
+    // Check if rootElement and ownerDocument are available (they won't be in Deno)
+    if (
+      rootElement &&
+      typeof rootElement.ownerDocument !== "undefined" &&
+      rootElement.ownerDocument
+    ) {
+      const container = rootElement.ownerDocument.createElement("div");
+      container.style.width = "100%";
+      container.style.height = "100%";
+      container.style.overflow = "hidden";
+      container.style.fontFamily = schema.fontName || "Helvetica";
+      container.style.fontSize = `${schema.fontSize || 10}pt`;
+      container.style.color = schema.fontColor || "#000000";
+      if (Array.isArray(value)) {
+        value.forEach((item: any) => {
+          const p = rootElement.ownerDocument.createElement("p");
+          p.textContent = `[ICON] ${item.text || ""}`;
+          container.appendChild(p);
+        });
+      }
+      rootElement.appendChild(container);
+    } else {
+      // Fallback for environments without DOM (like Deno server-side)
+      // console.log("iconTextList UI rendering skipped in non-DOM environment.");
+    }
+  },
+  pdf: async (arg: any) => {
+    const { schema, value, pdfDoc, page } = arg;
+
+    /* ------------------------------------------------------------------
+     * 1) Values coming from the template are in millimetres (because the
+     *    template declares the page as 210 × 297 mm).  pdf-lib works in
+     *    points, origin bottom-left.  Therefore we convert the template
+     *    mm values once and then draw everything in absolute page space.
+     * ----------------------------------------------------------------*/
+    const pageHeight = page.getHeight();
+    const {
+      position: { x: mmX, y: mmY } = { x: 0, y: 0 },
+      width: mmWidth = 100,
+      height: mmHeight = 100,
+      fontName = "Inter-Regular",
+      fontSize = 9,
+      fontColor = "#2A2A2A",
+      lineHeight = 1.4,
+      iconWidth = 9,
+      iconHeight = 9,
+      iconTextSpacing = 3,
+      itemSpacing = 3,
+    } = schema;
+
+    // convert block metrics to points
+    const blockXpt = mm2pt(mmX);
+    const blockYpt = mm2pt(mmY); // distance from page top
+    const blockWidthPt = mm2pt(mmWidth);
+    const blockHeightPt = mm2pt(mmHeight);
+
+    const items = Array.isArray(value) ? value : [];
+
+    /* ------------------------------------------------------------------
+     * 2) Prepare font – same logic as before (kept unchanged).
+     * ----------------------------------------------------------------*/
+    const FONTS = arg.options?.font || {};
+    let pdfFont = FONTS[fontName];
+    if (pdfFont?.data instanceof Uint8Array) {
+      pdfFont = await pdfDoc.embedFont(pdfFont.data, { subset: true });
+    }
+    if (!pdfFont) pdfFont = await pdfDoc.embedFont("Helvetica");
+
+    const rgbColor = hexToRgb(fontColor);
+
+    const fontHeight = pdfFont.heightAtSize(fontSize); // ascender+descender
+    const ascent = pdfFont.ascentAtSize
+      ? pdfFont.ascentAtSize(fontSize) // newer pdf-lib
+      : fontHeight * 0.8; // fallback ≈80 %
+
+    /* ------------------------------------------------------------------
+     * 3) Walk through every item and draw using ABSOLUTE PAGE COORDS
+     * ----------------------------------------------------------------*/
+    let yOffsetPt = 0; // distance from top of block to current item start
+
+    for (const item of items) {
+      if (!item?.text) continue;
+
+      // words per line ≈ widthOfTextAtSize / maxWidth
+      const maxWidth = blockWidthPt - (iconWidth + iconTextSpacing);
+      const textWidth = pdfFont.widthOfTextAtSize(item.text, fontSize);
+      const lines = Math.ceil(textWidth / maxWidth);
+
+      // TRUE text block height: first line = fontSize,
+      // every following line adds fontSize*lineHeight
+      const textHeight = lines * fontSize * lineHeight;
+
+      // row height must cover either text or icon
+      const rowHeight = Math.max(textHeight, iconHeight);
+
+      if (yOffsetPt + rowHeight > blockHeightPt) break; // no more space
+
+      // 1) master "row" top for this item (no fontSize subtraction)
+      const rowTop = pageHeight - blockYpt - yOffsetPt;
+
+      // 2) icon: put its TOP exactly at rowTop (experiment)
+      const iconAbsX = blockXpt;
+      const iconAbsY = rowTop; // icon now sits one full line higher
+
+      // 3) text:
+      const textAbsX = blockXpt + iconWidth + iconTextSpacing;
+      const textBaselineY = rowTop - iconHeight * 0.8; // baseline further down so mis-alignment is obvious
+
+      console.log(
+        `iconTextList ► "${item.text.slice(0, 25)}…"  ` +
+          `iconXY=(${iconAbsX.toFixed(1)},${iconAbsY.toFixed(1)}), ` +
+          `textXY=(${textAbsX.toFixed(1)},${textBaselineY.toFixed(1)})`
+      );
+
+      // draw icon
+      if (item.icon) {
+        await page.drawSvg(item.icon, {
+          x: iconAbsX,
+          y: iconAbsY,
+          width: iconWidth,
+          height: iconHeight,
+        });
+      }
+
+      // draw text
+      await page.drawText(item.text, {
+        x: textAbsX,
+        y: textBaselineY,
+        font: pdfFont,
+        size: fontSize,
+        color: rgb(rgbColor.red, rgbColor.green, rgbColor.blue),
+        maxWidth: maxWidth,
+        lineHeight: fontSize * lineHeight,
+      });
+
+      yOffsetPt += rowHeight + itemSpacing;
+    }
+  },
+  propPanel: {
+    schema: {
+      fontName: {
+        type: "string",
+        title: "Font Name",
+        default: "Inter-Regular",
+      },
+      fontSize: { type: "number", title: "Font Size", default: 9 },
+      fontColor: {
+        type: "string",
+        title: "Font Color (hex)",
+        default: "#2A2A2A",
+      },
+      lineHeight: {
+        type: "number",
+        title: "Line Height (multiplier)",
+        default: 1.4,
+      },
+      iconWidth: { type: "number", title: "Icon Width (pt)", default: 9 },
+      iconHeight: { type: "number", title: "Icon Height (pt)", default: 9 },
+      iconTextSpacing: {
+        type: "number",
+        title: "Spacing Icon-Text (pt)",
+        default: 3,
+      },
+      itemSpacing: {
+        type: "number",
+        title: "Spacing Between Items (pt)",
+        default: 3,
+      },
+      iconColor: {
+        type: "string",
+        title: "Icon Color (hex)",
+        default: "#2c5234",
+      },
+    },
+    defaultSchema: {
+      name: "iconTextListDefault", // Added name and made it unique
+      type: "iconTextList",
+      position: { x: 20, y: 20 }, // Sensible default position
+      width: 150, // Sensible default width
+      height: 100, // Sensible default height
+      fontName: "Inter-Regular",
+      fontSize: 9,
+      fontColor: "#2A2A2A",
+      lineHeight: 1.4,
+      iconWidth: 9,
+      iconHeight: 9,
+      iconTextSpacing: 3,
+      itemSpacing: 3,
+      iconColor: "#2c5234",
+    },
+  },
+};
+// --- END Custom PDFME Plugin ---
 
 // --- Helper function for Warranty Text (Keep for now, used in input prep) ---
 const getWarrantyText = (code: string | null): string => {
@@ -57,14 +286,8 @@ const getShippingText = (code: string | null): string => {
 };
 // --- END Helper Functions ---
 
-// --- Remove Base64 constant placeholders for static logos ---
-// const APPLIED_LOGO_BASE64 = "...";
-// const PED_LOGO_BASE64 = "...";
-// const CE_LOGO_BASE64 = "...";
-// const IRELAND_LOGO_BASE64 = "...";
 const DEFAULT_PRODUCT_IMAGE_BASE64 =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Keep for product image fallback
-// --- End Base64 Logo Placeholders ---
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -102,12 +325,10 @@ serve(async (req: Request): Promise<Response> => {
 
     let template: Template;
     let fonts: Font = {};
-    // --- Variables for loaded static logo base64 strings ---
-    let appliedLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64; // Fallback
-    let irelandLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64; // Fallback
-    let pedLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64; // Fallback
-    let ceLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64; // Fallback
-    // -------------------------------------------------------
+    let appliedLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64;
+    let irelandLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64;
+    let pedLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64;
+    let ceLogoBase64Data = DEFAULT_PRODUCT_IMAGE_BASE64;
 
     try {
       const templateFilePath = new URL(
@@ -115,7 +336,7 @@ serve(async (req: Request): Promise<Response> => {
         import.meta.url
       );
       const templateJsonString = await Deno.readTextFile(templateFilePath);
-      template = JSON.parse(templateJsonString) as any as Template;
+      template = JSON.parse(templateJsonString) as Template; // Keep simple cast
       console.log(
         "PDFME template loaded successfully from (attempted):",
         templateFilePath.pathname
@@ -159,7 +380,6 @@ serve(async (req: Request): Promise<Response> => {
         "Custom fonts (Poppins-Bold, Inter-Regular, Inter-Bold) loaded successfully."
       );
 
-      // --- Load Static Logo Files and Convert to Base64 ---
       try {
         const appliedLogoPath = new URL(
           "../_shared/assets/Appliedlogo.jpg",
@@ -171,10 +391,7 @@ serve(async (req: Request): Promise<Response> => {
         )}`;
         console.log("Applied logo loaded and converted to base64.");
       } catch (e) {
-        console.error(
-          "Error loading Applied Main Logo:",
-          e
-        ); /* Falls back to default */
+        console.error("Error loading Applied Main Logo:", e);
       }
 
       try {
@@ -188,13 +405,9 @@ serve(async (req: Request): Promise<Response> => {
         )}`;
         console.log("Ireland logo loaded and converted to base64.");
       } catch (e) {
-        console.error(
-          "Error loading Ireland Logo:",
-          e
-        ); /* Falls back to default */
+        console.error("Error loading Ireland Logo:", e);
       }
 
-      // PED logo
       try {
         const pedLogoPath = new URL(
           "../_shared/assets/ped-logo.png",
@@ -207,7 +420,6 @@ serve(async (req: Request): Promise<Response> => {
         console.error("Error loading PED Logo:", e);
       }
 
-      // CE logo
       try {
         const ceLogoPath = new URL(
           "../_shared/assets/ce-logo.png",
@@ -219,8 +431,6 @@ serve(async (req: Request): Promise<Response> => {
       } catch (e) {
         console.error("Error loading CE Logo:", e);
       }
-      // For PED and CE, we'll use Applied logo as placeholder for now if the flags are set
-      // -----------------------------------------------------
     } catch (loadError: any) {
       console.error(
         "Error loading template or fonts for PDFME (path attempted with '../_shared'):",
@@ -260,7 +470,10 @@ serve(async (req: Request): Promise<Response> => {
         );
       }
       productDataFromSource = dbProduct;
-      console.log("Fetched product data from DB:", productDataFromSource);
+      console.log(
+        "Fetched product data from DB:",
+        /*productDataFromSource*/ "(data logged, omitted for brevity)"
+      );
     } else if (isPreview) {
       productDataFromSource = {
         product_title: previewProductTitle,
@@ -276,7 +489,10 @@ serve(async (req: Request): Promise<Response> => {
         id: "preview-id",
         organization_id: userId ? `user-${userId}-org` : "preview-org-id",
       };
-      console.log("Using preview data directly:", productDataFromSource);
+      console.log(
+        "Using preview data directly:",
+        /*productDataFromSource*/ "(data logged, omitted for brevity)"
+      );
     } else {
       return new Response(
         JSON.stringify({
@@ -319,14 +535,17 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    const keyFeaturesArray = (productDataFromSource.key_features || "")
+    const keyFeaturesRaw = productDataFromSource.key_features || "";
+    const keyFeaturesArray = keyFeaturesRaw
       .split("\n")
-      .map((f: string) => f.trim())
-      .filter((f: string) => f)
-      .map((f: string) => `• ${f}`);
-    const keyFeaturesString = keyFeaturesArray.join("\n");
+      .map((f: string) => f.trim().replace(/\r$/, "").trim()) // Added more robust trimming for \r
+      .filter((f: string) => f);
 
-    // --- Build specifications table from tech_specs JSON or fallback ---
+    const keyFeaturesForPdfme = keyFeaturesArray.map((featureText: string) => ({
+      icon: CHECKMARK_SVG,
+      text: featureText,
+    }));
+
     let specsForTable: string[][] = [];
     try {
       const rawSpecs = productDataFromSource.tech_specs;
@@ -346,11 +565,9 @@ serve(async (req: Request): Promise<Response> => {
       console.error("Failed to parse tech_specs JSON:", specParseErr);
     }
 
-    // Fallback to placeholder specs if none parsed
     if (specsForTable.length === 0) {
       specsForTable = [["Specification", "Value"]];
     }
-    // --------------------------------------------------------------------------
 
     const logos = productDataFromSource.optional_logos || {};
     const displayPedLogo = logos.origin === true ? pedLogoBase64Data : "";
@@ -358,7 +575,6 @@ serve(async (req: Request): Promise<Response> => {
     const displayIrelandLogo =
       logos.includeIrelandLogo === true ? irelandLogoBase64Data : "";
 
-    // Construct the single input object for pdfme, matching template (4).json
     const pdfInputs = [
       {
         appliedLogo: appliedLogoBase64Data,
@@ -373,12 +589,10 @@ serve(async (req: Request): Promise<Response> => {
         introParagraph:
           productDataFromSource.description || "No description available.",
         keyFeaturesHeading: "Key Features",
-        keyFeaturesList: keyFeaturesString,
+        keyFeaturesList: keyFeaturesForPdfme,
         productimage: productImageBase64,
         specificationsHeading: "Specifications",
         specificationsTable: specsForTable,
-
-        // Re-enable these inputs as their schemas are now in the template
         warrantyText: getWarrantyText(productDataFromSource.warranty),
         shippingText: getShippingText(productDataFromSource.shipping_info),
         shippingHeading: "Shipping Information",
@@ -387,12 +601,13 @@ serve(async (req: Request): Promise<Response> => {
         irelandLogo: displayIrelandLogo,
       },
     ];
-    console.log("PDFME Inputs with MINIMAL table data:", pdfInputs);
+    // console.log("PDFME Inputs prepared:", JSON.stringify(pdfInputs).substring(0, 500) + "..."); // Log snippet
 
     console.log("Generating PDF with pdfme...");
     let pdfBytes: Uint8Array;
     try {
       pdfBytes = await generate({
+        // Type for template is just Template, should be fine.
         template,
         inputs: pdfInputs,
         options: { font: fonts },
@@ -400,8 +615,9 @@ serve(async (req: Request): Promise<Response> => {
           text,
           image,
           line,
-          Table: table,
+          Table: table, // Ensure 'Table' matches type if casing matters.
           rectangle,
+          iconTextList: iconTextList, // Register the new plugin
         },
       });
       console.log("PDF generated with pdfme (Size:", pdfBytes.length, "bytes)");
@@ -449,9 +665,9 @@ serve(async (req: Request): Promise<Response> => {
       const orgId = productDataFromSource.organization_id;
       const safeTitle = (
         productDataFromSource.product_title || "product"
-      ).replace(/[^a-zA-Z0-9_\\-\\.]/g, "_");
+      ).replace(/[^a-zA-Z0-9_\-\.]/g, "_");
       const safeCode = (productDataFromSource.product_code || "code").replace(
-        /[^a-zA-Z0-9_\\-\\.]/g,
+        /[^a-zA-Z0-9_\-\.]/g,
         "_"
       );
       const pdfFileName = `${safeTitle}-${safeCode}.pdf`;

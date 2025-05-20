@@ -107,17 +107,20 @@
         "verticalAlignment": "middle"
       },
       {
-        "type": "text",
+        "type": "iconTextList",
         "name": "keyFeaturesList",
         "position": { "x": 22, "y": 83 },
         "width": 100,
-        "height": 89,
+        "height": 150,
         "fontName": "Inter-Regular",
         "fontSize": 9,
         "fontColor": "#2A2A2A",
-        "alignment": "left",
         "lineHeight": 1.4,
-        "verticalAlignment": "top"
+        "iconWidth": 10,
+        "iconHeight": 10,
+        "iconTextSpacing": 6,
+        "itemSpacing": 6,
+        "iconColor": "#2c5234"
       },
       {
         "type": "image",
@@ -154,10 +157,11 @@
         "position": { "x": 22, "y": 183 },
         "width": 177,
         "height": 45,
+
         "content": "",
         "showHead": false,
         "head": ["Property", "Value"],
-        "headWidthPercentages": [40, 60],
+        "headWidthPercentages": [50, 50],
         "fontName": "Inter-Regular",
         "tableStyles": {
           "borderColor": "#CCCCCC",

@@ -295,6 +295,19 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } }
 );
 
+// --- Global diagnostics for uncaught errors (helps with "Uncaught null") ---
+if (!globalThis.__diagnosticsInstalled) {
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    console.error("[unhandledrejection]", event.reason);
+  });
+  globalThis.addEventListener("error", (event) => {
+    console.error("[error]", event.error || event.message);
+  });
+  // flag so not added twice on hot-reload
+  globalThis.__diagnosticsInstalled = true;
+}
+// --- END diagnostics ---
+
 serve(async (req: Request): Promise<Response> => {
   console.log("--- generate-datasheet (pdfme) handler entered ---");
   if (req.method === "OPTIONS") {

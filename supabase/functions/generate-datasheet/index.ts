@@ -621,22 +621,27 @@ serve(async (req: Request): Promise<Response> => {
         },
       });
       console.log("PDF generated with pdfme (Size:", pdfBytes.length, "bytes)");
-    } catch (pdfGenError: any) {
-      console.error(
-        "Error during PDFME generation:",
-        pdfGenError,
-        pdfGenError.stack
-      );
-      return new Response(
-        JSON.stringify({
-          error: `PDF Generation Failed: ${pdfGenError.message}`,
-          stack: pdfGenError.stack,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
+    } catch (error) {
+      console.error("Error generating PDF (raw):", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : error !== null &&
+            typeof error === "object" &&
+            "message" in error &&
+            typeof error.message === "string"
+          ? error.message
+          : error === null
+          ? "Unknown error (null thrown)"
+          : typeof error === "string"
+          ? error
+          : "An unknown error occurred during PDF generation.";
+      console.error("Error generating PDF (processed message):", errorMessage);
+
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+        status: 500,
+      });
     }
 
     if (isPreview) {
@@ -731,14 +736,25 @@ serve(async (req: Request): Promise<Response> => {
     console.error(
       "--- Error in generate-datasheet function (pdfme) ---",
       error,
-      error.stack
+      error?.stack
     );
-    return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : error !== null &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof (error as any).message === "string"
+        ? (error as any).message
+        : error === null
+        ? "Unknown error (null thrown)"
+        : typeof error === "string"
+        ? error
+        : "An unknown error occurred during PDF generation.";
+
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });

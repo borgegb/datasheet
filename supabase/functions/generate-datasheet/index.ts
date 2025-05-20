@@ -296,15 +296,18 @@ const supabaseAdmin = createClient(
 );
 
 // --- Global diagnostics for uncaught errors (helps with "Uncaught null") ---
-if (!globalThis.__diagnosticsInstalled) {
-  globalThis.addEventListener("unhandledrejection", (event) => {
-    console.error("[unhandledrejection]", event.reason);
-  });
-  globalThis.addEventListener("error", (event) => {
-    console.error("[error]", event.error || event.message);
+if (!(globalThis as any).__diagnosticsInstalled) {
+  (globalThis as any).addEventListener(
+    "unhandledrejection",
+    (event: PromiseRejectionEvent) => {
+      console.error("[unhandledrejection]", event.reason);
+    }
+  );
+  (globalThis as any).addEventListener("error", (event: ErrorEvent) => {
+    console.error("[error]", (event as any).error || event.message);
   });
   // flag so not added twice on hot-reload
-  globalThis.__diagnosticsInstalled = true;
+  (globalThis as any).__diagnosticsInstalled = true;
 }
 // --- END diagnostics ---
 

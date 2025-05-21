@@ -3,8 +3,8 @@ FROM node:20-alpine
 # Install git
 RUN apk add --no-cache git
 
-# Create a non-root user and switch to it
-RUN addgroup -S nodejs && adduser -S node -G nodejs
+# The base image node:20-alpine already includes a 'node' user.
+# We can switch to it directly.
 USER node
 
 # Set the working directory

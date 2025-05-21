@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 // import Image from "next/image"; // Removed Image
+import { FC } from 'react';
 
-export default function Hero() {
+const Hero: FC = () => {
   return (
     <section className="container flex flex-col items-center justify-center text-center py-20 md:py-32">
       {/* Adjusted layout to single column centered */}
@@ -37,3 +38,5 @@ export default function Hero() {
     </section>
   );
 }
+
+export default Hero;

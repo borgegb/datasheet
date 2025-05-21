@@ -3,5 +3,10 @@
     "dockerfile": "Dockerfile",
     "context": "."
   },
-  "terminals": []
+  "terminals": [
+    {
+      "name": "supabase",
+      "command": "supabase start"
+    }
+  ]
 }

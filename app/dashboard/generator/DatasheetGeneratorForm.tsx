@@ -429,69 +429,81 @@ export default function DatasheetGeneratorForm({
 
       // Define async function inside useEffect to chain async calls
       const generateAndOpenPdf = async () => {
-        setIsGeneratingPdf(true);
-        const supabase = createClient();
-        const generationToastId = toast.loading("Generating PDF...");
+        if (!user) {
+          toast.error("You must be logged in to generate a PDF.");
+          return;
+        }
+        if (!savedProductId) {
+          toast.error(
+            "Please save the datasheet first before generating the PDF."
+          );
+          return;
+        }
+
+        setIsGeneratingPdf(true); // Use the new state for Vercel generation
+        toast.info("🚀 Your PDF is being generated...", { duration: 10000 }); // Longer duration
 
         try {
-          // Call Edge function
-          const { data: generateData, error: generateError } =
-            await supabase.functions.invoke("generate-datasheet", {
-              body: { productId: savedProductId, userId: user.id },
-            });
+          // Prepare payload - ensure it matches what the Vercel function expects
+          const payload = {
+            productId: savedProductId,
+            // userId: user.id, // Optional: Vercel function might not need userId if product ID is enough
+            // any other data needed by buildPdf, if not fetched via productId by the Vercel function
+          };
 
-          if (generateError)
-            throw new Error(
-              `Generation function error: ${generateError.message}`
-            );
-          if (generateData.error)
-            throw new Error(`PDF generation failed: ${generateData.error}`);
-          if (!generateData.pdfStoragePath)
-            throw new Error("PDF storage path not returned from function.");
+          console.log("Payload for Vercel function:", payload);
 
-          console.log("PDF generated, path:", generateData.pdfStoragePath);
-
-          // --- Generate Signed URL ---
-          const expiresIn = 60; // URL valid for 60 seconds
-          const { data: signedUrlData, error: signedUrlError } =
-            await supabase.storage
-              .from("datasheet-assets")
-              .createSignedUrl(generateData.pdfStoragePath, expiresIn);
-
-          if (signedUrlError)
-            throw new Error(
-              `Could not create signed URL: ${signedUrlError.message}`
-            );
-          if (!signedUrlData?.signedUrl)
-            throw new Error("Signed URL data is missing.");
-
-          const signedUrl = signedUrlData.signedUrl;
-          console.log("Generated Signed URL:", signedUrl);
-          // ---------------------------
-
-          // --- Show success toast with View Button ---
-          toast.success("PDF generated successfully!", {
-            id: generationToastId, // Use ID to dismiss previous loading toast
-            description: "Click the button to view your generated PDF.",
-            action: (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(signedUrl, "_blank")}
-              >
-                View PDF
-              </Button>
-            ),
-            duration: 15000, // Keep toast longer so user can click
+          // NEW — calls the Vercel route
+          const res = await fetch("/api/generate-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           });
-          // -----------------------------------------
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({
+              error: `Request failed with status ${res.status}`,
+            }));
+            throw new Error(
+              errorData.error || `PDF generation failed: ${res.statusText}`
+            );
+          }
+
+          const { url, error: apiError } = await res.json();
+
+          if (apiError) {
+            throw new Error(apiError.message || apiError);
+          }
+
+          if (url) {
+            // toast.success("✅ PDF ready! Opening in a new tab.");
+            // window.open(url, "_blank"); // Don't open automatically
+
+            // --- Show success toast with View Button (Re-added) ---
+            toast.success("✅ PDF generated successfully!", {
+              description: "Click the button to view your generated PDF.",
+              action: (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(url, "_blank")}
+                >
+                  View PDF
+                </Button>
+              ),
+              duration: 15000, // Keep toast longer so user can click
+            });
+            // -----------------------------------------------------
+          } else {
+            throw new Error("PDF URL not found in response.");
+          }
         } catch (error: any) {
-          console.error("Error during PDF generation/download:", error);
-          toast.dismiss(generationToastId);
-          toast.error(`Failed to generate or open PDF: ${error.message}`);
+          console.error("Error generating or opening PDF:", error);
+          toast.error(
+            `Failed to generate PDF: ${error.message || "Unknown error"}`
+          );
         } finally {
           setIsGeneratingPdf(false);
-          setIsDownloadingPdf(false);
         }
       };
 

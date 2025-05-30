@@ -110,8 +110,8 @@ export default function DatasheetGeneratorForm({
   >(
     [] // Initialize empty
   );
-  const [price, setPrice] = useState(initialData?.price || "");
-  const [weight, setWeight] = useState(initialData?.weight || "");
+  const [weightValue, setWeightValue] = useState("");
+  const [weightUnit, setWeightUnit] = useState("kg");
   const [keyFeatures, setKeyFeatures] = useState(
     initialData?.key_features || ""
   );
@@ -170,6 +170,16 @@ export default function DatasheetGeneratorForm({
     null
   );
   // ---------------------------------------------
+
+  // Character and line limits
+  const DESCRIPTION_MAX_CHARS = 500;
+  const KEY_FEATURES_MAX_CHARS = 300;
+  const KEY_FEATURES_MAX_LINES = 7;
+
+  // Helper function to count lines
+  const countLines = (text: string): number => {
+    return text.split("\n").filter((line) => line.trim().length > 0).length;
+  };
 
   // useEffect to fetch USER, PROFILE, and CATEGORIES
   useEffect(() => {
@@ -277,8 +287,15 @@ export default function DatasheetGeneratorForm({
       setProductTitle(initialData.product_title || "");
       setProductCode(initialData.product_code || "");
       setDescription(initialData.description || "");
-      setPrice(initialData.price || "");
-      setWeight(initialData.weight || "");
+      // Parse weight value and unit
+      if (initialData.weight) {
+        const weightParts = initialData.weight.split(" ");
+        setWeightValue(weightParts[0] || "");
+        setWeightUnit(weightParts[1] || "kg");
+      } else {
+        setWeightValue("");
+        setWeightUnit("kg");
+      }
       setKeyFeatures(initialData.key_features || "");
       setWarranty(initialData.warranty || "");
       setShippingInfo(initialData.shipping_info || "");
@@ -379,8 +396,8 @@ export default function DatasheetGeneratorForm({
       setProductCode("");
       setDescription("");
       setSpecs([]);
-      setPrice("");
-      setWeight("");
+      setWeightValue("");
+      setWeightUnit("kg");
       setKeyFeatures("");
       setWarranty("");
       setShippingInfo("");
@@ -534,7 +551,7 @@ export default function DatasheetGeneratorForm({
       description,
       keyFeatures,
       specs,
-      weight,
+      weight: weightValue && weightUnit ? `${weightValue} ${weightUnit}` : "",
       warranty,
       shippingInfo,
       imagePath: uploadedImagePath,
@@ -755,24 +772,42 @@ export default function DatasheetGeneratorForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="price">Price</Label>
-                <Input
-                  name="price"
-                  id="price"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="e.g., $99.99"
-                  className="mt-1"
-                />
-              </div>
-              <div className="space-y-1.5">
                 <Label htmlFor="weight">Weight</Label>
-                <Input
+                <div className="flex gap-2">
+                  <Input
+                    name="weightValue"
+                    id="weight"
+                    type="number"
+                    value={weightValue}
+                    onChange={(e) => setWeightValue(e.target.value)}
+                    placeholder="42"
+                    className="flex-1"
+                  />
+                  <Select
+                    name="weightUnit"
+                    value={weightUnit}
+                    onValueChange={setWeightUnit}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kg">kg</SelectItem>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="lbs">lbs</SelectItem>
+                      <SelectItem value="oz">oz</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Hidden input to combine weight value and unit */}
+                <input
+                  type="hidden"
                   name="weight"
-                  id="weight"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  placeholder="e.g., 2 kg, 5 lbs"
+                  value={
+                    weightValue && weightUnit
+                      ? `${weightValue} ${weightUnit}`
+                      : ""
+                  }
                 />
               </div>
             </div>
@@ -787,12 +822,21 @@ export default function DatasheetGeneratorForm({
                   name="description"
                   id="description"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= DESCRIPTION_MAX_CHARS) {
+                      setDescription(value);
+                    }
+                  }}
                   placeholder="Describe the product..."
                   className="mt-1"
                   rows={4}
+                  maxLength={DESCRIPTION_MAX_CHARS}
                   required
                 />
+                <div className="text-sm text-muted-foreground text-right">
+                  {description.length}/{DESCRIPTION_MAX_CHARS} characters
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="key-features">Key Features</Label>
@@ -800,10 +844,24 @@ export default function DatasheetGeneratorForm({
                   name="keyFeatures"
                   id="key-features"
                   value={keyFeatures}
-                  onChange={(e) => setKeyFeatures(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const lineCount = countLines(value);
+                    if (
+                      value.length <= KEY_FEATURES_MAX_CHARS &&
+                      lineCount <= KEY_FEATURES_MAX_LINES
+                    ) {
+                      setKeyFeatures(value);
+                    }
+                  }}
                   placeholder="Enter key features, one per line (will be bulleted)"
                   rows={5}
+                  maxLength={KEY_FEATURES_MAX_CHARS}
                 />
+                <div className="text-sm text-muted-foreground text-right">
+                  {keyFeatures.length}/{KEY_FEATURES_MAX_CHARS} characters •{" "}
+                  {countLines(keyFeatures)}/{KEY_FEATURES_MAX_LINES} lines
+                </div>
               </div>
               <div className="space-y-4 sm:col-span-2">
                 {" "}

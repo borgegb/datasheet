@@ -45,7 +45,7 @@
       {
         "type": "image",
         "name": "appliedLogo",
-        "position": { "x": 160, "y": 18 },
+        "position": { "x": 166, "y": 18 },
         "width": 25,
         "height": 25
       },
@@ -98,7 +98,7 @@
         "name": "keyFeaturesHeading",
         "content": "Key Features",
         "position": { "x": 22, "y": 73 },
-        "width": 100,
+        "width": 104,
         "height": 8,
         "fontName": "Poppins-Bold",
         "fontSize": 12,
@@ -125,7 +125,7 @@
       {
         "type": "image",
         "name": "productimage",
-        "position": { "x": 124, "y": 73 },
+        "position": { "x": 128, "y": 73 },
         "width": 68,
         "height": 99,
         "fit": "contain"
@@ -255,7 +255,7 @@
       {
         "type": "image",
         "name": "pedLogo",
-        "position": { "x": 140, "y": 262 },
+        "position": { "x": 138, "y": 262 },
         "width": 10,
         "height": 10
       },

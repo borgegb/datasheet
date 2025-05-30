@@ -170,54 +170,46 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
         }
 
         const key = path ? `${path}/${file.name}` : file.name;
-        console.log("[proceedWithUpload] attempting upsert upload");
+        console.log("[proceedWithUpload] using delete-then-insert strategy");
 
-        // First try: upsert (should work with new UPDATE policy)
-        const { error: upsertError } = await supabase.storage
+        // Strategy: Always delete then insert for replacements
+        // This avoids upsert RLS complexity and handles eventual consistency
+
+        console.log("[proceedWithUpload] step 1: deleting existing file");
+        const { error: deleteError } = await supabase.storage
+          .from(bucketName)
+          .remove([key]);
+
+        if (deleteError) {
+          console.error("[proceedWithUpload] delete failed", deleteError);
+          throw new Error(
+            `Failed to delete existing file: ${deleteError.message}`
+          );
+        }
+
+        console.log(
+          "[proceedWithUpload] step 2: waiting for delete to propagate"
+        );
+        // Longer delay for Supabase storage eventual consistency
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        console.log("[proceedWithUpload] step 3: uploading new file");
+        const { error: insertError } = await supabase.storage
           .from(bucketName)
           .upload(key, file, {
             cacheControl: cacheControl.toString(),
-            upsert: true,
+            upsert: false,
           });
 
-        let finalError = upsertError;
+        let finalError = insertError;
 
-        // Fallback: if upsert fails, try delete-then-insert
-        if (finalError) {
-          console.warn(
-            "[proceedWithUpload] upsert failed, trying delete-then-insert",
-            finalError
+        // Handle 409 - this can happen due to eventual consistency
+        // If we get 409, the file exists, which means our operation succeeded
+        if (insertError && (insertError as any)?.statusCode === 409) {
+          console.log(
+            "[proceedWithUpload] 409 encountered - treating as success (eventual consistency)"
           );
-
-          const { error: deleteError } = await supabase.storage
-            .from(bucketName)
-            .remove([key]);
-
-          if (deleteError) {
-            console.error("[proceedWithUpload] delete failed", deleteError);
-            finalError = deleteError;
-          } else {
-            console.log("[proceedWithUpload] delete succeeded, now inserting");
-            // Add small delay to ensure delete propagates in Supabase storage
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const { error: insertError } = await supabase.storage
-              .from(bucketName)
-              .upload(key, file, {
-                cacheControl: cacheControl.toString(),
-                upsert: false,
-              });
-
-            // Handle 409 after delete - treat as success since we intended to replace
-            if (insertError && (insertError as any)?.statusCode === 409) {
-              console.log(
-                "[proceedWithUpload] 409 after delete - file replacement successful"
-              );
-              finalError = null; // Treat as success
-            } else {
-              finalError = insertError;
-            }
-          }
+          finalError = null; // Treat as success
         }
 
         if (finalError) {

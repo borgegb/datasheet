@@ -125,7 +125,7 @@
       {
         "type": "image",
         "name": "productimage",
-        "position": { "x": 120, "y": 73 },
+        "position": { "x": 120, "y": 82 },
         "width": 76,
         "height": 40,
         "fit": "contain"

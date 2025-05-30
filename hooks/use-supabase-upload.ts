@@ -162,7 +162,7 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
 
       try {
         if (!replace) {
-          // If the user chooses to use the existing file, we simply mark it as a success
+          // "Use existing" - just mark as success
           setSuccesses((prev) => [...prev, file.name]);
           setErrors((prev) => prev.filter((e) => e.name !== file.name));
           console.log("[proceedWithUpload] marked as success (use existing)");
@@ -170,59 +170,23 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
         }
 
         const key = path ? `${path}/${file.name}` : file.name;
-        console.log("[proceedWithUpload] using delete-then-insert strategy");
+        console.log("[proceedWithUpload] using .update() method for overwrite");
 
-        // Strategy: Always delete then insert for replacements
-        // This avoids upsert RLS complexity and handles eventual consistency
-
-        console.log("[proceedWithUpload] step 1: deleting existing file");
-        const { error: deleteError } = await supabase.storage
+        // Use .update() method - requires SELECT + UPDATE policies (both now exist)
+        const { error } = await supabase.storage
           .from(bucketName)
-          .remove([key]);
-
-        if (deleteError) {
-          console.error("[proceedWithUpload] delete failed", deleteError);
-          throw new Error(
-            `Failed to delete existing file: ${deleteError.message}`
-          );
-        }
-
-        console.log(
-          "[proceedWithUpload] step 2: waiting for delete to propagate"
-        );
-        // Longer delay for Supabase storage eventual consistency
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        console.log("[proceedWithUpload] step 3: uploading new file");
-        const { error: insertError } = await supabase.storage
-          .from(bucketName)
-          .upload(key, file, {
+          .update(key, file, {
             cacheControl: cacheControl.toString(),
-            upsert: false,
           });
 
-        let finalError = insertError;
-
-        // Handle 409 - this can happen due to eventual consistency
-        // If we get 409, the file exists, which means our operation succeeded
-        if (insertError && (insertError as any)?.statusCode === 409) {
-          console.log(
-            "[proceedWithUpload] 409 encountered - treating as success (eventual consistency)"
-          );
-          finalError = null; // Treat as success
+        if (error) {
+          console.error("[proceedWithUpload] update failed", error);
+          throw error;
         }
 
-        if (finalError) {
-          console.error("[proceedWithUpload] final error", finalError);
-          setErrors((prev) => [
-            ...prev.filter((e) => e.name !== file.name),
-            { name: file.name, message: finalError.message },
-          ]);
-        } else {
-          console.log("[proceedWithUpload] upload success");
-          setSuccesses((prev) => [...prev, file.name]);
-          setErrors((prev) => prev.filter((e) => e.name !== file.name));
-        }
+        console.log("[proceedWithUpload] file replaced successfully");
+        setSuccesses((prev) => [...prev, file.name]);
+        setErrors((prev) => prev.filter((e) => e.name !== file.name));
       } catch (err) {
         console.error("[proceedWithUpload] unexpected error", err);
         setErrors((prev) => [

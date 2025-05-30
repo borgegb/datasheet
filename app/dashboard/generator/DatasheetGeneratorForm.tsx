@@ -1130,7 +1130,7 @@ export default function DatasheetGeneratorForm({
                     placeholder="4"
                     className="w-20"
                     min="1"
-                    max="20"
+                    max="1000"
                   />
                 </div>
                 {/* Preview of shipping text */}

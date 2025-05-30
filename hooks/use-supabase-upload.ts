@@ -198,13 +198,25 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
             finalError = deleteError;
           } else {
             console.log("[proceedWithUpload] delete succeeded, now inserting");
+            // Add small delay to ensure delete propagates in Supabase storage
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
             const { error: insertError } = await supabase.storage
               .from(bucketName)
               .upload(key, file, {
                 cacheControl: cacheControl.toString(),
                 upsert: false,
               });
-            finalError = insertError;
+
+            // Handle 409 after delete - treat as success since we intended to replace
+            if (insertError && (insertError as any)?.statusCode === 409) {
+              console.log(
+                "[proceedWithUpload] 409 after delete - file replacement successful"
+              );
+              finalError = null; // Treat as success
+            } else {
+              finalError = insertError;
+            }
           }
         }
 

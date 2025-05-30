@@ -256,22 +256,22 @@
         "type": "image",
         "name": "pedLogo",
         "position": { "x": 140, "y": 262 },
-        "width": 8,
-        "height": 8
+        "width": 10,
+        "height": 10
       },
       {
         "type": "image",
         "name": "ceLogo",
         "position": { "x": 150, "y": 262 },
-        "width": 8,
-        "height": 8
+        "width": 10,
+        "height": 10
       },
       {
         "type": "image",
         "name": "irelandLogo",
         "position": { "x": 162, "y": 249 },
-        "width": 31,
-        "height": 33
+        "width": 35,
+        "height": 40
       }
     ]
   ]

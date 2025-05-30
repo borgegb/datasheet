@@ -45,7 +45,7 @@
       {
         "type": "image",
         "name": "appliedLogo",
-        "position": { "x": 174, "y": 18 },
+        "position": { "x": 160, "y": 18 },
         "width": 25,
         "height": 25
       },

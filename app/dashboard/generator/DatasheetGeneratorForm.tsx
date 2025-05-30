@@ -173,7 +173,7 @@ export default function DatasheetGeneratorForm({
 
   // Character and line limits
   const DESCRIPTION_MAX_CHARS = 500;
-  const KEY_FEATURES_MAX_CHARS = 300;
+  const KEY_FEATURES_MAX_CHARS = 1000;
   const KEY_FEATURES_MAX_LINES = 7;
 
   // Helper function to count lines

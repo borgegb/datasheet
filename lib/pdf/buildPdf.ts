@@ -38,9 +38,19 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
   } = input;
 
   // 1. Load template JSON and fonts from the filesystem (relative to project root, in `pdf/` directory)
+  // Choose template based on image orientation
+  const isLandscape = productDataFromSource.image_orientation === "landscape";
+  const templateFileName = isLandscape
+    ? "datasheet-template-landscape.json"
+    : "datasheet-template.json";
   const templatePath = path.resolve(
     process.cwd(),
-    "pdf/template/datasheet-template.json"
+    `pdf/template/${templateFileName}`
+  );
+
+  console.log(
+    `Loading ${isLandscape ? "landscape" : "portrait"} template from:`,
+    templatePath
   );
   const fontDir = path.resolve(process.cwd(), "pdf/fonts");
 

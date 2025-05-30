@@ -130,6 +130,7 @@ export async function POST(req: Request) {
         warranty: previewData.warranty,
         shipping_info: previewData.shippingInfo,
         image_path: previewData.imagePath, // This would be a path/URL from client for preview
+        image_orientation: previewData.imageOrientation,
         optional_logos: previewData.optionalLogos || {},
         organization_id: previewData.userId
           ? `user-${previewData.userId}-org-preview`

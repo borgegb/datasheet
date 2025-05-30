@@ -272,8 +272,18 @@ const getWarrantyText = (code: string | null): string => {
 };
 
 // --- Helper function for Shipping Text (Keep for now, used in input prep) ---
-const getShippingText = (code: string | null): string => {
-  switch (code) {
+const getShippingText = (
+  codeOrUnits: string | null,
+  productTitle?: string
+): string => {
+  // Check if it's a number (our units)
+  const units = parseInt(codeOrUnits || "4");
+  if (!isNaN(units) && productTitle) {
+    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+  }
+
+  // Fallback to existing code-based logic
+  switch (codeOrUnits) {
     case "expedited":
       return "The Applied 20 Litre Classic Blast Machine will be securely mounted on a wooden pallet measuring 1200mm x 1000mm. Please note that up to four units can be shipped on a single pallet. To maximise value and efficiency, we recommend shipping the full quantity per pallet whenever possible.";
     case "std":
@@ -610,7 +620,10 @@ serve(async (req: Request): Promise<Response> => {
         specificationsHeading: "Specifications",
         specificationsTable: specsForTable,
         warrantyText: getWarrantyText(productDataFromSource.warranty),
-        shippingText: getShippingText(productDataFromSource.shipping_info),
+        shippingText: getShippingText(
+          productDataFromSource.shipping_info,
+          productDataFromSource.product_title
+        ),
         shippingHeading: "Shipping Information",
         pedLogo: displayPedLogo,
         ceLogo: displayCeLogo,

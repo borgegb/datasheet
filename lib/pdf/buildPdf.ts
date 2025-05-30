@@ -142,7 +142,10 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
       specificationsHeading: "Specifications", // Also could be static in template
       specificationsTable: specsForTable,
       warrantyText: getWarrantyText(productDataFromSource.warranty), // From helpers.ts
-      shippingText: getShippingText(productDataFromSource.shipping_info), // From helpers.ts
+      shippingText: getShippingText(
+        productDataFromSource.shipping_info,
+        productDataFromSource.product_title
+      ), // From helpers.ts
       shippingHeading: "Shipping Information", // Also could be static in template
       pedLogo: displayPedLogo,
       ceLogo: displayCeLogo,

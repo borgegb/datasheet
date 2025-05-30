@@ -566,7 +566,7 @@ export default function DatasheetGeneratorForm({
       specs,
       weight: weightValue && weightUnit ? `${weightValue} ${weightUnit}` : "",
       warranty,
-      shippingInfo: generateShippingText(),
+      shippingInfo: shippingUnits,
       imagePath: uploadedImagePath,
       imageOrientation,
       optionalLogos: {
@@ -950,40 +950,6 @@ export default function DatasheetGeneratorForm({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="shipping-info">Shipping Info</Label>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="shipping-units" className="text-sm">
-                      Units per pallet:
-                    </Label>
-                    <Input
-                      name="shippingUnits"
-                      id="shipping-units"
-                      type="number"
-                      value={shippingUnits}
-                      onChange={(e) => setShippingUnits(e.target.value)}
-                      placeholder="4"
-                      className="w-20"
-                      min="1"
-                      max="20"
-                    />
-                  </div>
-                  {/* Preview of shipping text */}
-                  <div className="bg-muted p-3 rounded-md border">
-                    <Label className="text-sm font-medium text-muted-foreground">
-                      Preview:
-                    </Label>
-                    <p className="text-sm mt-1">{generateShippingText()}</p>
-                  </div>
-                  {/* Hidden input for form submission */}
-                  <input
-                    type="hidden"
-                    name="shippingInfo"
-                    value={generateShippingText()}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
                 <Label>Image Orientation</Label>
                 <input
                   type="hidden"
@@ -1147,7 +1113,43 @@ export default function DatasheetGeneratorForm({
               </div>
             </div>
 
-            {/* Section 4: Image Upload */}
+            {/* Section 4: Shipping Info - Full Width */}
+            <div className="space-y-1.5">
+              <Label htmlFor="shipping-info">Shipping Info</Label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="shipping-units" className="text-sm">
+                    Units per pallet:
+                  </Label>
+                  <Input
+                    name="shippingUnits"
+                    id="shipping-units"
+                    type="number"
+                    value={shippingUnits}
+                    onChange={(e) => setShippingUnits(e.target.value)}
+                    placeholder="4"
+                    className="w-20"
+                    min="1"
+                    max="20"
+                  />
+                </div>
+                {/* Preview of shipping text */}
+                <div className="bg-muted p-3 rounded-md border">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Preview:
+                  </Label>
+                  <p className="text-sm mt-1">{generateShippingText()}</p>
+                </div>
+                {/* Hidden input for form submission */}
+                <input
+                  type="hidden"
+                  name="shippingInfo"
+                  value={shippingUnits}
+                />
+              </div>
+            </div>
+
+            {/* Section 5: Image Upload */}
             <div className="space-y-1.5">
               <Label htmlFor="product-image">Product Image</Label>
               {user ? (

@@ -116,9 +116,7 @@ export default function DatasheetGeneratorForm({
     initialData?.key_features || ""
   );
   const [warranty, setWarranty] = useState(initialData?.warranty || "");
-  const [shippingInfo, setShippingInfo] = useState(
-    initialData?.shipping_info || ""
-  );
+  const [shippingUnits, setShippingUnits] = useState("4");
   const [imageOrientation, setImageOrientation] = useState(
     initialData?.image_orientation || "portrait"
   );
@@ -179,6 +177,13 @@ export default function DatasheetGeneratorForm({
   // Helper function to count lines
   const countLines = (text: string): number => {
     return text.split("\n").filter((line) => line.trim().length > 0).length;
+  };
+
+  // Helper function to generate shipping text
+  const generateShippingText = (): string => {
+    const productName = productTitle || "[Product Name]";
+    const units = shippingUnits || "4";
+    return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
   };
 
   // useEffect to fetch USER, PROFILE, and CATEGORIES
@@ -298,7 +303,15 @@ export default function DatasheetGeneratorForm({
       }
       setKeyFeatures(initialData.key_features || "");
       setWarranty(initialData.warranty || "");
-      setShippingInfo(initialData.shipping_info || "");
+      // Parse shipping units from existing shipping_info if it contains a number
+      if (initialData.shipping_info) {
+        const unitsMatch = initialData.shipping_info.match(
+          /Up to\s+(\d+)\s+units/
+        );
+        setShippingUnits(unitsMatch ? unitsMatch[1] : "4");
+      } else {
+        setShippingUnits("4");
+      }
       setImageOrientation(initialData.image_orientation || "portrait");
       setUploadedImagePath(initialData.image_path || null);
       // Logos need careful handling of null/undefined optional_logos
@@ -400,7 +413,7 @@ export default function DatasheetGeneratorForm({
       setWeightUnit("kg");
       setKeyFeatures("");
       setWarranty("");
-      setShippingInfo("");
+      setShippingUnits("4");
       setImageOrientation("portrait");
       setIncludeCeLogo(false);
       setIncludeOriginLogo(false);
@@ -553,7 +566,7 @@ export default function DatasheetGeneratorForm({
       specs,
       weight: weightValue && weightUnit ? `${weightValue} ${weightUnit}` : "",
       warranty,
-      shippingInfo,
+      shippingInfo: generateShippingText(),
       imagePath: uploadedImagePath,
       imageOrientation,
       optionalLogos: {
@@ -938,20 +951,37 @@ export default function DatasheetGeneratorForm({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="shipping-info">Shipping Info</Label>
-                <Select
-                  name="shippingInfo"
-                  value={shippingInfo}
-                  onValueChange={setShippingInfo}
-                >
-                  <SelectTrigger id="shipping-info">
-                    <SelectValue placeholder="Select shipping..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="std">Standard</SelectItem>
-                    <SelectItem value="expedited">Expedited</SelectItem>
-                    <SelectItem value="freight">Freight</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="shipping-units" className="text-sm">
+                      Units per pallet:
+                    </Label>
+                    <Input
+                      name="shippingUnits"
+                      id="shipping-units"
+                      type="number"
+                      value={shippingUnits}
+                      onChange={(e) => setShippingUnits(e.target.value)}
+                      placeholder="4"
+                      className="w-20"
+                      min="1"
+                      max="20"
+                    />
+                  </div>
+                  {/* Preview of shipping text */}
+                  <div className="bg-muted p-3 rounded-md border">
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Preview:
+                    </Label>
+                    <p className="text-sm mt-1">{generateShippingText()}</p>
+                  </div>
+                  {/* Hidden input for form submission */}
+                  <input
+                    type="hidden"
+                    name="shippingInfo"
+                    value={generateShippingText()}
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Image Orientation</Label>

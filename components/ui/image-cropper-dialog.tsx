@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 interface ImageCropperDialogProps {
   open: boolean;
   file: File | null;
-  aspect?: number; // aspect ratio e.g. 4/3
   onCancel: () => void;
   onSave: (file: File) => void;
 }
@@ -58,7 +57,6 @@ async function getCroppedBlob(
 export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
   open,
   file,
-  aspect = 4 / 3,
   onCancel,
   onSave,
 }) => {
@@ -70,6 +68,11 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
     x: number;
     y: number;
   } | null>(null);
+
+  // Aspect ratio selector: portrait (3/4), landscape (4/3), free (undefined)
+  const PORTRAIT = 3 / 4;
+  const LANDSCAPE = 4 / 3;
+  const [aspect, setAspect] = useState<number | undefined>(PORTRAIT);
 
   const onCropComplete = useCallback((_area, areaPixels) => {
     setCroppedAreaPixels(areaPixels);
@@ -98,7 +101,42 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="max-w-3xl w-full">
-        <DialogHeader>Crop Image</DialogHeader>
+        <DialogHeader className="flex flex-col gap-2">
+          <span>Crop Image</span>
+          {/* Aspect ratio selector */}
+          <div className="flex items-center gap-4 text-sm">
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name="aspect"
+                value="portrait"
+                checked={aspect === PORTRAIT}
+                onChange={() => setAspect(PORTRAIT)}
+              />
+              Portrait
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name="aspect"
+                value="landscape"
+                checked={aspect === LANDSCAPE}
+                onChange={() => setAspect(LANDSCAPE)}
+              />
+              Landscape
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name="aspect"
+                value="free"
+                checked={aspect === undefined}
+                onChange={() => setAspect(undefined)}
+              />
+              Free
+            </label>
+          </div>
+        </DialogHeader>
         <div className="relative w-full h-[400px] bg-black/80">
           <Cropper
             image={imageUrl}

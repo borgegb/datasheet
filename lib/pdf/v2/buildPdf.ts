@@ -7,6 +7,7 @@ import {
   table,
   getDynamicHeightsForTable,
 } from "@pdfme/schemas";
+import { getDefaultFont } from "@pdfme/common";
 import type { Template } from "@pdfme/common";
 
 interface BuildPdfInput {
@@ -116,6 +117,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   const pdfBytes = await generate({
     template,
     inputs: pdfInputs,
+    options: { font: getDefaultFont() },
     plugins: { text, image, line, rectangle, Table: table },
   });
 

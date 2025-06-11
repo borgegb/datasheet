@@ -34,7 +34,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
   // ---- Dynamically resize the Specs table so it never bleeds into the blocks underneath ----
   // DEBUG: log raw specifications table input
-  // eslint-disable-next-line no-console
   console.log("rawTable", JSON.stringify(input.specificationsTable));
 
   const truncatedTable = input.specificationsTable.map((row) =>
@@ -48,7 +47,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   );
 
   // DEBUG: log cleaned/truncated table
-  // eslint-disable-next-line no-console
   console.log("cleanTable", JSON.stringify(truncatedTable));
 
   const specsTableNode = (template as any).schemas?.[0]?.find(
@@ -67,6 +65,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       );
       const accurateHeightMm = dynamicHeights.reduce((sum, h) => sum + h, 0);
       specsTableNode.height = accurateHeightMm;
+      console.log("rowHeights", dynamicHeights);
     } catch (_) {}
   }
 

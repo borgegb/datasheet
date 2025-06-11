@@ -183,8 +183,8 @@
       {
         "type": "table",
         "name": "specificationsTable",
-        "position": { "x": 22, "y": 183 },
-        "width": 177,
+        "position": { "x": 22, "y": 188 },
+        "width": 175,
         "height": 45,
         "content": "",
         "showHead": false,
@@ -232,7 +232,8 @@
           "alternateBackgroundColor": ""
         },
         "columnStyles": {
-          "alignment": { "0": "left", "1": "left" }
+          "0": { "alignment": "left" },
+          "1": { "alignment": "left" }
         },
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }

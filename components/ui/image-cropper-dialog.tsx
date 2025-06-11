@@ -1,10 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import Cropper from "react-easy-crop";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -16,47 +16,34 @@ interface ImageCropperDialogProps {
 }
 
 async function getCroppedBlob(
-  imageSrc: string,
-  crop: { x: number; y: number },
-  zoom: number,
-  aspect: number,
+  image: HTMLImageElement,
+  cropAreaPixels: { width: number; height: number; x: number; y: number },
   fileType: string
-): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.src = imageSrc;
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return resolve(null);
+): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = cropAreaPixels.width;
+  canvas.height = cropAreaPixels.height;
+  const ctx = canvas.getContext("2d");
 
-      const naturalWidth = image.naturalWidth;
-      const naturalHeight = image.naturalHeight;
+  if (!ctx) throw new Error("Failed to get canvas context");
 
-      const cropPx = {
-        x: (crop.x * naturalWidth) / 100,
-        y: (crop.y * naturalHeight) / 100,
-        width: (naturalWidth / zoom) * (aspect >= 1 ? 1 : aspect),
-        height: (naturalHeight / zoom) * (aspect >= 1 ? 1 / aspect : 1),
-      };
+  ctx.drawImage(
+    image,
+    cropAreaPixels.x,
+    cropAreaPixels.y,
+    cropAreaPixels.width,
+    cropAreaPixels.height,
+    0,
+    0,
+    cropAreaPixels.width,
+    cropAreaPixels.height
+  );
 
-      canvas.width = cropPx.width;
-      canvas.height = cropPx.height;
-
-      ctx.drawImage(
-        image,
-        cropPx.x,
-        cropPx.y,
-        cropPx.width,
-        cropPx.height,
-        0,
-        0,
-        cropPx.width,
-        cropPx.height
-      );
-
-      canvas.toBlob((blob) => resolve(blob), fileType || "image/jpeg");
-    };
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Canvas is empty"));
+    }, fileType || "image/jpeg");
   });
 }
 
@@ -66,20 +53,48 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
   onCancel,
   onSave,
 }) => {
-  const PORTRAIT = 3 / 4;
-  const LANDSCAPE = 4 / 3;
-  const [aspect, setAspect] = useState<number>(PORTRAIT);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Aspect ratio selector: portrait (3/4), landscape (4/3), free (undefined)
+  const PORTRAIT = 3 / 4;
+  const LANDSCAPE = 4 / 3;
+  const [aspect, setAspect] = useState<number | undefined>(PORTRAIT);
+
+  const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
+
+  // preload image once when file changes
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      setImgEl(img);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }, [file]);
+
+  const onCropComplete = useCallback((_area, areaPixels) => {
+    setCroppedAreaPixels(areaPixels);
+  }, []);
 
   const handleSave = useCallback(async () => {
-    if (!file) return;
-    const imgUrl = URL.createObjectURL(file);
-    const blob = await getCroppedBlob(imgUrl, crop, zoom, aspect, file.type);
-    if (!blob) return;
-    const newFile = new File([blob], file.name, { type: file.type });
-    onSave(newFile);
-  }, [file, crop, zoom, aspect, onSave]);
+    if (!file || !croppedAreaPixels || !imgEl) return;
+    try {
+      const blob = await getCroppedBlob(imgEl, croppedAreaPixels, file.type);
+      const croppedFile = new File([blob], file.name, { type: file.type });
+      onSave(croppedFile);
+    } catch (err) {
+      console.error("Crop failed", err);
+    }
+  }, [file, croppedAreaPixels, imgEl, onSave]);
 
   if (!file) return null;
   const imageUrl = URL.createObjectURL(file);
@@ -89,6 +104,7 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
       <DialogContent className="max-w-3xl w-full">
         <DialogHeader className="flex flex-col gap-2">
           <span>Crop Image</span>
+          {/* Aspect ratio selector */}
           <div className="flex items-center gap-4 text-sm">
             <label className="flex items-center gap-1 cursor-pointer">
               <input
@@ -110,6 +126,16 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
               />
               Landscape
             </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name="aspect"
+                value="free"
+                checked={aspect === undefined}
+                onChange={() => setAspect(undefined)}
+              />
+              Free
+            </label>
           </div>
         </DialogHeader>
         <div className="relative w-full h-[400px] bg-black/80">
@@ -120,6 +146,7 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
             aspect={aspect}
             onCropChange={setCrop}
             onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
           />
         </div>
         <DialogFooter className="pt-4">

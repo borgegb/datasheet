@@ -14,6 +14,7 @@ interface BuildPdfInput {
   pedLogo?: string;
   ceLogo?: string;
   irelandLogo?: string;
+  specificationsTable: string[][];
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
@@ -45,6 +46,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
+      specificationsTable: input.specificationsTable,
+      specificationsHeading: "",
     },
   ];
 

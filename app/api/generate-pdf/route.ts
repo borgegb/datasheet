@@ -183,6 +183,26 @@ export async function POST(req: Request) {
       pedLogo: pedLogoBase64Data,
       ceLogo: ceLogoBase64Data,
       irelandLogo: irelandLogoBase64Data,
+      specificationsTable: (() => {
+        const rawSpecs = productDataFromSource.tech_specs;
+        try {
+          const parsed = Array.isArray(rawSpecs)
+            ? rawSpecs
+            : typeof rawSpecs === "string"
+            ? JSON.parse(rawSpecs)
+            : [];
+          const rows = (parsed || [])
+            .filter((r: any) => r && (r.label || r.value))
+            .slice(0, 5)
+            .map((r: any) => [
+              (r.label ?? "").toString(),
+              (r.value ?? "").toString(),
+            ]);
+          return rows.length ? rows : [["", ""]];
+        } catch {
+          return [["", ""]];
+        }
+      })(),
     } as const;
 
     const pdfBytes = await buildPdfV2(headerInput);

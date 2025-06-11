@@ -127,7 +127,7 @@
         "type": "text",
         "name": "warrantyText",
         "position": { "x": 22, "y": 252 },
-        "width": 130,
+        "width": 135,
         "height": 6,
         "fontName": "Inter-Bold",
         "fontSize": 9,
@@ -179,6 +179,38 @@
         "position": { "x": 162, "y": 247 },
         "width": 35,
         "height": 35
+      },
+      {
+        "type": "table",
+        "name": "specificationsTable",
+        "position": { "x": 22, "y": 183 },
+        "width": 177,
+        "height": 45,
+        "content": "",
+        "showHead": false,
+        "head": ["Label", "Value"],
+        "headWidthPercentages": [50, 50],
+        "fontName": "Inter-Regular",
+        "tableStyles": {
+          "borderColor": "#CCCCCC",
+          "borderWidth": 0.1
+        },
+        "bodyStyles": {
+          "fontName": "Inter-Regular",
+          "fontSize": 9,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#2A2A2A",
+          "borderColor": "#CCCCCC",
+          "borderWidth": 0.1,
+          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 }
+        },
+        "headStyles": {
+          "alignment": "left"
+        },
+        "columnStyles": {},
+        "fills": []
       }
     ]
   ]

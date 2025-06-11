@@ -54,9 +54,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
-    // Force built-in font so pdfme can measure widths.
-    specsTableNode.headStyles.fontName = "";
-    specsTableNode.bodyStyles.fontName = "";
+    // Force a core font with real ASCII widths
+    specsTableNode.headStyles.fontName = "Helvetica";
+    specsTableNode.bodyStyles.fontName = "Helvetica";
 
     // Ensure each column has a fixed width BEFORE height calculation
     const halfWidth = (specsTableNode.width ?? 175) / 2;

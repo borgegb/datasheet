@@ -192,13 +192,8 @@
         "headWidthPercentages": [50, 50],
         "fontName": "Inter-Regular",
         "tableStyles": {
+          "borderWidth": 0.1,
           "borderColor": "#CCCCCC",
-          "borderWidth": {
-            "top": 0.1,
-            "right": 0.1,
-            "bottom": 0.1,
-            "left": 0.1
-          },
           "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
         },
         "headStyles": {
@@ -216,7 +211,7 @@
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": { "top": 3, "bottom": 3, "left": 5, "right": 5 }
+          "padding": { "top": 3, "right": 5, "bottom": 3, "left": 5 }
         },
         "bodyStyles": {
           "fontName": "Inter-Regular",
@@ -232,26 +227,14 @@
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+          "padding": { "top": 2, "right": 3, "bottom": 2, "left": 3 },
           "backgroundColor": "",
           "alternateBackgroundColor": ""
         },
-        "fills": [{ "pos": ":;1", "color": "#EFF2EF" }],
         "columnStyles": {
-          "alignment": { "0": "left", "1": "left" },
-          "padding": {
-            "0": { "top": 2, "right": 3, "bottom": 2, "left": 3 },
-            "1": { "top": 2, "right": 3, "bottom": 2, "left": 3 }
-          },
-          "borderWidth": {
-            "0": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 },
-            "1": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 }
-          },
-          "characterSpacing": {
-            "0": 0,
-            "1": 0
-          }
-        }
+          "alignment": { "0": "left", "1": "left" }
+        },
+        "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }
     ]
   ]

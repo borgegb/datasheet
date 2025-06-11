@@ -114,28 +114,15 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     },
   ];
 
-  // Load real project fonts so widths are measured accurately
-  const fs = await import("fs");
-  const path = await import("path");
-  const fontMap: any = {
-    "Inter-Regular": {
-      data: fs.readFileSync(
-        path.resolve(process.cwd(), "pdf/fonts/Inter-Regular.ttf")
-      ),
-      fallback: true,
-    },
-    "Inter-Bold": {
-      data: fs.readFileSync(
-        path.resolve(process.cwd(), "pdf/fonts/Inter-Bold.ttf")
-      ),
-      fallback: false,
-    },
-    "Poppins-Bold": {
-      data: fs.readFileSync(
-        path.resolve(process.cwd(), "pdf/fonts/Poppins-Bold.ttf")
-      ),
-      fallback: false,
-    },
+  const defaultFont = getDefaultFont();
+  const fallbackName = Object.keys(defaultFont)[0]; // e.g. "NotoSansJP-Regular"
+  const defaultData = defaultFont[fallbackName].data;
+
+  const fontMap = {
+    [fallbackName]: defaultFont[fallbackName], // fallback: true
+    "Poppins-Bold": { data: defaultData, fallback: false },
+    "Inter-Bold": { data: defaultData, fallback: false },
+    "Inter-Regular": { data: defaultData, fallback: false },
   };
 
   const pdfBytes = await generate({

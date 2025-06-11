@@ -190,7 +190,8 @@ export default function DatasheetGeneratorForm({
     const productName = productTitle || "[Product Name]";
     const units = shippingUnits || "1";
     const label = shippingUnitType;
-    const plural = units === "1" ? label : `${label}s`;
+    const plural =
+      units === "1" ? label : label === "box" ? "boxes" : `${label}s`;
     return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
   };
 
@@ -1187,7 +1188,11 @@ export default function DatasheetGeneratorForm({
                   type="hidden"
                   name="shippingInfo"
                   value={`${shippingUnits} ${shippingUnitType}${
-                    shippingUnits === "1" ? "" : "s"
+                    shippingUnits === "1"
+                      ? ""
+                      : shippingUnitType === "box"
+                      ? "es"
+                      : "s"
                   }`}
                 />
               </div>

@@ -72,6 +72,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       alignment: "left",
     };
 
+    console.log("font chosen head =", specsTableNode.headStyles.fontName);
+    console.log("font chosen body =", specsTableNode.bodyStyles.fontName);
+    console.log("colWidths before calc =", [
+      specsTableNode.columnStyles?.["0"]?.cellWidth,
+      specsTableNode.columnStyles?.["1"]?.cellWidth,
+    ]);
+
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
         JSON.stringify(truncatedTable),

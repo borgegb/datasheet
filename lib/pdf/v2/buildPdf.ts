@@ -70,6 +70,14 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
     specsTableNode.headStyles.fontName = fallbackName;
     specsTableNode.bodyStyles.fontName = fallbackName;
+    specsTableNode.fontName = fallbackName; // Set at table level too
+
+    // Also set in column styles if they exist
+    if (specsTableNode.columnStyles) {
+      Object.keys(specsTableNode.columnStyles).forEach((colIndex) => {
+        specsTableNode.columnStyles[colIndex].fontName = fallbackName;
+      });
+    }
 
     console.log("font chosen head =", specsTableNode.headStyles.fontName);
     console.log("font chosen body =", specsTableNode.bodyStyles.fontName);
@@ -90,6 +98,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       "🚀 FONT MAP BUILT BEFORE HEIGHT CALC - should fix step-ladder effect"
     );
     console.log("🗂️ Font map keys:", Object.keys(fontMap));
+    console.log("🏗️ Table schema fontNames:", {
+      table: specsTableNode.fontName,
+      head: specsTableNode.headStyles.fontName,
+      body: specsTableNode.bodyStyles.fontName,
+      col0: specsTableNode.columnStyles?.["0"]?.fontName,
+      col1: specsTableNode.columnStyles?.["1"]?.fontName,
+    });
 
     try {
       const dynamicHeights = await getDynamicHeightsForTable(

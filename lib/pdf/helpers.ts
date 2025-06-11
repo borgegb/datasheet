@@ -50,34 +50,6 @@ const wrap = (
   return lines;
 };
 
-const ORIGINAL_OFFSETS_MM = {
-  warrantyText: 235 - 283,
-  shippingHeading: 250 - 283,
-  shippingText: 260 - 283,
-  pedLogo: 262 - 283,
-  ceLogo: 262 - 283,
-  irelandLogo: 249 - 283,
-};
-
-export function anchorShippingGroupToFooter(template: Template): void {
-  const footer = (template as any).basePdf.staticSchema.find(
-    (n: any) => n.name === "footerBackground"
-  );
-  if (!footer) return;
-
-  const footerTopY = footer.position.y as number;
-
-  for (const page of (template as any).schemas) {
-    for (const node of page) {
-      const delta =
-        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
-      if (delta !== undefined) {
-        node.position.y = footerTopY + delta;
-      }
-    }
-  }
-}
-
 // --- Custom PDFME Plugin for IconTextList ---
 export const iconTextList: Plugin<any> = {
   ui: async (arg: any) => {
@@ -309,6 +281,35 @@ export const getShippingText = (
       return "Shipping information not specified.";
   }
 };
+
+const ORIGINAL_OFFSETS_MM = {
+  // Shifted downwards by 6 mm to tighten gap above footer block
+  warrantyText: 241 - 283, // -42
+  shippingHeading: 256 - 283, // -27
+  shippingText: 266 - 283, // -17
+  pedLogo: 268 - 283, // -15
+  ceLogo: 268 - 283, // -15
+  irelandLogo: 255 - 283, // -28
+};
+
+export function anchorShippingGroupToFooter(template: Template): void {
+  const footer = (template as any).basePdf.staticSchema.find(
+    (n: any) => n.name === "footerBackground"
+  );
+  if (!footer) return;
+
+  const footerTopY = footer.position.y as number;
+
+  for (const page of (template as any).schemas) {
+    for (const node of page) {
+      const delta =
+        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
+      if (delta !== undefined) {
+        node.position.y = footerTopY + delta;
+      }
+    }
+  }
+}
 
 export const DEFAULT_PRODUCT_IMAGE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";

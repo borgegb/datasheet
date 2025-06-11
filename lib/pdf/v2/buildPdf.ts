@@ -89,16 +89,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
     if (tableSchema.bodyStyles) {
       tableSchema.bodyStyles.fontName = defaultFontName;
-      // Make styling extremely compact to naturally reduce row heights
-      tableSchema.bodyStyles.fontSize = 6; // Very small font
-      tableSchema.bodyStyles.lineHeight = 0.8; // Very tight line height
-      tableSchema.bodyStyles.padding = {
-        top: 0.2,
-        right: 0.5,
-        bottom: 0.2,
-        left: 0.5,
-      };
-      // Remove height overrides - let pdfme calculate naturally with compact styling
+      // Don't override template styling - let template control font size and padding
     }
 
     // Update column styles - handle the legacy format
@@ -107,21 +98,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       tableSchema.columnStyles.fontName["0"] = defaultFontName;
     }
 
-    // Update column padding to be extremely compact
-    if (tableSchema.columnStyles && tableSchema.columnStyles.padding) {
-      tableSchema.columnStyles.padding["0"] = {
-        top: 0.2,
-        bottom: 0.2,
-        left: 0.5,
-        right: 0.5,
-      };
-      tableSchema.columnStyles.padding["1"] = {
-        top: 0.2,
-        bottom: 0.2,
-        left: 0.5,
-        right: 0.5,
-      };
-    }
+    // Don't override column padding - let template control it
 
     // Remove all height overrides - let pdfme calculate naturally
     // tableSchema.autoHeight = false;

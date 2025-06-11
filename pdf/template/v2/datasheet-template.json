@@ -174,7 +174,14 @@
             "left": 0.1
           },
           "padding": { "top": 3, "bottom": 3, "left": 5, "right": 5 }
-        }
+        },
+        "columnStyles": {
+          "alignment": {},
+          "verticalAlignment": {},
+          "fontName": {},
+          "padding": {}
+        },
+        "fills": []
       },
       {
         "type": "text",

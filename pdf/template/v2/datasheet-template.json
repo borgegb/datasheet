@@ -104,7 +104,7 @@
       {
         "type": "text",
         "name": "warrantyText",
-        "position": { "x": 22, "y": 245 },
+        "position": { "x": 22, "y": 248 },
         "width": 140,
         "height": 10,
         "fontName": "Inter-Bold",
@@ -140,21 +140,21 @@
       {
         "type": "image",
         "name": "pedLogo",
-        "position": { "x": 136, "y": 268 },
+        "position": { "x": 136, "y": 264 },
         "width": 12,
         "height": 12
       },
       {
         "type": "image",
         "name": "ceLogo",
-        "position": { "x": 150, "y": 268 },
+        "position": { "x": 150, "y": 264 },
         "width": 12,
         "height": 12
       },
       {
         "type": "image",
         "name": "irelandLogo",
-        "position": { "x": 162, "y": 245 },
+        "position": { "x": 162, "y": 234 },
         "width": 38,
         "height": 43
       }

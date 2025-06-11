@@ -211,8 +211,7 @@
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": { "top": 1, "right": 5, "bottom": 1, "left": 5 },
-          "minCellHeight": 6
+          "padding": { "top": 1, "right": 5, "bottom": 1, "left": 5 }
         },
         "bodyStyles": {
           "fontName": "Inter-Regular",
@@ -230,12 +229,11 @@
           },
           "padding": { "top": 1, "right": 3, "bottom": 1, "left": 3 },
           "backgroundColor": "",
-          "alternateBackgroundColor": "",
-          "minCellHeight": 6
+          "alternateBackgroundColor": ""
         },
         "columnStyles": {
-          "0": { "alignment": "left" },
-          "1": { "alignment": "left" }
+          "0": { "alignment": "left", "cellWidth": 87.5 },
+          "1": { "alignment": "left", "cellWidth": 87.5 }
         },
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }

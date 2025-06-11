@@ -236,19 +236,7 @@
           "backgroundColor": "",
           "alternateBackgroundColor": ""
         },
-        "columnStyles": {
-          "fontName": { "0": "Inter-Bold" },
-          "padding": {
-            "0": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
-            "1": { "top": 2, "bottom": 2, "left": 3, "right": 3 }
-          },
-          "alignment": { "0": "left", "1": "left" },
-          "verticalAlignment": { "0": "middle", "1": "middle" },
-          "borderWidth": {
-            "0": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 },
-            "1": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 }
-          }
-        },
+        "columnStyles": {},
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }
     ]

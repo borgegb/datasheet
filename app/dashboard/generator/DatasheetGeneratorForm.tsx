@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveDatasheet, fetchCategories } from "../actions";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 // Define type for Category (if not already defined)
 interface Category {
@@ -156,6 +156,7 @@ export default function DatasheetGeneratorForm({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   // --- Add flag to track form initialization ---
   const [hasFormBeenInitialized, setHasFormBeenInitialized] = useState(false);
@@ -534,6 +535,12 @@ export default function DatasheetGeneratorForm({
               ),
               duration: 15000, // Keep toast longer so user can click
             });
+
+            // After generation success, if this was a NEW datasheet (no editingProductId),
+            // navigate to its dedicated edit page so the form is loaded with persisted data.
+            if (!editingProductId) {
+              router.replace(`/dashboard/generator/${savedProductId}`);
+            }
             // -----------------------------------------------------
           } else {
             throw new Error("PDF URL not found in response.");
@@ -553,7 +560,7 @@ export default function DatasheetGeneratorForm({
     }
     // We ONLY want this effect to run when saveState changes specifically to a success state
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveState, user]); // Add user dependency as it's used inside
+  }, [saveState, user, router]); // Add user and router dependencies as they're used inside
   // ----------------------------------------------------------------------
 
   // --- handlePreview remains the same ---

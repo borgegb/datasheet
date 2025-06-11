@@ -14,7 +14,6 @@ import {
   getShippingText,
   DEFAULT_PRODUCT_IMAGE_BASE64,
   anchorShippingGroupToFooter,
-  repositionShippingGroupBasedOnSpecRows,
 } from "./helpers";
 
 // @ts-nocheck
@@ -140,9 +139,6 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
     // Do not throw, allow PDF to generate with default/empty specs
   }
   if (specsForTable.length === 0) specsForTable = [["Specification", "Value"]];
-
-  // After row processing, reposition group under specs table
-  repositionShippingGroupBasedOnSpecRows(template, specsForTable.length);
 
   const logos = productDataFromSource.optional_logos || {};
   const displayPedLogo = logos.origin === true ? pedLogoBase64Data : "";

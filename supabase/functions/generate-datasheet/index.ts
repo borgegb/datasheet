@@ -394,47 +394,6 @@ function anchorShippingGroupToFooter(template: Template): void {
   }
 }
 
-function repositionShippingGroupBasedOnSpecRows(
-  template: Template,
-  specRowCount: number
-): void {
-  const SPEC_ROW_HEIGHT_MM = 9;
-  const GAP_BELOW_TABLE_MM = 4;
-
-  const specTable = (template as any).schemas[0].find(
-    (n: any) => n.name === "specificationsTable"
-  );
-  if (!specTable) return;
-
-  const tableTopY = specTable.position.y as number;
-  const tableComputedHeight = Math.max(specRowCount, 1) * SPEC_ROW_HEIGHT_MM;
-  const newWarrantyTopY = tableTopY + tableComputedHeight + GAP_BELOW_TABLE_MM;
-
-  const warrantyNode = (template as any).schemas[0].find(
-    (n: any) => n.name === "warrantyText"
-  );
-  if (!warrantyNode) return;
-
-  const delta = newWarrantyTopY - (warrantyNode.position.y as number);
-
-  const groupNames = [
-    "warrantyText",
-    "shippingHeading",
-    "shippingText",
-    "pedLogo",
-    "ceLogo",
-    "irelandLogo",
-  ];
-
-  for (const page of (template as any).schemas) {
-    for (const node of page) {
-      if (groupNames.includes(node.name)) {
-        node.position.y = (node.position.y as number) + delta;
-      }
-    }
-  }
-}
-
 const DEFAULT_PRODUCT_IMAGE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
@@ -739,9 +698,6 @@ serve(async (req: Request): Promise<Response> => {
     if (specsForTable.length === 0) {
       specsForTable = [["Specification", "Value"]];
     }
-
-    // Adjust shipping group position based on actual specs rows
-    repositionShippingGroupBasedOnSpecRows(template, specsForTable.length);
 
     const logos = productDataFromSource.optional_logos || {};
     const displayPedLogo = logos.origin === true ? pedLogoBase64Data : "";

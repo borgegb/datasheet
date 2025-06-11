@@ -79,21 +79,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
     if (tableSchema.bodyStyles) {
       tableSchema.bodyStyles.fontName = defaultFontName;
-      // Set reasonable line height and padding
-      tableSchema.bodyStyles.lineHeight = 1.2;
-      tableSchema.bodyStyles.padding = {
-        top: 2,
-        right: 3,
-        bottom: 2,
-        left: 3,
-      };
+      // Don't override padding from template - it's already set correctly
     }
 
-    // Update column styles
-    if (tableSchema.columnStyles) {
-      Object.keys(tableSchema.columnStyles).forEach((key) => {
-        tableSchema.columnStyles[key].fontName = defaultFontName;
-      });
+    // Update column styles - handle the legacy format
+    if (tableSchema.columnStyles && tableSchema.columnStyles.fontName) {
+      // First column uses Inter-Bold, keep it
+      tableSchema.columnStyles.fontName["0"] = defaultFontName;
     }
 
     // Calculate table height based on content
@@ -101,7 +93,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     const fontSize = tableSchema.bodyStyles?.fontSize || 9;
     const paddingTop = tableSchema.bodyStyles?.padding?.top || 2;
     const paddingBottom = tableSchema.bodyStyles?.padding?.bottom || 2;
-    const lineHeight = tableSchema.bodyStyles?.lineHeight || 1.2;
+    const lineHeight = tableSchema.bodyStyles?.lineHeight || 1; // Use 1 as in template
 
     // Calculate row height: fontSize * lineHeight + padding
     const rowHeight =

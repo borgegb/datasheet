@@ -227,19 +227,18 @@
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": { "top": 1, "right": 3, "bottom": 1, "left": 3 },
+          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
           "backgroundColor": "",
           "alternateBackgroundColor": ""
         },
         "columnStyles": {
-          "0": {
-            "alignment": "left",
-            "cellWidth": 87.5
+          "fontName": { "0": "Inter-Bold" },
+          "padding": {
+            "0": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+            "1": { "top": 2, "bottom": 2, "left": 3, "right": 3 }
           },
-          "1": {
-            "alignment": "left",
-            "cellWidth": 87.5
-          }
+          "alignment": { "0": "left", "1": "left" },
+          "verticalAlignment": { "0": "middle", "1": "middle" }
         },
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }

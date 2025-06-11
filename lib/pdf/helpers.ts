@@ -50,6 +50,34 @@ const wrap = (
   return lines;
 };
 
+const ORIGINAL_OFFSETS_MM = {
+  warrantyText: 235 - 283,
+  shippingHeading: 250 - 283,
+  shippingText: 260 - 283,
+  pedLogo: 262 - 283,
+  ceLogo: 262 - 283,
+  irelandLogo: 249 - 283,
+};
+
+export function anchorShippingGroupToFooter(template: Template): void {
+  const footer = (template as any).basePdf.staticSchema.find(
+    (n: any) => n.name === "footerBackground"
+  );
+  if (!footer) return;
+
+  const footerTopY = footer.position.y as number;
+
+  for (const page of (template as any).schemas) {
+    for (const node of page) {
+      const delta =
+        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
+      if (delta !== undefined) {
+        node.position.y = footerTopY + delta;
+      }
+    }
+  }
+}
+
 // --- Custom PDFME Plugin for IconTextList ---
 export const iconTextList: Plugin<any> = {
   ui: async (arg: any) => {
@@ -281,34 +309,6 @@ export const getShippingText = (
       return "Shipping information not specified.";
   }
 };
-
-const ORIGINAL_OFFSETS_MM = {
-  warrantyText: 235 - 283, // -48
-  shippingHeading: 250 - 283, // -33
-  shippingText: 260 - 283, // -23
-  pedLogo: 262 - 283, // -21
-  ceLogo: 262 - 283, // -21
-  irelandLogo: 249 - 283, // -34
-};
-
-export function anchorShippingGroupToFooter(template: Template): void {
-  const footer = (template as any).basePdf.staticSchema.find(
-    (n: any) => n.name === "footerBackground"
-  );
-  if (!footer) return;
-
-  const footerTopY = footer.position.y as number;
-
-  for (const page of (template as any).schemas) {
-    for (const node of page) {
-      const delta =
-        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
-      if (delta !== undefined) {
-        node.position.y = footerTopY + delta;
-      }
-    }
-  }
-}
 
 export const DEFAULT_PRODUCT_IMAGE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";

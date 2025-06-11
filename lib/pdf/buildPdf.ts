@@ -62,6 +62,7 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
 
   try {
     template = JSON.parse(await fs.readFile(templatePath, "utf8"));
+    anchorShippingGroupToFooter(template);
     console.log("PDFME template loaded from:", templatePath);
 
     const poppinsBoldPath = path.join(fontDir, "Poppins-Bold.ttf");

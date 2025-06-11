@@ -349,12 +349,12 @@ const getShippingText = (
 // --- END Helper Functions ---
 
 const ORIGINAL_OFFSETS_MM = {
-  warrantyText: 235 - 283, // -48
-  shippingHeading: 250 - 283, // -33
-  shippingText: 260 - 283, // -23
-  pedLogo: 262 - 283, // -21
-  ceLogo: 262 - 283, // -21
-  irelandLogo: 249 - 283, // -34
+  warrantyText: 235 - 283,
+  shippingHeading: 250 - 283,
+  shippingText: 260 - 283,
+  pedLogo: 262 - 283,
+  ceLogo: 262 - 283,
+  irelandLogo: 249 - 283,
 };
 
 function anchorShippingGroupToFooter(template: Template): void {

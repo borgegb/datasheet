@@ -33,13 +33,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   ).default;
 
   // --- Dynamically resize the Specs table so it never bleeds into the blocks underneath ----
-  const cleanTable = input.specificationsTable.map((row) =>
+  const truncatedTable = input.specificationsTable.map((row) =>
     row.map((cell) => {
-      const s = String(cell ?? "")
-        .replace(/\r?\n|\r/g, " ") // kill hard breaks
+      const clean = String(cell ?? "")
+        .replace(/\r?\n|\r/g, " ")
         .trim();
-      const clipped = s.length > 50 ? `${s.slice(0, 47)}…` : s;
-      return clipped;
+      const maxLen = 20;
+      return clean.length > maxLen ? `${clean.slice(0, maxLen - 1)}…` : clean;
     })
   );
 
@@ -49,7 +49,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   if (specsTableNode) {
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
-        JSON.stringify(cleanTable),
+        JSON.stringify(truncatedTable),
         {
           schema: specsTableNode as any,
           basePdf: template.basePdf as any,
@@ -83,7 +83,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      specificationsTable: cleanTable,
+      specificationsTable: truncatedTable,
       specificationsHeading: "",
     },
   ];

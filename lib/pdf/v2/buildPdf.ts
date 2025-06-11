@@ -9,6 +9,8 @@ import {
 } from "@pdfme/schemas";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template } from "@pdfme/common";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 interface BuildPdfInput {
   appliedLogoBase64Data: string;
@@ -122,17 +124,18 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     },
   ];
 
-  // Build an in-memory font map using pdfme's bundled default font
-  const builtIn = getDefaultFont();
-  const fallbackName = Object.keys(builtIn)[0];
-  const fontData = builtIn[fallbackName].data;
+  // --- read pre-encoded Inter-Regular.b64 and convert to Uint8Array ---
+  const b64 = readFileSync(
+    resolve(process.cwd(), "pdf/fonts/Inter-Regular.b64"),
+    "utf8"
+  );
+  const interData = Uint8Array.from(Buffer.from(b64, "base64"));
 
-  const fontMap: any = {
-    [fallbackName]: builtIn[fallbackName], // fallback: true
-    "Poppins-Bold": { data: fontData, fallback: false },
-    "Poppins-Regular": { data: fontData, fallback: false },
-    "Inter-Bold": { data: fontData, fallback: false },
-    "Inter-Regular": { data: fontData, fallback: false },
+  // one real font for all names
+  const fontMap = {
+    "Inter-Regular": { data: interData, fallback: true },
+    "Inter-Bold": { data: interData, fallback: false },
+    "Poppins-Bold": { data: interData, fallback: false },
   };
 
   const pdfBytes = await generate({

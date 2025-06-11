@@ -1146,20 +1146,6 @@ export default function DatasheetGeneratorForm({
               <Label htmlFor="shipping-info">Shipping Info</Label>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="shipping-units" className="text-sm">
-                    Units per pallet:
-                  </Label>
-                  <Input
-                    name="shippingUnits"
-                    id="shipping-units"
-                    type="number"
-                    value={shippingUnits}
-                    onChange={(e) => setShippingUnits(e.target.value)}
-                    placeholder="4"
-                    className="w-20"
-                    min="1"
-                    max="1000"
-                  />
                   <Select
                     name="shippingUnitType"
                     value={shippingUnitType}
@@ -1175,6 +1161,18 @@ export default function DatasheetGeneratorForm({
                       <SelectItem value="box">box(es)</SelectItem>
                     </SelectContent>
                   </Select>
+                  <span className="text-sm">per pallet:</span>
+                  <Input
+                    name="shippingUnits"
+                    id="shipping-units"
+                    type="number"
+                    value={shippingUnits}
+                    onChange={(e) => setShippingUnits(e.target.value)}
+                    placeholder="4"
+                    className="w-20"
+                    min="1"
+                    max="1000"
+                  />
                 </div>
                 {/* Preview of shipping text */}
                 <div className="bg-muted p-3 rounded-md border">

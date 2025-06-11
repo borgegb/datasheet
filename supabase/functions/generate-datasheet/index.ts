@@ -589,18 +589,21 @@ serve(async (req: Request): Promise<Response> => {
     let specsForTable: string[][] = [];
     try {
       const rawSpecs = productDataFromSource.tech_specs;
-      if (rawSpecs) {
-        const parsedSpecs =
-          typeof rawSpecs === "string" ? JSON.parse(rawSpecs) : rawSpecs;
-        if (Array.isArray(parsedSpecs)) {
-          specsForTable = parsedSpecs
-            .filter((item: any) => item && (item.label || item.value))
-            .map((item: any) => [
-              (item.label ?? "").toString(),
-              (item.value ?? "").toString(),
-            ]);
-        }
-      }
+      const specs = Array.isArray(rawSpecs)
+        ? rawSpecs
+        : typeof rawSpecs === "string"
+        ? JSON.parse(rawSpecs)
+        : [];
+
+      const MAX_ROWS = 5; // match template reserved height (≈45 mm)
+
+      specsForTable = specs
+        .filter((item: any) => item && (item.label || item.value))
+        .slice(0, MAX_ROWS)
+        .map((item: any) => [
+          (item.label ?? "").toString(),
+          (item.value ?? "").toString(),
+        ]);
     } catch (specParseErr) {
       console.error("Failed to parse tech_specs JSON:", specParseErr);
     }

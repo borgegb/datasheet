@@ -110,8 +110,17 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
       const parsedSpecs =
         typeof rawSpecs === "string" ? JSON.parse(rawSpecs) : rawSpecs;
       if (Array.isArray(parsedSpecs)) {
-        specsForTable = parsedSpecs
-          .filter((item: any) => item && (item.label || item.value))
+        const filtered = parsedSpecs.filter(
+          (item: any) => item && (item.label || item.value)
+        );
+
+        // Each table row is ~8-9 mm tall in this template, and the reserved box
+        // in the schema is 45 mm high → max ≈ 5 rows.  Clip to first 5 so we
+        // never overflow into the Shipping area.
+        const MAX_ROWS = 5;
+
+        specsForTable = filtered
+          .slice(0, MAX_ROWS)
           .map((item: any) => [
             (item.label ?? "").toString(),
             (item.value ?? "").toString(),

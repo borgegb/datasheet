@@ -62,6 +62,12 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     fallbackName = Object.keys(builtIn)[0];
     const data = builtIn[fallbackName].data;
 
+    console.log("🔤 Built-in font name:", fallbackName);
+    console.log(
+      "🔤 Font data size:",
+      data instanceof Uint8Array ? data.length : "not Uint8Array"
+    );
+
     specsTableNode.headStyles.fontName = fallbackName;
     specsTableNode.bodyStyles.fontName = fallbackName;
 
@@ -83,6 +89,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     console.log(
       "🚀 FONT MAP BUILT BEFORE HEIGHT CALC - should fix step-ladder effect"
     );
+    console.log("🗂️ Font map keys:", Object.keys(fontMap));
 
     try {
       const dynamicHeights = await getDynamicHeightsForTable(

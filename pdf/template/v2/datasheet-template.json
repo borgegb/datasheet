@@ -193,7 +193,13 @@
         "fontName": "Inter-Regular",
         "tableStyles": {
           "borderColor": "#CCCCCC",
-          "borderWidth": 0.1
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
         },
         "bodyStyles": {
           "fontName": "Inter-Regular",
@@ -203,8 +209,13 @@
           "lineHeight": 1,
           "fontColor": "#2A2A2A",
           "borderColor": "#CCCCCC",
-          "borderWidth": 0.1,
-          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 }
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "padding": { "top": 2, "right": 3, "bottom": 2, "left": 3 }
         },
         "headStyles": {
           "alignment": "left"

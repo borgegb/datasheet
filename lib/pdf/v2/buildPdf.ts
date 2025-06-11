@@ -12,12 +12,14 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   const { text, image, line, rectangle, table } = await import(
     "@pdfme/schemas"
   );
-  // Importing JSON at build time ensures template is bundled with the lambda
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - allow json import
-  import datasheetTemplate from "../../../pdf/template/datasheet-template.json";
+  const fs = await import("fs/promises");
 
-  const template = datasheetTemplate as any;
+  const templateUrl = new URL(
+    "../../../pdf/template/datasheet-template.json",
+    import.meta.url
+  );
+  const templateJson = await fs.readFile(templateUrl, "utf8");
+  const template = JSON.parse(templateJson);
 
   const inputs = [
     {

@@ -218,9 +218,14 @@
           "padding": { "top": 2, "right": 3, "bottom": 2, "left": 3 }
         },
         "headStyles": {
-          "alignment": "left"
+          "alignment": "left",
+          "borderWidth": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
         },
-        "columnStyles": {},
+        "columnStyles": {
+          "borderWidth": {},
+          "padding": {}
+        },
         "fills": []
       }
     ]

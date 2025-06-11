@@ -132,7 +132,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   specsTableNode.bodyStyles.fontName = fallbackName;
 
   const fontMap = {
-    [fallbackName]: builtIn[fallbackName], // fallback true
+    [fallbackName]: builtIn[fallbackName], // fallback: true
     "Poppins-Bold": { data, fallback: false },
     "Poppins-Regular": { data, fallback: false },
     "Inter-Bold": { data, fallback: false },

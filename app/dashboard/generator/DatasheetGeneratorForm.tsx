@@ -1187,13 +1187,7 @@ export default function DatasheetGeneratorForm({
                 <input
                   type="hidden"
                   name="shippingInfo"
-                  value={`${shippingUnits} ${shippingUnitType}${
-                    shippingUnits === "1"
-                      ? ""
-                      : shippingUnitType === "box"
-                      ? "es"
-                      : "s"
-                  }`}
+                  value={`${shippingUnits} ${shippingUnitType}`}
                 />
               </div>
             </div>

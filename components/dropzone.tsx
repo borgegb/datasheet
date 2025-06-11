@@ -103,6 +103,7 @@ const Dropzone = ({
       ...restProps.files.filter((f) => f !== cropFile),
       newFile,
     ]);
+    restProps.onUpload();
     setCropFile(null);
   };
   // ----------------------

@@ -207,8 +207,10 @@ export const getShippingText = (
     const plural =
       qty === 1
         ? label
-        : label.endsWith("x") || label.endsWith("s")
-        ? `${label}es`
+        : label === "box"
+        ? "boxes"
+        : label.endsWith("s")
+        ? label
         : `${label}s`;
     return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
   }

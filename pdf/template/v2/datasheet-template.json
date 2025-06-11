@@ -102,6 +102,63 @@
         "fit": "contain"
       },
       {
+        "type": "rectangle",
+        "name": "specsHeaderBg",
+        "position": { "x": 22, "y": 175 },
+        "width": 177,
+        "height": 8,
+        "color": "#2c5234"
+      },
+      {
+        "type": "text",
+        "name": "specificationsHeading",
+        "content": "Specifications",
+        "position": { "x": 25, "y": 175 },
+        "width": 170,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 14,
+        "fontColor": "#ffffff",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "table",
+        "name": "specificationsTable",
+        "position": { "x": 22, "y": 183 },
+        "width": 177,
+        "height": 45,
+        "content": "",
+        "showHead": false,
+        "head": ["Property", "Value"],
+        "headWidthPercentages": [50, 50],
+        "fontName": "Inter-Regular",
+        "tableStyles": {
+          "borderColor": "#CCCCCC",
+          "borderWidth": 0.1,
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+        },
+        "bodyStyles": {
+          "fontName": "Inter-Regular",
+          "fontSize": 9,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#2A2A2A",
+          "borderColor": "#CCCCCC",
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+          "backgroundColor": "",
+          "alternateBackgroundColor": ""
+        }
+      },
+      {
         "type": "text",
         "name": "warrantyText",
         "position": { "x": 22, "y": 252 },

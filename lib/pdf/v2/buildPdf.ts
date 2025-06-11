@@ -92,13 +92,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Don't override template styling - let template control font size and padding
     }
 
-    // Update column styles - handle the legacy format
-    if (tableSchema.columnStyles && tableSchema.columnStyles.fontName) {
-      // First column uses Inter-Bold, but with default font
-      tableSchema.columnStyles.fontName["0"] = defaultFontName;
-    }
-
-    // Don't override column padding - let template control it
+    // No other style overrides – let the template control column styling
 
     // Remove all height overrides - let pdfme calculate naturally
     // tableSchema.autoHeight = false;

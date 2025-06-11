@@ -189,7 +189,7 @@
         "content": "",
         "showHead": false,
         "head": ["Property", "Value"],
-        "headWidthPercentages": [50, 50],
+        "headWidthPercentages": [40, 60],
         "fontName": "Inter-Regular",
         "tableStyles": {
           "borderWidth": 0.1,

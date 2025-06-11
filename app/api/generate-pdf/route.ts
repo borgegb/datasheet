@@ -8,9 +8,9 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 // Import the new buildPdf function
-import { buildPdf } from "../../../lib/pdf/buildPdf"; // Adjust path as necessary
+import { buildPdfV2 } from "../../../lib/pdf/v2/buildPdf";
 // Import a helper constant that might be used for default images
-import { DEFAULT_PRODUCT_IMAGE_BASE64 } from "../../../lib/pdf/helpers";
+import { DEFAULT_PRODUCT_IMAGE_BASE64 } from "../../../lib/pdf/_legacy/helpers_legacy";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -161,15 +161,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // Call the refactored buildPdf function
-    const pdfBytes = await buildPdf({
-      productDataFromSource,
-      productImageBase64,
+    // Build minimal input for header section for v2
+    const headerInput = {
       appliedLogoBase64Data,
-      irelandLogoBase64Data,
-      pedLogoBase64Data,
-      ceLogoBase64Data,
-    });
+      productTitle: productDataFromSource.product_title || "",
+      productSubtitle: `Product Code ${
+        productDataFromSource.product_code || ""
+      }`,
+      introParagraph: productDataFromSource.description || "",
+      productImageBase64,
+    } as const;
+
+    const pdfBytes = await buildPdfV2(headerInput);
 
     // Construct the file path as per the old structure
     if (!productDataFromSource.organization_id || !productId) {

@@ -57,16 +57,10 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
-    // ---- Embed and apply built-in fallback font BEFORE height calculation ----
-    const builtIn = getDefaultFont();
-    fallbackName = Object.keys(builtIn)[0];
-    const data = builtIn[fallbackName].data;
+    // ---- Try using standard Helvetica font instead of built-in ----
+    fallbackName = "Helvetica"; // Use standard PDF font that doesn't need embedding
 
-    console.log("🔤 Built-in font name:", fallbackName);
-    console.log(
-      "🔤 Font data size:",
-      data instanceof Uint8Array ? data.length : "not Uint8Array"
-    );
+    console.log("🔤 Using standard font:", fallbackName);
 
     specsTableNode.headStyles.fontName = fallbackName;
     specsTableNode.bodyStyles.fontName = fallbackName;
@@ -88,11 +82,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
     // ---- build fontMap first (before height calculation) ----
     fontMap = {
-      [fallbackName]: builtIn[fallbackName],
-      "Poppins-Bold": { data, fallback: false },
-      "Poppins-Regular": { data, fallback: false },
-      "Inter-Bold": { data, fallback: false },
-      "Inter-Regular": { data, fallback: false },
+      // Standard PDF fonts don't need data, they're built into PDF viewers
     };
     console.log(
       "🚀 FONT MAP BUILT BEFORE HEIGHT CALC - should fix step-ladder effect"

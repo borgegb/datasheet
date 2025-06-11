@@ -50,25 +50,20 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // DEBUG: log cleaned/truncated table
   console.log("cleanTable", JSON.stringify(truncatedTable));
 
+  let fontMap: any = {};
+  let fallbackName = "";
+
   const specsTableNode = (template as any).schemas?.[0]?.find(
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
-    // we'll assign the built-in fallback font later after we build fontMap
+    // ---- Embed and apply built-in fallback font BEFORE height calculation ----
+    const builtIn = getDefaultFont();
+    fallbackName = Object.keys(builtIn)[0];
+    const data = builtIn[fallbackName].data;
 
-    // Ensure each column has a fixed width BEFORE height calculation
-    const halfWidth = (specsTableNode.width ?? 175) / 2;
-    specsTableNode.columnStyles = specsTableNode.columnStyles || {};
-    specsTableNode.columnStyles["0"] = {
-      ...(specsTableNode.columnStyles["0"] || {}),
-      cellWidth: halfWidth,
-      alignment: "left",
-    };
-    specsTableNode.columnStyles["1"] = {
-      ...(specsTableNode.columnStyles["1"] || {}),
-      cellWidth: halfWidth,
-      alignment: "left",
-    };
+    specsTableNode.headStyles.fontName = fallbackName;
+    specsTableNode.bodyStyles.fontName = fallbackName;
 
     console.log("font chosen head =", specsTableNode.headStyles.fontName);
     console.log("font chosen body =", specsTableNode.bodyStyles.fontName);
@@ -92,6 +87,15 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
       console.log("rowHeights", dynamicHeights);
     } catch (_) {}
+
+    // ---- build fontMap once (after we know fallbackName) ----
+    fontMap = {
+      [fallbackName]: builtIn[fallbackName],
+      "Poppins-Bold": { data, fallback: false },
+      "Poppins-Regular": { data, fallback: false },
+      "Inter-Bold": { data, fallback: false },
+      "Inter-Regular": { data, fallback: false },
+    };
   }
 
   // ---- Build minimal inputs (header, intro, image) ----
@@ -122,27 +126,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
   // --- read pre-encoded Inter-Regular.b64 and convert to Uint8Array ---
   // no fs needed now
-
-  const builtIn = getDefaultFont();
-  const fallbackName = Object.keys(builtIn)[0];
-  const data = builtIn[fallbackName].data;
-
-  // use built-in font for all template names
-  specsTableNode.headStyles.fontName = fallbackName;
-  specsTableNode.bodyStyles.fontName = fallbackName;
-
-  const fontMap = {
-    [fallbackName]: builtIn[fallbackName], // fallback: true
-    "Poppins-Bold": { data, fallback: false },
-    "Poppins-Regular": { data, fallback: false },
-    "Inter-Bold": { data, fallback: false },
-    "Inter-Regular": { data, fallback: false },
-  };
-
-  if (specsTableNode) {
-    specsTableNode.headStyles.fontName = fallbackName;
-    specsTableNode.bodyStyles.fontName = fallbackName;
-  }
 
   const pdfBytes = await generate({
     template,

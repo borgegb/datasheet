@@ -17,7 +17,7 @@ import { encode as base64Encode } from "https://deno.land/std@0.177.0/encoding/b
 // --- PDFME Imports ---
 import { generate } from "https://esm.sh/@pdfme/generator@^5.3.0";
 import type { Template, Font } from "https://esm.sh/@pdfme/common@^5.3.0";
-import { rgb } from "https://esm.sh/pdf-lib@^1.17.1"; // Import rgb from pdf-lib
+import { rgb, PDFFont } from "https://esm.sh/pdf-lib@^1.17.1"; // Import rgb from pdf-lib
 // Import the schemas you will use as plugins
 import {
   text,
@@ -56,6 +56,29 @@ const hexToRgb = (
 // --- Helper: mm → pt (1 mm = 72 / 25.4 pt) ---
 const mm2pt = (mm: number): number => mm * 2.83464567;
 // --- END Helper ---
+
+const wrap = (
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number
+): string[] => {
+  const words = text.split(/\\s+/);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+};
 
 // --- Custom PDFME Plugin for IconTextList ---
 const iconTextList = {
@@ -145,30 +168,44 @@ const iconTextList = {
     for (const item of items) {
       if (!item?.text) continue;
 
-      // words per line ≈ widthOfTextAtSize / maxWidth
       const maxWidth = blockWidthPt - (iconWidth + iconTextSpacing);
-      const textWidth = pdfFont.widthOfTextAtSize(item.text, fontSize);
-      const lines = Math.ceil(textWidth / maxWidth);
 
-      // TRUE text block height: first line = fontSize,
-      // every following line adds fontSize*lineHeight
-      const textHeight = lines * fontSize * lineHeight;
+      const linesArr = wrap(item.text, pdfFont, fontSize, maxWidth);
+      const rowHeight = Math.max(
+        linesArr.length * fontSize * lineHeight,
+        iconHeight
+      );
 
-      // row height must cover either text or icon
-      const rowHeight = Math.max(textHeight, iconHeight);
+      if (yOffsetPt + rowHeight > blockHeightPt) {
+        if (linesArr.length > 0) {
+          const lastLine = linesArr[linesArr.length - 1];
+          linesArr[linesArr.length - 1] = lastLine.replace(/\\s*\\S+$/, " …");
+          const truncatedText = linesArr.join("\\n");
 
-      if (yOffsetPt + rowHeight > blockHeightPt) break; // no more space
+          const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
+          const iconAbsX = blockXpt;
+          const iconAbsY = rowTop;
+          const textAbsX = blockXpt + iconWidth + iconTextSpacing;
+          const textBaselineY = rowTop - iconHeight * 0.8;
 
-      // 1) master "row" top for this item (no fontSize subtraction)
+          await page.drawText(truncatedText, {
+            x: textAbsX,
+            y: textBaselineY,
+            font: pdfFont,
+            size: fontSize,
+            color: rgb(rgbColor.red, rgbColor.green, rgbColor.blue),
+            maxWidth: maxWidth,
+            lineHeight: fontSize * lineHeight,
+          });
+        }
+        break;
+      }
+
       const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
-
-      // 2) icon: put its TOP exactly at rowTop (experiment)
       const iconAbsX = blockXpt;
-      const iconAbsY = rowTop; // icon now sits one full line higher
-
-      // 3) text:
+      const iconAbsY = rowTop;
       const textAbsX = blockXpt + iconWidth + iconTextSpacing;
-      const textBaselineY = rowTop - iconHeight * 0.8; // baseline further down so mis-alignment is obvious
+      const textBaselineY = rowTop - iconHeight * 0.8;
 
       console.log(
         `iconTextList ► "${item.text.slice(0, 25)}…"  ` +
@@ -187,7 +224,7 @@ const iconTextList = {
       }
 
       // draw text
-      await page.drawText(item.text, {
+      await page.drawText(linesArr.join("\\n"), {
         x: textAbsX,
         y: textBaselineY,
         font: pdfFont,
@@ -311,6 +348,34 @@ const getShippingText = (
 };
 // --- END Helper Functions ---
 
+const ORIGINAL_OFFSETS_MM = {
+  warrantyText: 235 - 283, // -48
+  shippingHeading: 250 - 283, // -33
+  shippingText: 260 - 283, // -23
+  pedLogo: 262 - 283, // -21
+  ceLogo: 262 - 283, // -21
+  irelandLogo: 249 - 283, // -34
+};
+
+function anchorShippingGroupToFooter(template: Template): void {
+  const footer = (template as any).basePdf.staticSchema.find(
+    (n: any) => n.name === "footerBackground"
+  );
+  if (!footer) return;
+
+  const footerTopY = footer.position.y as number;
+
+  for (const page of (template as any).schemas) {
+    for (const node of page) {
+      const delta =
+        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
+      if (delta !== undefined) {
+        node.position.y = footerTopY + delta;
+      }
+    }
+  }
+}
+
 const DEFAULT_PRODUCT_IMAGE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
@@ -335,41 +400,6 @@ if (!(globalThis as any).__diagnosticsInstalled) {
   (globalThis as any).__diagnosticsInstalled = true;
 }
 // --- END diagnostics ---
-
-// footer anchor helper (local copy)
-function anchorShippingGroupToFooter(template: any, gapMm = 3) {
-  const footerBg = template?.basePdf?.staticSchema?.find(
-    (n: any) => n.name === "footerBackground"
-  );
-  if (!footerBg) return;
-  const footerTop = footerBg.position.y;
-  const names = [
-    "warrantyText",
-    "shippingHeading",
-    "shippingText",
-    "pedLogo",
-    "ceLogo",
-    "irelandLogo",
-  ];
-  const page = Array.isArray(template.schemas) ? template.schemas[0] : null;
-  if (!page) return;
-  const nodes: Record<string, any> = {};
-  for (const name of names)
-    nodes[name] = page.find((n: any) => n.name === name);
-  if (!nodes.shippingHeading) return;
-  const topY = Math.min(...names.map((n) => nodes[n]?.position?.y ?? 999));
-  const bottomY = Math.max(
-    ...names.map((n) => {
-      const node = nodes[n];
-      if (!node) return -999;
-      return (node.position.y as number) + (node.height || 0);
-    })
-  );
-  const blockH = bottomY - topY;
-  const newTop = footerTop - gapMm - blockH;
-  const delta = newTop - topY;
-  for (const n of names) if (nodes[n]) nodes[n].position.y += delta;
-}
 
 serve(async (req: Request): Promise<Response> => {
   console.log("--- generate-datasheet (pdfme) handler entered ---");
@@ -413,6 +443,7 @@ serve(async (req: Request): Promise<Response> => {
       );
       const templateJsonString = await Deno.readTextFile(templateFilePath);
       template = JSON.parse(templateJsonString) as Template; // Keep simple cast
+      anchorShippingGroupToFooter(template);
       console.log(
         "PDFME template loaded successfully from (attempted):",
         templateFilePath.pathname
@@ -456,8 +487,7 @@ serve(async (req: Request): Promise<Response> => {
         "Custom fonts (Poppins-Bold, Inter-Regular, Inter-Bold) loaded successfully."
       );
 
-      // Align lower block to footer
-      anchorShippingGroupToFooter(template, 3);
+      // Removed dynamic bottom anchoring; template coordinates now respected.
 
       try {
         const appliedLogoPath = new URL(

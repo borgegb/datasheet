@@ -6,13 +6,13 @@ import type { Template, Font } from "@pdfme/common";
 
 // Helpers from the same directory (lib/pdf/helpers.ts)
 import {
+  hexToRgb, // Though not directly used in this file, iconTextList might use it implicitly if it were here
   mm2pt, // Same as above
   iconTextList,
   CHECKMARK_SVG,
   getWarrantyText,
   getShippingText,
   DEFAULT_PRODUCT_IMAGE_BASE64,
-  hexToRgb,
   anchorShippingGroupToFooter,
 } from "./helpers";
 
@@ -62,6 +62,7 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
 
   try {
     template = JSON.parse(await fs.readFile(templatePath, "utf8"));
+    anchorShippingGroupToFooter(template);
     console.log("PDFME template loaded from:", templatePath);
 
     const poppinsBoldPath = path.join(fontDir, "Poppins-Bold.ttf");
@@ -85,9 +86,6 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
       "Inter-Bold": { data: interBoldFontBytes, subset: true },
     };
     console.log("Custom fonts loaded from:", fontDir);
-
-    // Align warranty/shipping block to footer gap 3 mm
-    anchorShippingGroupToFooter(template, 3);
   } catch (loadError: any) {
     console.error(
       "Error loading template or fonts for PDFME in buildPdf:",

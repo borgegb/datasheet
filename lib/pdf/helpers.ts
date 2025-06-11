@@ -1,5 +1,5 @@
-import { rgb } from "pdf-lib"; // rgb is used by iconTextList
-import type { Plugin } from "@pdfme/common"; // For iconTextList type
+import { rgb, PDFFont } from "pdf-lib"; // rgb is used by iconTextList
+import type { Plugin, Template } from "@pdfme/common"; // For iconTextList type
 
 // --- SVG Checkmark Definition ---
 export const CHECKMARK_SVG =
@@ -26,6 +26,29 @@ export const hexToRgb = (
 
 // --- Helper: mm → pt (1 mm = 72 / 25.4 pt) ---
 export const mm2pt = (mm: number): number => mm * 2.83464567;
+
+const wrap = (
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number
+): string[] => {
+  const words = text.split(/\\s+/);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+};
 
 // --- Custom PDFME Plugin for IconTextList ---
 export const iconTextList: Plugin<any> = {
@@ -91,11 +114,37 @@ export const iconTextList: Plugin<any> = {
     for (const item of items) {
       if (!item?.text) continue;
       const maxWidth = blockWidthPt - (iconWidth + iconTextSpacing);
-      const linesArr = wrapText(item.text, pdfFont, fontSize, maxWidth);
-      const textHeight = linesArr.length * fontSize * lineHeight;
-      const rowHeight = Math.max(textHeight, iconHeight);
 
-      if (yOffsetPt + rowHeight > blockHeightPt) break;
+      const linesArr = wrap(item.text, pdfFont, fontSize, maxWidth);
+      const rowHeight = Math.max(
+        linesArr.length * fontSize * lineHeight,
+        iconHeight
+      );
+
+      if (yOffsetPt + rowHeight > blockHeightPt) {
+        if (linesArr.length > 0) {
+          const lastLine = linesArr[linesArr.length - 1];
+          linesArr[linesArr.length - 1] = lastLine.replace(/\\s*\\S+$/, " …");
+          const truncatedText = linesArr.join("\\n");
+
+          const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
+          const iconAbsX = blockXpt;
+          const iconAbsY = rowTop;
+          const textAbsX = blockXpt + iconWidth + iconTextSpacing;
+          const textBaselineY = rowTop - iconHeight * 0.8;
+
+          await page.drawText(truncatedText, {
+            x: textAbsX,
+            y: textBaselineY,
+            font: pdfFont,
+            size: fontSize,
+            color: rgb(rgbColor.red, rgbColor.green, rgbColor.blue),
+            maxWidth: maxWidth,
+            lineHeight: fontSize * lineHeight,
+          });
+        }
+        break;
+      }
 
       const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
       const iconAbsX = blockXpt;
@@ -111,7 +160,7 @@ export const iconTextList: Plugin<any> = {
           height: iconHeight,
         });
       }
-      await page.drawText(linesArr.join("\n"), {
+      await page.drawText(linesArr.join("\\n"), {
         x: textAbsX,
         y: textBaselineY,
         font: pdfFont,
@@ -233,74 +282,33 @@ export const getShippingText = (
   }
 };
 
-export const DEFAULT_PRODUCT_IMAGE_BASE64 =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+const ORIGINAL_OFFSETS_MM = {
+  warrantyText: 235 - 283, // -48
+  shippingHeading: 250 - 283, // -33
+  shippingText: 260 - 283, // -23
+  pedLogo: 262 - 283, // -21
+  ceLogo: 262 - 283, // -21
+  irelandLogo: 249 - 283, // -34
+};
 
-// --- Word-wrap helper (returns array of lines that fit maxWidth) ---
-function wrapText(
-  text: string,
-  font: any,
-  fontSize: number,
-  maxWidth: number
-): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
-      line = test;
-    } else {
-      if (line) lines.push(line);
-      line = word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-// --- Anchor shipping group to footer ---
-export function anchorShippingGroupToFooter(template: any, gapMm = 3) {
-  const footerBg = template?.basePdf?.staticSchema?.find(
+export function anchorShippingGroupToFooter(template: Template): void {
+  const footer = (template as any).basePdf.staticSchema.find(
     (n: any) => n.name === "footerBackground"
   );
-  if (!footerBg) return;
-  const footerTop = footerBg.position.y; // mm
+  if (!footer) return;
 
-  const names = [
-    "warrantyText",
-    "shippingHeading",
-    "shippingText",
-    "pedLogo",
-    "ceLogo",
-    "irelandLogo",
-  ];
+  const footerTopY = footer.position.y as number;
 
-  const pageSchemas = Array.isArray(template.schemas) ? template.schemas : [];
-
-  if (pageSchemas.length === 0) return;
-  const page = pageSchemas[0];
-  const nodes: Record<string, any> = {};
-  for (const name of names)
-    nodes[name] = page.find((n: any) => n.name === name);
-
-  if (!nodes.shippingHeading) return; // essential
-
-  // determine block top and bottom in mm
-  const topY = Math.min(...names.map((n) => nodes[n]?.position?.y ?? 999));
-  const bottomY = Math.max(
-    ...names.map((n) => {
-      const node = nodes[n];
-      if (!node) return -999;
-      return (node.position.y as number) + (node.height || 0);
-    })
-  );
-
-  const blockHeight = bottomY - topY;
-  const newTop = footerTop - gapMm - blockHeight;
-  const delta = newTop - topY;
-
-  for (const n of names) {
-    if (nodes[n]) nodes[n].position.y += delta;
+  for (const page of (template as any).schemas) {
+    for (const node of page) {
+      const delta =
+        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
+      if (delta !== undefined) {
+        node.position.y = footerTopY + delta;
+      }
+    }
   }
 }
+
+export const DEFAULT_PRODUCT_IMAGE_BASE64 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";

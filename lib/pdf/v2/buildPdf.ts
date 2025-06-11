@@ -114,10 +114,21 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     },
   ];
 
+  const defaultFont = getDefaultFont();
+  const fallbackName = Object.keys(defaultFont)[0];
+  const defaultFontData = defaultFont[fallbackName].data;
+  const fontMap: any = {
+    [fallbackName]: defaultFont[fallbackName], // fallback true
+    "Poppins-Bold": { data: defaultFontData, fallback: false },
+    "Poppins-Regular": { data: defaultFontData, fallback: false },
+    "Inter-Bold": { data: defaultFontData, fallback: false },
+    "Inter-Regular": { data: defaultFontData, fallback: false },
+  };
+
   const pdfBytes = await generate({
     template,
     inputs: pdfInputs,
-    options: { font: getDefaultFont() },
+    options: { font: fontMap },
     plugins: { text, image, line, rectangle, Table: table },
   });
 

@@ -223,13 +223,12 @@
           "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
         },
         "columnStyles": {
-          "padding": {
-            "0": { "top": 2, "right": 3, "bottom": 2, "left": 3 },
-            "1": { "top": 2, "right": 3, "bottom": 2, "left": 3 }
-          },
+          "padding": { "top": 2, "right": 3, "bottom": 2, "left": 3 },
           "borderWidth": {
-            "0": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 },
-            "1": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 }
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
           }
         },
         "fills": []

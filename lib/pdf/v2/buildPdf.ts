@@ -1,3 +1,7 @@
+import { generate } from "@pdfme/generator";
+import { text, image, line, rectangle, table } from "@pdfme/schemas";
+import type { Template } from "@pdfme/common";
+
 interface BuildPdfInput {
   appliedLogoBase64Data: string;
   productTitle: string;
@@ -7,37 +11,28 @@ interface BuildPdfInput {
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
-  // Initial rebuild step: fill header & intro only, leave other fields empty
-  const { generate } = await import("@pdfme/generator");
-  const { text, image, line, rectangle, table } = await import(
-    "@pdfme/schemas"
-  );
-  const fs = await import("fs/promises");
-  const { fileURLToPath } = await import("url");
+  // ---- Load template (bundled via webpack import) ----
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  const template: Template = (
+    await import("../../../pdf/template/datasheet-template.json")
+  ).default;
 
-  const templateUrl = new URL(
-    "../../../pdf/template/datasheet-template.json",
-    import.meta.url
-  );
-  const templatePath = fileURLToPath(templateUrl);
-  const templateJson = await fs.readFile(templatePath, "utf8");
-  const template = JSON.parse(templateJson);
-
-  const inputs = [
+  // ---- Build minimal inputs (header, intro, image) ----
+  const pdfInputs = [
     {
       appliedLogo: input.appliedLogoBase64Data,
       productTitle: input.productTitle,
       productSubtitle: input.productSubtitle,
       introParagraph: input.introParagraph,
 
-      keyFeaturesHeading: "",
-      keyFeaturesList: [],
-
       productimage: input.productImageBase64 || "",
 
+      // Empty placeholders for remaining schema names so pdfme doesn't complain
+      keyFeaturesHeading: "",
+      keyFeaturesList: [],
       specificationsHeading: "",
       specificationsTable: [],
-
       warrantyText: "",
       shippingText: "",
       shippingHeading: "",
@@ -49,8 +44,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
   const pdfBytes = await generate({
     template,
-    inputs,
+    inputs: pdfInputs,
     plugins: { text, image, line, rectangle, Table: table },
   });
+
   return pdfBytes;
 }

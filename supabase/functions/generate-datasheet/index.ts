@@ -336,6 +336,41 @@ if (!(globalThis as any).__diagnosticsInstalled) {
 }
 // --- END diagnostics ---
 
+// footer anchor helper (local copy)
+function anchorShippingGroupToFooter(template: any, gapMm = 3) {
+  const footerBg = template?.basePdf?.staticSchema?.find(
+    (n: any) => n.name === "footerBackground"
+  );
+  if (!footerBg) return;
+  const footerTop = footerBg.position.y;
+  const names = [
+    "warrantyText",
+    "shippingHeading",
+    "shippingText",
+    "pedLogo",
+    "ceLogo",
+    "irelandLogo",
+  ];
+  const page = Array.isArray(template.schemas) ? template.schemas[0] : null;
+  if (!page) return;
+  const nodes: Record<string, any> = {};
+  for (const name of names)
+    nodes[name] = page.find((n: any) => n.name === name);
+  if (!nodes.shippingHeading) return;
+  const topY = Math.min(...names.map((n) => nodes[n]?.position?.y ?? 999));
+  const bottomY = Math.max(
+    ...names.map((n) => {
+      const node = nodes[n];
+      if (!node) return -999;
+      return (node.position.y as number) + (node.height || 0);
+    })
+  );
+  const blockH = bottomY - topY;
+  const newTop = footerTop - gapMm - blockH;
+  const delta = newTop - topY;
+  for (const n of names) if (nodes[n]) nodes[n].position.y += delta;
+}
+
 serve(async (req: Request): Promise<Response> => {
   console.log("--- generate-datasheet (pdfme) handler entered ---");
   if (req.method === "OPTIONS") {
@@ -421,7 +456,8 @@ serve(async (req: Request): Promise<Response> => {
         "Custom fonts (Poppins-Bold, Inter-Regular, Inter-Bold) loaded successfully."
       );
 
-      // Removed dynamic bottom anchoring; template coordinates now respected.
+      // Align lower block to footer
+      anchorShippingGroupToFooter(template, 3);
 
       try {
         const appliedLogoPath = new URL(

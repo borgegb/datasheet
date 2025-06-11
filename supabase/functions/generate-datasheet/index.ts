@@ -481,6 +481,15 @@ serve(async (req: Request): Promise<Response> => {
             ceLogo.position.y = newShipY + oCe;
             irelandLogo.position.y = newShipY + oIe;
           }
+
+          console.log("block-probe", {
+            warranty: !!warrantyTextNode,
+            shipHead: !!shippingHeading,
+            shipText: !!shippingText,
+            ped: !!pedLogo,
+            ce: !!ceLogo,
+            ie: !!irelandLogo,
+          });
         }
       } catch (e) {
         console.warn("Dynamic bottom-anchor adjustment failed", e);

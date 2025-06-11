@@ -145,6 +145,15 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
           pedLogoNode.position.y = newShipHeadingY + offsetPed;
           ceLogoNode.position.y = newShipHeadingY + offsetCe;
           irelandLogoNode.position.y = newShipHeadingY + offsetIe;
+
+          console.log("block-probe", {
+            warranty: !!warrantyNode,
+            shipHead: !!shippingHeadingNode,
+            shipText: !!shippingTextNode,
+            ped: !!pedLogoNode,
+            ce: !!ceLogoNode,
+            ie: !!irelandLogoNode,
+          });
         }
       }
     } catch (dynErr) {

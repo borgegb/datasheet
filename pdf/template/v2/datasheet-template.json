@@ -232,8 +232,14 @@
           "alternateBackgroundColor": ""
         },
         "columnStyles": {
-          "0": { "alignment": "left", "cellWidth": 87.5 },
-          "1": { "alignment": "left", "cellWidth": 87.5 }
+          "0": {
+            "alignment": "left",
+            "cellWidth": 87.5
+          },
+          "1": {
+            "alignment": "left",
+            "cellWidth": 87.5
+          }
         },
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }

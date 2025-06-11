@@ -195,10 +195,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       pedLogo: input.pedLogo || "",
       ceLogo: input.ceLogo || "",
       irelandLogo: input.irelandLogo || "",
-      keyFeaturesHeading: "",
-      keyFeaturesList: [],
       specificationsTable: processedTable,
-      specificationsHeading: "",
     },
   ];
 

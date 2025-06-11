@@ -154,7 +154,7 @@
       {
         "type": "image",
         "name": "irelandLogo",
-        "position": { "x": 162, "y": 254 },
+        "position": { "x": 162, "y": 244 },
         "width": 35,
         "height": 35
       }

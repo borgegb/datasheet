@@ -165,28 +165,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ---- Build specs table (max 5 rows) ----
-    let specsForTable: string[][] = [];
-    try {
-      const rawSpecs = productDataFromSource.tech_specs;
-      const parsed = Array.isArray(rawSpecs)
-        ? rawSpecs
-        : typeof rawSpecs === "string"
-        ? JSON.parse(rawSpecs)
-        : [];
-      if (Array.isArray(parsed)) {
-        specsForTable = parsed
-          .filter((item: any) => item && (item.label || item.value))
-          .slice(0, 5)
-          .map((item: any) => [
-            (item.label ?? "").toString(),
-            (item.value ?? "").toString(),
-          ]);
-      }
-    } catch {}
-    if (specsForTable.length === 0)
-      specsForTable = [["Specification", "Value"]];
-
     // Build minimal input for header section for v2
     const headerInput = {
       appliedLogoBase64Data,
@@ -205,7 +183,6 @@ export async function POST(req: Request) {
       pedLogo: pedLogoBase64Data,
       ceLogo: ceLogoBase64Data,
       irelandLogo: irelandLogoBase64Data,
-      specificationsTable: specsForTable,
     } as const;
 
     const pdfBytes = await buildPdfV2(headerInput);

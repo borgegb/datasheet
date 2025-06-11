@@ -117,6 +117,7 @@ export default function DatasheetGeneratorForm({
   );
   const [warranty, setWarranty] = useState(initialData?.warranty || "");
   const [shippingUnits, setShippingUnits] = useState("4");
+  const [shippingUnitType, setShippingUnitType] = useState("unit");
   const [imageOrientation, setImageOrientation] = useState(
     initialData?.image_orientation || "portrait"
   );
@@ -187,8 +188,10 @@ export default function DatasheetGeneratorForm({
   // Helper function to generate shipping text
   const generateShippingText = (): string => {
     const productName = productTitle || "[Product Name]";
-    const units = shippingUnits || "4";
-    return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    const units = shippingUnits || "1";
+    const label = shippingUnitType;
+    const plural = units === "1" ? label : `${label}s`;
+    return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
   };
 
   // useEffect to fetch USER, PROFILE, and CATEGORIES
@@ -308,14 +311,19 @@ export default function DatasheetGeneratorForm({
       }
       setKeyFeatures(initialData.key_features || "");
       setWarranty(initialData.warranty || "");
-      // Parse shipping units from existing shipping_info if it contains a number
+      // Parse shipping units and type from existing shipping_info if it contains a number
       if (initialData.shipping_info) {
-        const unitsMatch = initialData.shipping_info.match(
-          /Up to\s+(\d+)\s+units/
-        );
-        setShippingUnits(unitsMatch ? unitsMatch[1] : "4");
+        const match = initialData.shipping_info.match(/(\d+)\s+(\w+)/);
+        if (match) {
+          setShippingUnits(match[1]);
+          setShippingUnitType(match[2].replace(/s$/, ""));
+        } else {
+          setShippingUnits("4");
+          setShippingUnitType("unit");
+        }
       } else {
         setShippingUnits("4");
+        setShippingUnitType("unit");
       }
       setImageOrientation(initialData.image_orientation || "portrait");
       setUploadedImagePath(initialData.image_path || null);
@@ -423,6 +431,7 @@ export default function DatasheetGeneratorForm({
       setKeyFeatures("");
       setWarranty("");
       setShippingUnits("4");
+      setShippingUnitType("unit");
       setImageOrientation("portrait");
       setIncludeCeLogo(false);
       setIncludeOriginLogo(false);
@@ -1150,6 +1159,21 @@ export default function DatasheetGeneratorForm({
                     min="1"
                     max="1000"
                   />
+                  <Select
+                    name="shippingUnitType"
+                    value={shippingUnitType}
+                    onValueChange={setShippingUnitType}
+                  >
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unit">unit(s)</SelectItem>
+                      <SelectItem value="package">package(s)</SelectItem>
+                      <SelectItem value="bag">bag(s)</SelectItem>
+                      <SelectItem value="box">box(es)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 {/* Preview of shipping text */}
                 <div className="bg-muted p-3 rounded-md border">
@@ -1162,7 +1186,9 @@ export default function DatasheetGeneratorForm({
                 <input
                   type="hidden"
                   name="shippingInfo"
-                  value={shippingUnits}
+                  value={`${shippingUnits} ${shippingUnitType}${
+                    shippingUnits === "1" ? "" : "s"
+                  }`}
                 />
               </div>
             </div>

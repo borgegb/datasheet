@@ -276,8 +276,15 @@ const getShippingText = (
   codeOrUnits: string | null,
   productTitle?: string
 ): string => {
-  // Check if it's a number (our units)
   const units = parseInt(codeOrUnits || "4");
+  const match = (codeOrUnits || "").match(/(\d+)\s+(\w+)/);
+  if (match && productTitle) {
+    const qty = parseInt(match[1]);
+    const label = match[2];
+    const plural = qty === 1 ? label : label + (label.endsWith("s") ? "" : "s");
+    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+  }
+
   if (!isNaN(units) && productTitle) {
     return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
   }

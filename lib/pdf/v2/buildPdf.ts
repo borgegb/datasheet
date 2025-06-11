@@ -33,10 +33,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   ).default;
 
   // --- Dynamically resize the Specs table so it never bleeds into the blocks underneath ----
-  const truncatedTable = input.specificationsTable.map((row) =>
+  const cleanTable = input.specificationsTable.map((row) =>
     row.map((cell) => {
-      const str = String(cell ?? "");
-      return str.length > 50 ? `${str.slice(0, 47)}…` : str;
+      const s = String(cell ?? "")
+        .replace(/\r?\n|\r/g, " ") // kill hard breaks
+        .trim();
+      const clipped = s.length > 50 ? `${s.slice(0, 47)}…` : s;
+      return clipped;
     })
   );
 
@@ -46,7 +49,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   if (specsTableNode) {
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
-        JSON.stringify(truncatedTable),
+        JSON.stringify(cleanTable),
         {
           schema: specsTableNode as any,
           basePdf: template.basePdf as any,
@@ -80,7 +83,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      specificationsTable: truncatedTable,
+      specificationsTable: cleanTable,
       specificationsHeading: "",
     },
   ];

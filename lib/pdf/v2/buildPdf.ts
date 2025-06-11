@@ -80,6 +80,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       "Inter-Bold": { data, fallback: false },
       "Inter-Regular": { data, fallback: false },
     };
+    console.log(
+      "🚀 FONT MAP BUILT BEFORE HEIGHT CALC - should fix step-ladder effect"
+    );
 
     try {
       const dynamicHeights = await getDynamicHeightsForTable(

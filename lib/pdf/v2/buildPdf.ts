@@ -114,15 +114,17 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     },
   ];
 
-  const defaultFont = getDefaultFont();
-  const fallbackName = Object.keys(defaultFont)[0]; // e.g. "NotoSansJP-Regular"
-  const defaultData = defaultFont[fallbackName].data;
+  // Build an in-memory font map using pdfme's bundled default font
+  const builtIn = getDefaultFont();
+  const fallbackName = Object.keys(builtIn)[0];
+  const fontData = builtIn[fallbackName].data;
 
-  const fontMap = {
-    [fallbackName]: defaultFont[fallbackName], // fallback: true
-    "Poppins-Bold": { data: defaultData, fallback: false },
-    "Inter-Bold": { data: defaultData, fallback: false },
-    "Inter-Regular": { data: defaultData, fallback: false },
+  const fontMap: any = {
+    [fallbackName]: builtIn[fallbackName], // fallback: true
+    "Poppins-Bold": { data: fontData, fallback: false },
+    "Poppins-Regular": { data: fontData, fallback: false },
+    "Inter-Bold": { data: fontData, fallback: false },
+    "Inter-Regular": { data: fontData, fallback: false },
   };
 
   const pdfBytes = await generate({

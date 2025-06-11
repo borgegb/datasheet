@@ -184,6 +184,7 @@ export async function POST(req: Request) {
       ceLogo: ceLogoBase64Data,
       irelandLogo: irelandLogoBase64Data,
       specificationsTable: (() => {
+        // Pass raw data to buildPdf.ts for processing
         const rawSpecs = productDataFromSource.tech_specs;
         try {
           const parsed = Array.isArray(rawSpecs)
@@ -191,20 +192,21 @@ export async function POST(req: Request) {
             : typeof rawSpecs === "string"
             ? JSON.parse(rawSpecs)
             : [];
-          const rows = (parsed || [])
-            .filter((r: any) => r && (r.label || r.value))
-            .slice(0, 5)
-            .map((r: any) => [
-              (r.label ?? "").toString(),
-              (r.value ?? "").toString(),
-            ]);
-          return rows.length ? rows : [["", ""]];
+          // Just return the parsed data, let buildPdf.ts handle filtering and formatting
+          return (parsed || []).map((r: any) => [
+            (r.label ?? "").toString(),
+            (r.value ?? "").toString(),
+          ]);
         } catch {
           return [["", ""]];
         }
       })(),
     } as const;
 
+    console.log(
+      "📋 Specs data being passed to buildPdf:",
+      headerInput.specificationsTable
+    );
     const pdfBytes = await buildPdfV2(headerInput);
 
     // Construct the file path as per the old structure

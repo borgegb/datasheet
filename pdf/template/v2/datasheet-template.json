@@ -104,9 +104,9 @@
       {
         "type": "text",
         "name": "warrantyText",
-        "position": { "x": 22, "y": 248 },
+        "position": { "x": 22, "y": 251 },
         "width": 140,
-        "height": 10,
+        "height": 6,
         "fontName": "Inter-Bold",
         "fontSize": 9,
         "fontColor": "#2c5234",
@@ -155,8 +155,8 @@
         "type": "image",
         "name": "irelandLogo",
         "position": { "x": 162, "y": 234 },
-        "width": 38,
-        "height": 43
+        "width": 35,
+        "height": 35
       }
     ]
   ]

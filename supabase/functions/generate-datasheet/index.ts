@@ -420,6 +420,72 @@ serve(async (req: Request): Promise<Response> => {
         "Custom fonts (Poppins-Bold, Inter-Regular, Inter-Bold) loaded successfully."
       );
 
+      /**
+       * Dynamically move the warranty + shipping block so its bottom edge
+       * always sits a small distance above the footer, regardless of how many
+       * rows the specs table or key-features list renders.
+       */
+      try {
+        // @ts-ignore – runtime template JSON isn't strongly typed
+        const pageSchema = Array.isArray((template as any).schemas)
+          ? (template as any).schemas[0]
+          : undefined;
+
+        if (pageSchema) {
+          const byName = (n: string) =>
+            pageSchema.find((x: any) => x.name === n);
+
+          const shippingHeading = byName("shippingHeading");
+          const shippingText = byName("shippingText");
+          const warrantyTextNode = byName("warrantyText");
+          const pedLogo = byName("pedLogo");
+          const ceLogo = byName("ceLogo");
+          const irelandLogo = byName("irelandLogo");
+
+          const footerBg = (template as any).basePdf.staticSchema?.find(
+            (x: any) => x.name === "footerBackground"
+          );
+
+          if (
+            shippingHeading &&
+            shippingText &&
+            warrantyTextNode &&
+            pedLogo &&
+            ceLogo &&
+            irelandLogo &&
+            footerBg
+          ) {
+            const footerTop = footerBg.position.y; // ~283 mm
+
+            const oWarranty =
+              warrantyTextNode.position.y - shippingHeading.position.y;
+            const oShipText =
+              shippingText.position.y - shippingHeading.position.y;
+            const oPed = pedLogo.position.y - shippingHeading.position.y;
+            const oCe = ceLogo.position.y - shippingHeading.position.y;
+            const oIe = irelandLogo.position.y - shippingHeading.position.y;
+
+            const bottomRel = Math.max(
+              oPed + (pedLogo.height || 0),
+              oCe + (ceLogo.height || 0),
+              oIe + (irelandLogo.height || 0)
+            );
+
+            const bottomPad = 3;
+            const newShipY = footerTop - bottomPad - bottomRel;
+
+            shippingHeading.position.y = newShipY;
+            shippingText.position.y = newShipY + oShipText;
+            warrantyTextNode.position.y = newShipY + oWarranty;
+            pedLogo.position.y = newShipY + oPed;
+            ceLogo.position.y = newShipY + oCe;
+            irelandLogo.position.y = newShipY + oIe;
+          }
+        }
+      } catch (e) {
+        console.warn("Dynamic bottom-anchor adjustment failed", e);
+      }
+
       try {
         const appliedLogoPath = new URL(
           "../_shared/assets/Appliedlogo.jpg",

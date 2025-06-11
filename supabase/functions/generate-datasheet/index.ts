@@ -487,7 +487,50 @@ serve(async (req: Request): Promise<Response> => {
         "Custom fonts (Poppins-Bold, Inter-Regular, Inter-Bold) loaded successfully."
       );
 
-      // Removed dynamic bottom anchoring; template coordinates now respected.
+      try {
+        const pageSchema = Array.isArray((template as any).schemas)
+          ? (template as any).schemas[0]
+          : undefined;
+        const footerBg = (template as any).basePdf.staticSchema?.find(
+          (n: any) => n.name === "footerBackground"
+        );
+
+        if (pageSchema && footerBg) {
+          const getByName = (name: string) =>
+            pageSchema.find((n: any) => n.name === name);
+
+          const nodesToAnchor = [
+            getByName("warrantyText"),
+            getByName("shippingHeading"),
+            getByName("shippingText"),
+            getByName("pedLogo"),
+            getByName("ceLogo"),
+            getByName("irelandLogo"),
+          ].filter(Boolean);
+
+          if (nodesToAnchor.length === 6) {
+            const footerTopY = footerBg.position.y as number;
+
+            let blockBottomY = 0;
+            for (const node of nodesToAnchor) {
+              const nodeBottom = (node.position.y || 0) + (node.height || 0);
+              if (nodeBottom > blockBottomY) {
+                blockBottomY = nodeBottom;
+              }
+            }
+
+            const PADDING_ABOVE_FOOTER = 3; // mm
+            const desiredBlockBottomY = footerTopY - PADDING_ABOVE_FOOTER;
+            const shiftDeltaY = desiredBlockBottomY - blockBottomY;
+
+            for (const node of nodesToAnchor) {
+              node.position.y += shiftDeltaY;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Dynamic bottom-anchor adjustment failed:", e);
+      }
 
       try {
         const appliedLogoPath = new URL(

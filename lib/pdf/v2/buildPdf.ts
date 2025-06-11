@@ -90,17 +90,18 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     if (tableSchema.bodyStyles) {
       tableSchema.bodyStyles.fontName = defaultFontName;
       // Ensure compact styling for uniform small rows
-      tableSchema.bodyStyles.fontSize = 8; // Slightly smaller font
-      tableSchema.bodyStyles.lineHeight = 1;
+      tableSchema.bodyStyles.fontSize = 7; // Even smaller font
+      tableSchema.bodyStyles.lineHeight = 0.9; // Tighter line height
       tableSchema.bodyStyles.padding = {
-        top: 1,
-        right: 2,
-        bottom: 1,
-        left: 2,
+        top: 0.5,
+        right: 1,
+        bottom: 0.5,
+        left: 1,
       };
-      // Try to force uniform row height
-      tableSchema.bodyStyles.minCellHeight = 5; // 5mm minimum height
-      tableSchema.bodyStyles.maxCellHeight = 5; // 5mm maximum height (if supported)
+      // Try different height properties
+      tableSchema.bodyStyles.height = 5; // Fixed height
+      tableSchema.bodyStyles.cellHeight = 5; // Alternative property
+      tableSchema.bodyStyles.rowHeight = 5; // Another alternative
     }
 
     // Update column styles - handle the legacy format
@@ -136,7 +137,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
           _cache: new Map(),
         }
       );
-      console.log("🔍 Actual row heights:", dynamicHeights);
+      console.log("🔍 Actual row heights (before override):", dynamicHeights);
       console.log("🔍 Row height variance:", {
         min: Math.min(...dynamicHeights.slice(1)), // Skip header
         max: Math.max(...dynamicHeights.slice(1)),
@@ -144,6 +145,24 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
           dynamicHeights.slice(1).reduce((a, b) => a + b, 0) /
           (dynamicHeights.length - 1),
       });
+
+      // FORCE uniform row heights by overriding pdfme's calculation
+      const UNIFORM_ROW_HEIGHT = 5; // 5mm per row
+      const uniformHeights = dynamicHeights.map((height, index) => {
+        if (index === 0) return 0; // Keep header at 0 (showHead is false)
+        return UNIFORM_ROW_HEIGHT;
+      });
+
+      console.log("🎯 Forced uniform heights:", uniformHeights);
+
+      // Override the table height calculation
+      const totalUniformHeight = uniformHeights.reduce(
+        (sum: number, h: number) => sum + h,
+        0
+      );
+      tableSchema.height = Math.min(totalUniformHeight, 45); // Don't exceed template limit
+
+      console.log("🎯 Final table height:", tableSchema.height);
     } catch (err) {
       console.error("Error getting dynamic heights:", err);
     }

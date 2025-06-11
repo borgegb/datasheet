@@ -58,6 +58,20 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     specsTableNode.headStyles.fontName = "";
     specsTableNode.bodyStyles.fontName = "";
 
+    // Ensure each column has a fixed width BEFORE height calculation
+    const halfWidth = (specsTableNode.width ?? 175) / 2;
+    specsTableNode.columnStyles = specsTableNode.columnStyles || {};
+    specsTableNode.columnStyles["0"] = {
+      ...(specsTableNode.columnStyles["0"] || {}),
+      cellWidth: halfWidth,
+      alignment: "left",
+    };
+    specsTableNode.columnStyles["1"] = {
+      ...(specsTableNode.columnStyles["1"] || {}),
+      cellWidth: halfWidth,
+      alignment: "left",
+    };
+
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
         JSON.stringify(truncatedTable),
@@ -71,19 +85,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       const accurateHeightMm = dynamicHeights.reduce((sum, h) => sum + h, 0);
       specsTableNode.height = accurateHeightMm;
 
-      // Ensure each column has a fixed width to prevent pdfme from wrapping every character.
-      const halfWidth = (specsTableNode.width ?? 175) / 2;
-      specsTableNode.columnStyles = specsTableNode.columnStyles || {};
-      specsTableNode.columnStyles["0"] = {
-        ...(specsTableNode.columnStyles["0"] || {}),
-        cellWidth: halfWidth,
-        alignment: "left",
-      };
-      specsTableNode.columnStyles["1"] = {
-        ...(specsTableNode.columnStyles["1"] || {}),
-        cellWidth: halfWidth,
-        alignment: "left",
-      };
       console.log("rowHeights", dynamicHeights);
     } catch (_) {}
   }

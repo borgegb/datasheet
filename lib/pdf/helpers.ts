@@ -128,8 +128,7 @@ export const iconTextList: Plugin<any> = {
           const truncatedText = linesArr.join("\\n");
 
           const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
-          const iconAbsX = blockXpt;
-          const iconAbsY = rowTop;
+
           const textAbsX = blockXpt + iconWidth + iconTextSpacing;
           const textBaselineY = rowTop - iconHeight * 0.8;
 
@@ -299,15 +298,35 @@ export function anchorShippingGroupToFooter(template: Template): void {
   if (!footer) return;
 
   const footerTopY = footer.position.y as number;
+  const BOTTOM_PADDING_MM = 3; // leave a small gap above footer background
 
+  // Collect shipping-group nodes per page so we can compute bounding box
   for (const page of (template as any).schemas) {
-    for (const node of page) {
-      const delta =
-        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
-      if (delta !== undefined) {
-        node.position.y = footerTopY + delta;
-      }
-    }
+    const nodes: any[] = page.filter((n: any) =>
+      [
+        "warrantyText",
+        "shippingHeading",
+        "shippingText",
+        "pedLogo",
+        "ceLogo",
+        "irelandLogo",
+      ].includes(n.name)
+    );
+
+    if (nodes.length === 0) continue;
+
+    // Determine current bottom of the group (largest y + height)
+    const bottomMost = Math.max(
+      ...nodes.map((n) => (n.position.y as number) + (n.height ?? 0))
+    );
+
+    const targetBottom = footerTopY - BOTTOM_PADDING_MM;
+    const delta = targetBottom - bottomMost;
+
+    // Shift all nodes by the same delta so bottom aligns to target
+    nodes.forEach((n) => {
+      n.position.y = (n.position.y as number) + delta;
+    });
   }
 }
 

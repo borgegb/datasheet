@@ -365,15 +365,32 @@ function anchorShippingGroupToFooter(template: Template): void {
   if (!footer) return;
 
   const footerTopY = footer.position.y as number;
+  const BOTTOM_PADDING_MM = 3;
 
   for (const page of (template as any).schemas) {
-    for (const node of page) {
-      const delta =
-        ORIGINAL_OFFSETS_MM[node.name as keyof typeof ORIGINAL_OFFSETS_MM];
-      if (delta !== undefined) {
-        node.position.y = footerTopY + delta;
-      }
-    }
+    const nodes: any[] = page.filter((n: any) =>
+      [
+        "warrantyText",
+        "shippingHeading",
+        "shippingText",
+        "pedLogo",
+        "ceLogo",
+        "irelandLogo",
+      ].includes(n.name)
+    );
+
+    if (nodes.length === 0) continue;
+
+    const bottomMost = Math.max(
+      ...nodes.map((n) => (n.position.y as number) + (n.height ?? 0))
+    );
+
+    const targetBottom = footerTopY - BOTTOM_PADDING_MM;
+    const delta = targetBottom - bottomMost;
+
+    nodes.forEach((n) => {
+      n.position.y = (n.position.y as number) + delta;
+    });
   }
 }
 

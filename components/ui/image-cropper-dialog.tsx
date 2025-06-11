@@ -1,5 +1,10 @@
-import React, { useCallback, useState } from "react";
-import Cropper from "react-easy-crop";
+import React, { useState, useCallback, useRef } from "react";
+import ReactCrop, {
+  type Crop,
+  centerCrop,
+  makeAspectCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import {
   Dialog,
   DialogContent,
@@ -15,95 +20,82 @@ interface ImageCropperDialogProps {
   onSave: (file: File) => void;
 }
 
-async function getCroppedBlob(
-  imageSrc: string,
-  cropAreaPixels: { width: number; height: number; x: number; y: number },
-  fileType: string
-): Promise<Blob> {
-  const image: HTMLImageElement = await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.addEventListener("load", () => resolve(img));
-    img.addEventListener("error", () => reject());
-    img.src = imageSrc;
-  });
-
-  const canvas = document.createElement("canvas");
-  canvas.width = cropAreaPixels.width;
-  canvas.height = cropAreaPixels.height;
-  const ctx = canvas.getContext("2d");
-
-  if (!ctx) throw new Error("Failed to get canvas context");
-
-  ctx.drawImage(
-    image,
-    cropAreaPixels.x,
-    cropAreaPixels.y,
-    cropAreaPixels.width,
-    cropAreaPixels.height,
-    0,
-    0,
-    cropAreaPixels.width,
-    cropAreaPixels.height
-  );
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("Canvas is empty"));
-    }, fileType || "image/jpeg");
-  });
-}
-
 export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
   open,
   file,
   onCancel,
   onSave,
 }) => {
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
-    width: number;
-    height: number;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  // Aspect ratio selector: portrait (3/4), landscape (4/3), free (undefined)
   const PORTRAIT = 3 / 4;
   const LANDSCAPE = 4 / 3;
   const [aspect, setAspect] = useState<number | undefined>(PORTRAIT);
 
-  const onCropComplete = useCallback((_area, areaPixels) => {
-    setCroppedAreaPixels(areaPixels);
-  }, []);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<Crop | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  // Initialize crop once image loads
+  const onImageLoad = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const { width, height } = e.currentTarget;
+      const initial = centerCrop(
+        makeAspectCrop({ unit: "%", width: 90 }, aspect ?? width / height),
+        width,
+        height
+      );
+      setCrop(initial);
+    },
+    [aspect]
+  );
+
+  const getCroppedBlob = async (): Promise<Blob | null> => {
+    if (!completedCrop || !imgRef.current) return null;
+    const image = imgRef.current;
+    const canvas = document.createElement("canvas");
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+
+    canvas.width = completedCrop.width! * scaleX;
+    canvas.height = completedCrop.height! * scaleY;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.drawImage(
+      image,
+      completedCrop.x! * scaleX,
+      completedCrop.y! * scaleY,
+      completedCrop.width! * scaleX,
+      completedCrop.height! * scaleY,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        resolve(blob || null);
+      }, file?.type || "image/jpeg");
+    });
+  };
 
   const handleSave = useCallback(async () => {
-    if (!file || !croppedAreaPixels) return;
-    const previewUrl = URL.createObjectURL(file);
-    try {
-      const blob = await getCroppedBlob(
-        previewUrl,
-        croppedAreaPixels,
-        file.type
-      );
-      const croppedFile = new File([blob], file.name, { type: file.type });
-      URL.revokeObjectURL(previewUrl);
-      onSave(croppedFile);
-    } catch (err) {
-      console.error("Crop failed", err);
-    }
-  }, [file, croppedAreaPixels, onSave]);
+    if (!file) return;
+    const blob = await getCroppedBlob();
+    if (!blob) return;
+    const croppedFile = new File([blob], file.name, { type: file.type });
+    onSave(croppedFile);
+  }, [file, onSave, completedCrop]);
 
   if (!file) return null;
-  const imageUrl = URL.createObjectURL(file);
+  const imgUrl = URL.createObjectURL(file);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="max-w-3xl w-full">
         <DialogHeader className="flex flex-col gap-2">
           <span>Crop Image</span>
-          {/* Aspect ratio selector */}
           <div className="flex items-center gap-4 text-sm">
             <label className="flex items-center gap-1 cursor-pointer">
               <input
@@ -137,22 +129,33 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
             </label>
           </div>
         </DialogHeader>
+
         <div className="relative w-full h-[400px] bg-black/80">
-          <Cropper
-            image={imageUrl}
+          <ReactCrop
             crop={crop}
-            zoom={zoom}
             aspect={aspect}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-            onCropComplete={onCropComplete}
-          />
+            onChange={(c) => setCrop(c)}
+            onComplete={(c) => setCompletedCrop(c)}
+            minWidth={50}
+          >
+            <img
+              ref={imgRef}
+              src={imgUrl}
+              onLoad={onImageLoad}
+              alt="crop source"
+            />
+          </ReactCrop>
         </div>
+
         <DialogFooter className="pt-4">
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleSave}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={!completedCrop?.width}
+          >
             Save crop
           </Button>
         </DialogFooter>

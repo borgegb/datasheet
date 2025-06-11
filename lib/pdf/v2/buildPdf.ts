@@ -1,5 +1,5 @@
 import { generate } from "@pdfme/generator";
-import { text, image, line, rectangle, table } from "@pdfme/schemas";
+import { text, image, line, rectangle } from "@pdfme/schemas";
 import type { Template } from "@pdfme/common";
 
 interface BuildPdfInput {
@@ -23,7 +23,69 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // @ts-ignore
   const template: Template = (
     await import("../../../pdf/template/v2/datasheet-template.json")
-  ).default;
+  ).default as Template;
+
+  // Deep clone to avoid mutating cached module across calls
+  const tmpl: Template = JSON.parse(JSON.stringify(template));
+
+  // Inject specification rows as simple text + separator lines instead of a dynamic table
+  const firstPageSchemas = (tmpl.schemas as any)[0] as any[];
+
+  // Remove placeholder table if present
+  const withoutTable = firstPageSchemas.filter(
+    (n) => n.name !== "specificationsTable"
+  );
+  (tmpl.schemas as any)[0] = withoutTable;
+
+  const startY = 188; // mm – align with original table top
+  const rowHeight = 7; // mm per spec row
+  const col1X = 22; // mm
+  const col2X = 110; // mm (approx half page width)
+  const col1Width = 75; // mm
+  const col2Width = 85; // mm
+
+  input.specificationsTable.slice(0, 10).forEach((row, idx) => {
+    const y = startY + idx * rowHeight;
+    const label = (row[0] ?? "").toString();
+    const value = (row[1] ?? "").toString();
+
+    withoutTable.push(
+      {
+        type: "text",
+        name: `specLabel${idx}`,
+        content: label,
+        position: { x: col1X, y },
+        width: col1Width,
+        height: rowHeight,
+        fontName: "Inter-Regular",
+        fontSize: 9,
+        fontColor: "#2A2A2A",
+        alignment: "left",
+        verticalAlignment: "middle",
+      },
+      {
+        type: "text",
+        name: `specValue${idx}`,
+        content: value,
+        position: { x: col2X, y },
+        width: col2Width,
+        height: rowHeight,
+        fontName: "Inter-Regular",
+        fontSize: 9,
+        fontColor: "#2A2A2A",
+        alignment: "left",
+        verticalAlignment: "middle",
+      },
+      {
+        type: "line",
+        name: `specSep${idx}`,
+        position: { x: col1X, y: y + rowHeight - 0.5 },
+        width: 177,
+        height: 0.2,
+        color: "#CCCCCC",
+      }
+    );
+  });
 
   // ---- Build minimal inputs (header, intro, image) ----
   const pdfInputs = [
@@ -43,18 +105,16 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       ceLogo: input.ceLogo || "",
       irelandLogo: input.irelandLogo || "",
 
-      // Placeholders for yet-to-be-added blocks
+      // Unused placeholders now
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      specificationsTable: input.specificationsTable,
-      specificationsHeading: "",
     },
   ];
 
   const pdfBytes = await generate({
-    template,
+    template: tmpl,
     inputs: pdfInputs,
-    plugins: { text, image, line, rectangle, Table: table },
+    plugins: { text, image, line, rectangle },
   });
 
   return pdfBytes;

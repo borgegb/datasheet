@@ -1,12 +1,5 @@
 import { generate } from "@pdfme/generator";
-import {
-  text,
-  image,
-  line,
-  rectangle,
-  table,
-  getDynamicHeightsForTable,
-} from "@pdfme/schemas";
+import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import type { Template } from "@pdfme/common";
 
 interface BuildPdfInput {
@@ -42,25 +35,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       return clean.length > maxLen ? `${clean.slice(0, maxLen - 1)}…` : clean;
     })
   );
-
-  const specsTableNode = (template as any).schemas?.[0]?.find(
-    (n: any) => n.name === "specificationsTable"
-  );
-  if (specsTableNode) {
-    try {
-      const dynamicHeights = await getDynamicHeightsForTable(
-        JSON.stringify(truncatedTable),
-        {
-          schema: specsTableNode as any,
-          basePdf: template.basePdf as any,
-          options: {},
-          _cache: new Map(),
-        }
-      );
-      const accurateHeightMm = dynamicHeights.reduce((sum, h) => sum + h, 0);
-      specsTableNode.height = accurateHeightMm;
-    } catch (_) {}
-  }
 
   // ---- Build minimal inputs (header, intro, image) ----
   const pdfInputs = [

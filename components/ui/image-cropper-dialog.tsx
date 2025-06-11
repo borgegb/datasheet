@@ -5,6 +5,7 @@ import ReactCrop, {
   makeAspectCrop,
 } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
+import "@/styles/cropper.css";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,7 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const { width, height } = e.currentTarget;
       const initial = centerCrop(
-        makeAspectCrop({ unit: "%", width: 90 }, aspect ?? width / height),
+        makeAspectCrop({ unit: "%", width: 80 }, aspect ?? 1),
         width,
         height
       );

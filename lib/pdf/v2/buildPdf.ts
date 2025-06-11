@@ -53,6 +53,10 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
+    // Force built-in font so pdfme can measure widths.
+    specsTableNode.headStyles.fontName = "";
+    specsTableNode.bodyStyles.fontName = "";
+
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
         JSON.stringify(truncatedTable),
@@ -80,9 +84,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
         alignment: "left",
       };
       console.log("rowHeights", dynamicHeights);
-
-      specsTableNode.headStyles.fontName = "";
-      specsTableNode.bodyStyles.fontName = "";
     } catch (_) {}
   }
 

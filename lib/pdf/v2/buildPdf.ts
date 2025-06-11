@@ -13,12 +13,14 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     "@pdfme/schemas"
   );
   const fs = await import("fs/promises");
+  const { fileURLToPath } = await import("url");
 
   const templateUrl = new URL(
     "../../../pdf/template/datasheet-template.json",
     import.meta.url
   );
-  const templateJson = await fs.readFile(templateUrl, "utf8");
+  const templatePath = fileURLToPath(templateUrl);
+  const templateJson = await fs.readFile(templatePath, "utf8");
   const template = JSON.parse(templateJson);
 
   const inputs = [

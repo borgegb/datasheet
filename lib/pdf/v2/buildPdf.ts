@@ -15,11 +15,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   const template: Template = (
-    await import("../../../pdf/template/datasheet-template.json")
+    await import("../../../pdf/template/v2/datasheet-template.json")
   ).default;
-
-  // Load legacy iconTextList plugin so template types are recognised
-  const { iconTextList } = await import("../_legacy/helpers_legacy");
 
   // ---- Build minimal inputs (header, intro, image) ----
   const pdfInputs = [
@@ -48,7 +45,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   const pdfBytes = await generate({
     template,
     inputs: pdfInputs,
-    plugins: { text, image, line, rectangle, Table: table, iconTextList },
+    plugins: { text, image, line, rectangle, Table: table },
   });
 
   return pdfBytes;

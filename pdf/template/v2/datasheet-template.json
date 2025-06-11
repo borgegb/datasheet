@@ -37,15 +37,6 @@
         "alignment": "right",
         "verticalAlignment": "middle",
         "name": "footerWebsite2"
-      },
-
-      {
-        "type": "rectangle",
-        "name": "specsHeaderBg",
-        "position": { "x": 22, "y": 175 },
-        "width": 177,
-        "height": 8,
-        "color": "#2c5234"
       }
     ]
   },

@@ -72,13 +72,22 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       specsTableNode.columnStyles?.["1"]?.cellWidth,
     ]);
 
+    // ---- build fontMap first (before height calculation) ----
+    fontMap = {
+      [fallbackName]: builtIn[fallbackName],
+      "Poppins-Bold": { data, fallback: false },
+      "Poppins-Regular": { data, fallback: false },
+      "Inter-Bold": { data, fallback: false },
+      "Inter-Regular": { data, fallback: false },
+    };
+
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
         JSON.stringify(truncatedTable),
         {
           schema: specsTableNode as any,
           basePdf: template.basePdf as any,
-          options: {},
+          options: { font: fontMap },
           _cache: new Map(),
         }
       );
@@ -87,15 +96,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
       console.log("rowHeights", dynamicHeights);
     } catch (_) {}
-
-    // ---- build fontMap once (after we know fallbackName) ----
-    fontMap = {
-      [fallbackName]: builtIn[fallbackName],
-      "Poppins-Bold": { data, fallback: false },
-      "Poppins-Regular": { data, fallback: false },
-      "Inter-Bold": { data, fallback: false },
-      "Inter-Regular": { data, fallback: false },
-    };
   }
 
   // ---- Build minimal inputs (header, intro, image) ----

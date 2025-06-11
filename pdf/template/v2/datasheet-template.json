@@ -179,69 +179,31 @@
         "position": { "x": 162, "y": 247 },
         "width": 35,
         "height": 35
-      },
-      {
-        "type": "table",
-        "name": "specificationsTable",
-        "position": { "x": 22, "y": 188 },
-        "width": 175,
-        "height": 60,
-        "content": "",
-        "showHead": false,
-        "head": ["Property", "Value"],
-        "headWidthPercentages": [40, 60],
-        "fontName": "Inter-Regular",
-        "tableStyles": {
-          "borderWidth": 0.1,
-          "borderColor": "#CCCCCC",
-          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
-        },
-        "headStyles": {
-          "fontName": "Inter-Bold",
-          "fontSize": 9,
-          "alignment": "left",
-          "verticalAlignment": "middle",
-          "lineHeight": 1,
-          "fontColor": "#2A2A2A",
-          "backgroundColor": "#E0E0E0",
-          "borderColor": "#000000",
-          "borderWidth": {
-            "top": 0.1,
-            "right": 0.1,
-            "bottom": 0.1,
-            "left": 0.1
-          },
-          "padding": { "top": 1, "right": 5, "bottom": 1, "left": 5 }
-        },
-        "bodyStyles": {
-          "fontName": "Inter-Regular",
-          "fontSize": 8,
-          "alignment": "left",
-          "verticalAlignment": "middle",
-          "lineHeight": 1,
-          "fontColor": "#2A2A2A",
-          "borderColor": "#CCCCCC",
-          "borderWidth": {
-            "top": 0.1,
-            "right": 0.1,
-            "bottom": 0.1,
-            "left": 0.1
-          },
-          "padding": { "top": 1, "bottom": 1, "left": 2, "right": 2 },
-          "backgroundColor": "",
-          "alternateBackgroundColor": ""
-        },
-        "columnStyles": {
-          "fontName": { "0": "Inter-Bold" },
-          "padding": {
-            "0": { "top": 1, "bottom": 1, "left": 2, "right": 2 },
-            "1": { "top": 1, "bottom": 1, "left": 2, "right": 2 }
-          },
-          "alignment": { "0": "left", "1": "left" },
-          "verticalAlignment": { "0": "middle", "1": "middle" }
-        },
-        "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }
-    ]
+    ],
+    {
+      "type": "table",
+      "name": "specificationsTable",
+      "position": { "x": 22, "y": 186 },
+      "width": 175,
+      "height": 60,
+      "showHead": false,
+      "head": ["", ""],
+      "headWidthPercentages": [50, 50],
+      "tableStyles": {
+        "borderWidth": 0.1,
+        "borderColor": "#CCCCCC",
+        "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+      },
+      "bodyStyles": {
+        "fontSize": 9,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "lineHeight": 1,
+        "padding": { "top": 1, "bottom": 1, "left": 2, "right": 2 },
+        "borderWidth": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 },
+        "borderColor": "#CCCCCC"
+      }
+    }
   ]
 }

@@ -46,19 +46,6 @@
         "width": 177,
         "height": 8,
         "color": "#2c5234"
-      },
-      {
-        "type": "text",
-        "name": "specificationsHeadingStatic",
-        "content": "Specifications",
-        "position": { "x": 25, "y": 175 },
-        "width": 170,
-        "height": 8,
-        "fontName": "Poppins-Bold",
-        "fontSize": 14,
-        "fontColor": "#ffffff",
-        "alignment": "left",
-        "verticalAlignment": "middle"
       }
     ]
   },

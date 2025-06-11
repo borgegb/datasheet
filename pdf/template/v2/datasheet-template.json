@@ -181,29 +181,36 @@
         "height": 35
       }
     ],
-    {
-      "type": "table",
-      "name": "specificationsTable",
-      "position": { "x": 22, "y": 186 },
-      "width": 175,
-      "height": 60,
-      "showHead": false,
-      "head": ["", ""],
-      "headWidthPercentages": [50, 50],
-      "tableStyles": {
-        "borderWidth": 0.1,
-        "borderColor": "#CCCCCC",
-        "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
-      },
-      "bodyStyles": {
-        "fontSize": 9,
-        "alignment": "left",
-        "verticalAlignment": "middle",
-        "lineHeight": 1,
-        "padding": { "top": 1, "bottom": 1, "left": 2, "right": 2 },
-        "borderWidth": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 },
-        "borderColor": "#CCCCCC"
+    [
+      {
+        "type": "table",
+        "name": "specificationsTable",
+        "position": { "x": 22, "y": 186 },
+        "width": 175,
+        "height": 60,
+        "showHead": false,
+        "head": ["", ""],
+        "headWidthPercentages": [50, 50],
+        "tableStyles": {
+          "borderWidth": 0.1,
+          "borderColor": "#CCCCCC",
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+        },
+        "bodyStyles": {
+          "fontSize": 9,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "padding": { "top": 1, "bottom": 1, "left": 2, "right": 2 },
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "borderColor": "#CCCCCC"
+        }
       }
-    }
+    ]
   ]
 }

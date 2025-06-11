@@ -54,9 +54,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
-    // Force a core font with real ASCII widths
-    specsTableNode.headStyles.fontName = "Helvetica";
-    specsTableNode.bodyStyles.fontName = "Helvetica";
+    // we'll assign the built-in fallback font later after we build fontMap
 
     // Ensure each column has a fixed width BEFORE height calculation
     const halfWidth = (specsTableNode.width ?? 175) / 2;
@@ -140,6 +138,11 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     "Inter-Bold": { data, fallback: false },
     "Inter-Regular": { data, fallback: false },
   };
+
+  if (specsTableNode) {
+    specsTableNode.headStyles.fontName = fallbackName;
+    specsTableNode.bodyStyles.fontName = fallbackName;
+  }
 
   const pdfBytes = await generate({
     template,

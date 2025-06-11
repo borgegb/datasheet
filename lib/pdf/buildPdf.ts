@@ -6,14 +6,15 @@ import type { Template, Font } from "@pdfme/common";
 
 // Helpers from the same directory (lib/pdf/helpers.ts)
 import {
-  hexToRgb, // Though not directly used in this file, iconTextList might use it implicitly if it were here
-  mm2pt, // Same as above
+  hexToRgb,
+  mm2pt,
   iconTextList,
   CHECKMARK_SVG,
   getWarrantyText,
   getShippingText,
   DEFAULT_PRODUCT_IMAGE_BASE64,
   anchorShippingGroupToFooter,
+  repositionShippingGroupBasedOnSpecRows,
 } from "./helpers";
 
 // @ts-nocheck
@@ -139,6 +140,9 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
     // Do not throw, allow PDF to generate with default/empty specs
   }
   if (specsForTable.length === 0) specsForTable = [["Specification", "Value"]];
+
+  // After row processing, reposition group under specs table
+  repositionShippingGroupBasedOnSpecRows(template, specsForTable.length);
 
   const logos = productDataFromSource.optional_logos || {};
   const displayPedLogo = logos.origin === true ? pedLogoBase64Data : "";

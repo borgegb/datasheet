@@ -330,5 +330,50 @@ export function anchorShippingGroupToFooter(template: Template): void {
   }
 }
 
+// Dynamically move the shipping group so it sits just below the specs table,
+// leaving a small vertical gap. Call this AFTER you know the number of rows
+// populated in the specifications table.
+export function repositionShippingGroupBasedOnSpecRows(
+  template: Template,
+  specRowCount: number
+): void {
+  const SPEC_ROW_HEIGHT_MM = 9; // empirical row height in template
+  const GAP_BELOW_TABLE_MM = 4; // desired whitespace between table and warranty
+
+  const specTable = (template as any).schemas[0].find(
+    (n: any) => n.name === "specificationsTable"
+  );
+  if (!specTable) return;
+
+  const tableTopY = specTable.position.y as number;
+  const tableComputedHeight = Math.max(specRowCount, 1) * SPEC_ROW_HEIGHT_MM;
+  const newWarrantyTopY = tableTopY + tableComputedHeight + GAP_BELOW_TABLE_MM;
+
+  // Calculate delta to shift entire group
+  const warrantyNode = (template as any).schemas[0].find(
+    (n: any) => n.name === "warrantyText"
+  );
+  if (!warrantyNode) return;
+
+  const delta = newWarrantyTopY - (warrantyNode.position.y as number);
+
+  const groupNames = [
+    "warrantyText",
+    "shippingHeading",
+    "shippingText",
+    "pedLogo",
+    "ceLogo",
+    "irelandLogo",
+  ];
+
+  for (const page of (template as any).schemas) {
+    for (const node of page) {
+      if (groupNames.includes(node.name)) {
+        node.position.y = (node.position.y as number) + delta;
+      }
+    }
+  }
+}
+
 export const DEFAULT_PRODUCT_IMAGE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";

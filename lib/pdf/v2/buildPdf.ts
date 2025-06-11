@@ -18,6 +18,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     await import("../../../pdf/template/datasheet-template.json")
   ).default;
 
+  // Load legacy iconTextList plugin so template types are recognised
+  const { iconTextList } = await import("../_legacy/helpers_legacy");
+
   // ---- Build minimal inputs (header, intro, image) ----
   const pdfInputs = [
     {
@@ -45,7 +48,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   const pdfBytes = await generate({
     template,
     inputs: pdfInputs,
-    plugins: { text, image, line, rectangle, Table: table },
+    plugins: { text, image, line, rectangle, Table: table, iconTextList },
   });
 
   return pdfBytes;

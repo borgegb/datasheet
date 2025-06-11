@@ -1,12 +1,5 @@
 import { generate } from "@pdfme/generator";
-import {
-  text,
-  image,
-  line,
-  rectangle,
-  table,
-  getDynamicHeightsForTable,
-} from "@pdfme/schemas";
+import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template } from "@pdfme/common";
 
@@ -116,36 +109,26 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       col1: specsTableNode.columnStyles?.["1"]?.fontName,
     });
 
-    try {
-      const dynamicHeights = await getDynamicHeightsForTable(
-        JSON.stringify(truncatedTable),
-        {
-          schema: specsTableNode as any,
-          basePdf: template.basePdf as any,
-          options: { font: fontMap },
-          _cache: new Map(),
-        }
-      );
-      const accurateHeightMm = dynamicHeights.reduce((sum, h) => sum + h, 0);
-      specsTableNode.height = accurateHeightMm;
+    // Skip getDynamicHeightsForTable - it's not working correctly
+    // Instead, calculate height manually based on number of rows
+    const ROW_HEIGHT = 6; // 6mm per row
+    const numRows = truncatedTable.length;
+    const totalHeight = numRows * ROW_HEIGHT;
 
-      console.log("rowHeights", dynamicHeights);
+    console.log(
+      `Manual height calculation: ${numRows} rows × ${ROW_HEIGHT}mm = ${totalHeight}mm`
+    );
 
-      // Force minimum row height of 6mm
-      const minRowHeight = 6;
-      const adjustedHeights = dynamicHeights.map((height, index) => {
-        if (index === 0) return 0; // Keep header at 0 since showHead is false
-        return Math.max(height, minRowHeight);
-      });
+    specsTableNode.height = totalHeight;
 
-      console.log("adjustedHeights", adjustedHeights);
-
-      // Calculate total height
-      const totalHeight = adjustedHeights.reduce((sum, h) => sum + h, 0);
-      specsTableNode.height = totalHeight;
-    } catch (err) {
-      console.error("Error in getDynamicHeightsForTable:", err);
+    // Also try setting a fixed row height property if it exists
+    if (!specsTableNode.bodyStyles.rowHeight) {
+      specsTableNode.bodyStyles.rowHeight = ROW_HEIGHT;
     }
+
+    // Log what we're setting
+    console.log("Table height set to:", specsTableNode.height);
+    console.log("Body row height:", specsTableNode.bodyStyles.rowHeight);
   }
 
   // ---- Build minimal inputs (header, intro, image) ----

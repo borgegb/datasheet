@@ -157,6 +157,10 @@ export default function DatasheetGeneratorForm({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // --- Add flag to track form initialization ---
+  const [hasFormBeenInitialized, setHasFormBeenInitialized] = useState(false);
+  // ----------------------------------------
+
   // --- Add state for new flow ---
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -403,8 +407,12 @@ export default function DatasheetGeneratorForm({
       } else {
         setSpecs([]); // Initialize empty if no initial tech_specs data
       }
-    } else {
-      // Reset all fields if initialData becomes null (e.g., switching from edit to create)
+
+      // Mark form as initialized after loading data for editing
+      setHasFormBeenInitialized(true);
+    } else if (!hasFormBeenInitialized) {
+      // Only reset all fields on the very first load when creating a new datasheet
+      // Don't reset if user has already interacted with the form
       setProductTitle("");
       setProductCode("");
       setDescription("");
@@ -422,8 +430,11 @@ export default function DatasheetGeneratorForm({
       setUploadedImagePath(null);
       setUploadedFileName(null);
       setSelectedCatalogId("");
+
+      // Mark form as initialized after setting default values
+      setHasFormBeenInitialized(true);
     }
-  }, [initialData]);
+  }, [initialData, hasFormBeenInitialized]);
   // --------------------------------------------------------------------
 
   // Setup upload hook (pass user ID when available)

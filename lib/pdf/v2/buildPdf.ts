@@ -1,7 +1,7 @@
 import { generate } from "@pdfme/generator";
 import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import { getDefaultFont } from "@pdfme/common";
-import type { Template } from "@pdfme/common";
+import type { Template, Font } from "@pdfme/common";
 
 interface BuildPdfInput {
   appliedLogoBase64Data: string;
@@ -19,152 +19,175 @@ interface BuildPdfInput {
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
-  // ---- Load template (bundled via webpack import) ----
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  const template: Template = (
+  // Load template
+  const templateData = (
     await import("../../../pdf/template/v2/datasheet-template.json")
   ).default;
 
-  // ---- Dynamically resize the Specs table so it never bleeds into the blocks underneath ----
-  // DEBUG: log raw specifications table input
-  console.log("rawTable", JSON.stringify(input.specificationsTable));
+  // Fix padding type
+  const template: Template = {
+    ...templateData,
+    basePdf: {
+      ...templateData.basePdf,
+      padding: templateData.basePdf.padding as [number, number, number, number],
+    },
+  } as Template;
 
-  const truncatedTable = input.specificationsTable.map((row) =>
+  // Process table data - clean and truncate
+  const processedTable = input.specificationsTable.map((row) =>
     row.map((cell) => {
-      const clean = String(cell ?? "")
+      // Clean up the cell content
+      const cleaned = String(cell ?? "")
         .replace(/\r?\n|\r/g, " ")
         .trim();
-      const maxLen = 20;
-      return clean.length > maxLen ? `${clean.slice(0, maxLen - 1)}…` : clean;
+
+      // Truncate if needed
+      const maxLength = 50; // Increased from 20 to allow more text
+      if (cleaned.length > maxLength) {
+        return cleaned.substring(0, maxLength - 1) + "…";
+      }
+      return cleaned;
     })
   );
 
-  // DEBUG: log cleaned/truncated table
-  console.log("cleanTable", JSON.stringify(truncatedTable));
+  // Set up fonts - use the default font for everything
+  const defaultFonts = getDefaultFont();
+  const defaultFontName = Object.keys(defaultFonts)[0];
+  const fontData = defaultFonts[defaultFontName].data;
 
-  // DEBUG: log individual cell lengths
-  truncatedTable.forEach((row, rowIndex) => {
-    row.forEach((cell, cellIndex) => {
-      console.log(
-        `Cell [${rowIndex},${cellIndex}]: "${cell}" (length: ${cell.length})`
-      );
-    });
-  });
+  // Create font map with proper structure
+  const fontMap: Font = {
+    [defaultFontName]: {
+      data: fontData,
+      fallback: true,
+    },
+  };
 
-  let fontMap: any = {};
-  let fallbackName = "";
-
-  const specsTableNode = (template as any).schemas?.[0]?.find(
-    (n: any) => n.name === "specificationsTable"
+  // Find and update the specifications table in the template
+  const schemas = template.schemas[0];
+  const tableSchema: any = schemas.find(
+    (s: any) => s.name === "specificationsTable"
   );
-  if (specsTableNode) {
-    // ---- Use built-in font with proper fallback setup ----
-    const builtIn = getDefaultFont();
-    fallbackName = Object.keys(builtIn)[0];
-    const data = builtIn[fallbackName].data;
 
-    console.log("🔤 Built-in font name:", fallbackName);
-    console.log("🔤 Font data type:", typeof data);
+  if (tableSchema) {
+    // Update all font references to use the default font
+    tableSchema.fontName = defaultFontName;
 
-    specsTableNode.headStyles.fontName = fallbackName;
-    specsTableNode.bodyStyles.fontName = fallbackName;
-    specsTableNode.fontName = fallbackName; // Set at table level too
+    if (tableSchema.headStyles) {
+      tableSchema.headStyles.fontName = defaultFontName;
+    }
 
-    // Add minCellHeight to force consistent row heights
-    specsTableNode.bodyStyles.minCellHeight = 6;
-    specsTableNode.headStyles.minCellHeight = 6;
+    if (tableSchema.bodyStyles) {
+      tableSchema.bodyStyles.fontName = defaultFontName;
+      // Set reasonable line height and padding
+      tableSchema.bodyStyles.lineHeight = 1.2;
+      tableSchema.bodyStyles.padding = {
+        top: 2,
+        right: 3,
+        bottom: 2,
+        left: 3,
+      };
+    }
 
-    // Also set in column styles if they exist
-    if (specsTableNode.columnStyles) {
-      Object.keys(specsTableNode.columnStyles).forEach((colIndex) => {
-        specsTableNode.columnStyles[colIndex].fontName = fallbackName;
+    // Update column styles
+    if (tableSchema.columnStyles) {
+      Object.keys(tableSchema.columnStyles).forEach((key) => {
+        tableSchema.columnStyles[key].fontName = defaultFontName;
       });
     }
 
-    console.log("font chosen head =", specsTableNode.headStyles.fontName);
-    console.log("font chosen body =", specsTableNode.bodyStyles.fontName);
-    console.log("colWidths before calc =", [
-      specsTableNode.columnStyles?.["0"]?.cellWidth,
-      specsTableNode.columnStyles?.["1"]?.cellWidth,
-    ]);
+    // Calculate table height based on content
+    // Base height per row (considering padding and font size)
+    const fontSize = tableSchema.bodyStyles?.fontSize || 9;
+    const paddingTop = tableSchema.bodyStyles?.padding?.top || 2;
+    const paddingBottom = tableSchema.bodyStyles?.padding?.bottom || 2;
+    const lineHeight = tableSchema.bodyStyles?.lineHeight || 1.2;
 
-    // ---- build fontMap with EXACTLY ONE fallback font ----
-    fontMap = {
-      [fallbackName]: { data, fallback: true }, // This is the fallback font
-      "Poppins-Bold": { data, fallback: false },
-      "Poppins-Regular": { data, fallback: false },
-      "Inter-Bold": { data, fallback: false },
-      "Inter-Regular": { data, fallback: false },
-    };
-    console.log(
-      "🚀 FONT MAP BUILT BEFORE HEIGHT CALC - should fix step-ladder effect"
-    );
-    console.log("🗂️ Font map keys:", Object.keys(fontMap));
-    console.log("🏗️ Table schema fontNames:", {
-      table: specsTableNode.fontName,
-      head: specsTableNode.headStyles.fontName,
-      body: specsTableNode.bodyStyles.fontName,
-      col0: specsTableNode.columnStyles?.["0"]?.fontName,
-      col1: specsTableNode.columnStyles?.["1"]?.fontName,
+    // Calculate row height: fontSize * lineHeight + padding
+    const rowHeight =
+      fontSize * lineHeight * 0.3527 + paddingTop + paddingBottom; // 0.3527 converts pt to mm
+    const totalRows = processedTable.length;
+    const calculatedHeight = Math.ceil(totalRows * rowHeight);
+
+    // Set a reasonable height
+    tableSchema.height = Math.max(calculatedHeight, 30); // Minimum 30mm
+
+    console.log("Table configuration:", {
+      fontName: defaultFontName,
+      fontSize,
+      rowHeight,
+      totalRows,
+      calculatedHeight: tableSchema.height,
     });
-
-    // Skip getDynamicHeightsForTable - it's not working correctly
-    // Instead, calculate height manually based on number of rows
-    const ROW_HEIGHT = 6; // 6mm per row
-    const numRows = truncatedTable.length;
-    const totalHeight = numRows * ROW_HEIGHT;
-
-    console.log(
-      `Manual height calculation: ${numRows} rows × ${ROW_HEIGHT}mm = ${totalHeight}mm`
-    );
-
-    specsTableNode.height = totalHeight;
-
-    // Also try setting a fixed row height property if it exists
-    if (!specsTableNode.bodyStyles.rowHeight) {
-      specsTableNode.bodyStyles.rowHeight = ROW_HEIGHT;
-    }
-
-    // Log what we're setting
-    console.log("Table height set to:", specsTableNode.height);
-    console.log("Body row height:", specsTableNode.bodyStyles.rowHeight);
   }
 
-  // ---- Build minimal inputs (header, intro, image) ----
-  const pdfInputs = [
+  // Update all other text elements to use the default font
+  schemas.forEach((schema: any) => {
+    if (schema.type === "text" && schema.fontName) {
+      // Keep the schema's font name but ensure it's in our font map
+      if (!fontMap[schema.fontName]) {
+        fontMap[schema.fontName] = {
+          data: fontData,
+          fallback: false,
+        };
+      }
+    }
+  });
+
+  // Also check static schemas
+  if (
+    typeof template.basePdf === "object" &&
+    "staticSchema" in template.basePdf &&
+    template.basePdf.staticSchema
+  ) {
+    template.basePdf.staticSchema.forEach((schema: any) => {
+      if (schema.type === "text" && schema.fontName) {
+        if (!fontMap[schema.fontName]) {
+          fontMap[schema.fontName] = {
+            data: fontData,
+            fallback: false,
+          };
+        }
+      }
+    });
+  }
+
+  // Prepare inputs
+  const inputs = [
     {
       appliedLogo: input.appliedLogoBase64Data,
       productTitle: input.productTitle,
       productSubtitle: input.productSubtitle,
       introParagraph: input.introParagraph,
-
       productimage: input.productImageBase64 || "",
-
-      // Fill new footer-related fields
       warrantyText: input.warrantyText,
       shippingHeading: input.shippingHeading,
       shippingText: input.shippingText,
       pedLogo: input.pedLogo || "",
       ceLogo: input.ceLogo || "",
       irelandLogo: input.irelandLogo || "",
-
-      // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      specificationsTable: truncatedTable,
+      specificationsTable: processedTable,
       specificationsHeading: "",
     },
   ];
 
-  // --- read pre-encoded Inter-Regular.b64 and convert to Uint8Array ---
-  // no fs needed now
+  console.log("Font map keys:", Object.keys(fontMap));
+  console.log("Table data rows:", processedTable.length);
 
+  // Generate PDF
   const pdfBytes = await generate({
     template,
-    inputs: pdfInputs,
+    inputs,
     options: { font: fontMap },
-    plugins: { text, image, line, rectangle, Table: table },
+    plugins: {
+      text,
+      image,
+      line,
+      rectangle,
+      Table: table,
+    },
   });
 
   return pdfBytes;

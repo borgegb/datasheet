@@ -33,22 +33,25 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     },
   } as Template;
 
-  // Process table data - clean and truncate
-  const processedTable = input.specificationsTable.map((row) =>
-    row.map((cell) => {
-      // Clean up the cell content
-      const cleaned = String(cell ?? "")
-        .replace(/\r?\n|\r/g, " ")
-        .trim();
+  // Process table data - clean and limit rows
+  const MAX_ROWS = 8; // Maximum rows that fit in 45mm with ~5.5mm per row
+  const processedTable = input.specificationsTable
+    .slice(0, MAX_ROWS)
+    .map((row) =>
+      row.map((cell) => {
+        // Clean up the cell content
+        const cleaned = String(cell ?? "")
+          .replace(/\r?\n|\r/g, " ")
+          .trim();
 
-      // Truncate if needed
-      const maxLength = 50; // Increased from 20 to allow more text
-      if (cleaned.length > maxLength) {
-        return cleaned.substring(0, maxLength - 1) + "…";
-      }
-      return cleaned;
-    })
-  );
+        // Truncate if needed - shorter to ensure single line
+        const maxLength = 30;
+        if (cleaned.length > maxLength) {
+          return cleaned.substring(0, maxLength - 1) + "…";
+        }
+        return cleaned;
+      })
+    );
 
   // Set up fonts - use the default font for everything
   const defaultFonts = getDefaultFont();
@@ -79,37 +82,47 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
     if (tableSchema.bodyStyles) {
       tableSchema.bodyStyles.fontName = defaultFontName;
-      // Don't override padding from template - it's already set correctly
+      // Ensure compact styling for uniform small rows
+      tableSchema.bodyStyles.fontSize = 8; // Slightly smaller font
+      tableSchema.bodyStyles.lineHeight = 1;
+      tableSchema.bodyStyles.padding = {
+        top: 1,
+        right: 2,
+        bottom: 1,
+        left: 2,
+      };
     }
 
     // Update column styles - handle the legacy format
     if (tableSchema.columnStyles && tableSchema.columnStyles.fontName) {
-      // First column uses Inter-Bold, keep it
+      // First column uses Inter-Bold, but with default font
       tableSchema.columnStyles.fontName["0"] = defaultFontName;
     }
 
-    // Calculate table height based on content
-    // Base height per row (considering padding and font size)
-    const fontSize = tableSchema.bodyStyles?.fontSize || 9;
-    const paddingTop = tableSchema.bodyStyles?.padding?.top || 2;
-    const paddingBottom = tableSchema.bodyStyles?.padding?.bottom || 2;
-    const lineHeight = tableSchema.bodyStyles?.lineHeight || 1; // Use 1 as in template
+    // Update column padding to be more compact
+    if (tableSchema.columnStyles && tableSchema.columnStyles.padding) {
+      tableSchema.columnStyles.padding["0"] = {
+        top: 1,
+        bottom: 1,
+        left: 2,
+        right: 2,
+      };
+      tableSchema.columnStyles.padding["1"] = {
+        top: 1,
+        bottom: 1,
+        left: 2,
+        right: 2,
+      };
+    }
 
-    // Calculate row height: fontSize * lineHeight + padding
-    const rowHeight =
-      fontSize * lineHeight * 0.3527 + paddingTop + paddingBottom; // 0.3527 converts pt to mm
-    const totalRows = processedTable.length;
-    const calculatedHeight = Math.ceil(totalRows * rowHeight);
-
-    // Set a reasonable height
-    tableSchema.height = Math.max(calculatedHeight, 30); // Minimum 30mm
-
+    // Keep the fixed height from template (45mm) - this prevents overflow
+    // The table will be clipped if content exceeds this height
     console.log("Table configuration:", {
       fontName: defaultFontName,
-      fontSize,
-      rowHeight,
-      totalRows,
-      calculatedHeight: tableSchema.height,
+      fontSize: tableSchema.bodyStyles?.fontSize || 8,
+      fixedHeight: tableSchema.height,
+      totalRows: processedTable.length,
+      maxRows: MAX_ROWS,
     });
   }
 

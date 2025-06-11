@@ -50,6 +50,14 @@
         "fontColor": "#ffffff",
         "alignment": "left",
         "verticalAlignment": "middle"
+      },
+      {
+        "type": "rectangle",
+        "name": "specsHeaderBg",
+        "position": { "x": 22, "y": 175 },
+        "width": 177,
+        "height": 8,
+        "color": "#2c5234"
       }
     ]
   },
@@ -113,14 +121,6 @@
         "width": 68,
         "height": 99,
         "fit": "contain"
-      },
-      {
-        "type": "rectangle",
-        "name": "specsHeaderBg",
-        "position": { "x": 22, "y": 175 },
-        "width": 177,
-        "height": 8,
-        "color": "#2c5234"
       },
       {
         "type": "text",

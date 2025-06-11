@@ -75,14 +75,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
         fontColor: "#2A2A2A",
         alignment: "left",
         verticalAlignment: "middle",
-      },
-      {
-        type: "line",
-        name: `specSep${idx}`,
-        position: { x: col1X, y: y + rowHeight - 0.5 },
-        width: 177,
-        height: 0.2,
-        color: "#CCCCCC",
       }
     );
   });

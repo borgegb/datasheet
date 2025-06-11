@@ -159,7 +159,7 @@ const iconTextList = {
       if (yOffsetPt + rowHeight > blockHeightPt) break; // no more space
 
       // 1) master "row" top for this item (no fontSize subtraction)
-      const rowTop = pageHeight - blockYpt - yOffsetPt;
+      const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
 
       // 2) icon: put its TOP exactly at rowTop (experiment)
       const iconAbsX = blockXpt;

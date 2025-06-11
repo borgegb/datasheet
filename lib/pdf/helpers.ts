@@ -98,7 +98,7 @@ export const iconTextList: Plugin<any> = {
 
       if (yOffsetPt + rowHeight > blockHeightPt) break;
 
-      const rowTop = pageHeight - blockYpt - yOffsetPt;
+      const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
       const iconAbsX = blockXpt;
       const iconAbsY = rowTop;
       const textAbsX = blockXpt + iconWidth + iconTextSpacing;

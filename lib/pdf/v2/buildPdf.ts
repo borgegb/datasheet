@@ -151,6 +151,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
           (dynamicHeights.length - 1),
       });
 
+      const actualTotalHeight = dynamicHeights.reduce((sum, h) => sum + h, 0);
+      console.log("🔍 Actual total height from pdfme:", actualTotalHeight);
+
       // FORCE uniform row heights by overriding pdfme's calculation
       const UNIFORM_ROW_HEIGHT = 5; // 5mm per row
       const uniformHeights = dynamicHeights.map((height, index) => {
@@ -178,6 +181,14 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
       console.log("🎯 Final table height:", tableSchema.height);
       console.log("🎯 Applied uniform row height properties");
+      console.log("🎯 Table position:", {
+        x: tableSchema.position.x,
+        y: tableSchema.position.y,
+      });
+      console.log("🎯 Table dimensions:", {
+        width: tableSchema.width,
+        height: tableSchema.height,
+      });
     } catch (err) {
       console.error("Error getting dynamic heights:", err);
     }

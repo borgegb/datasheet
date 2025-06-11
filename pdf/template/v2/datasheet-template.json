@@ -191,25 +191,61 @@
         "showHead": false,
         "head": ["", ""],
         "headWidthPercentages": [50, 50],
+        "headStyles": {
+          "fontName": "Inter-Bold",
+          "fontSize": 9,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#ffffff",
+          "borderColor": "",
+          "backgroundColor": "#2c5234",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 2,
+            "right": 2,
+            "bottom": 2,
+            "left": 2
+          }
+        },
         "tableStyles": {
           "borderWidth": 0.1,
           "borderColor": "#CCCCCC",
           "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
         },
         "bodyStyles": {
+          "fontName": "Inter-Regular",
           "fontSize": 9,
+          "characterSpacing": 0,
           "alignment": "left",
           "verticalAlignment": "middle",
           "lineHeight": 1,
-          "padding": { "top": 1, "bottom": 1, "left": 2, "right": 2 },
+          "fontColor": "#000000",
+          "borderColor": "#CCCCCC",
+          "backgroundColor": "",
+          "alternateBackgroundColor": "#f5f5f5",
           "borderWidth": {
             "top": 0.1,
             "right": 0.1,
             "bottom": 0.1,
             "left": 0.1
           },
-          "borderColor": "#CCCCCC"
-        }
+          "padding": {
+            "top": 1,
+            "bottom": 1,
+            "left": 2,
+            "right": 2
+          }
+        },
+        "columnStyles": {},
+        "required": false,
+        "readOnly": false
       }
     ]
   ]

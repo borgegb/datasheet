@@ -198,7 +198,7 @@
         },
         "headStyles": {
           "fontName": "Inter-Bold",
-          "fontSize": 4,
+          "fontSize": 9,
           "alignment": "left",
           "verticalAlignment": "middle",
           "lineHeight": 1,

@@ -23,9 +23,20 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // @ts-ignore
   const template: Template = (
     await import("../../../pdf/template/v2/datasheet-template.json")
-  ).default as Template;
+  ).default;
 
-  const tmpl: Template = template; // No modification, keep original table in template
+  // --- Dynamically resize the Specs table so it never bleeds into the blocks underneath ----
+  const specsTableNode = (template as any).schemas?.[0]?.find(
+    (n: any) => n.name === "specificationsTable"
+  );
+  if (specsTableNode) {
+    const rowCount = Array.isArray(input.specificationsTable)
+      ? input.specificationsTable.length
+      : 0;
+    // Approximate row height (font 9pt, padding, border) ≈ 6 mm
+    const calculatedHeightMm = Math.max(rowCount * 6, 6); // at least one row
+    specsTableNode.height = calculatedHeightMm;
+  }
 
   // ---- Build minimal inputs (header, intro, image) ----
   const pdfInputs = [
@@ -45,16 +56,18 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       ceLogo: input.ceLogo || "",
       irelandLogo: input.irelandLogo || "",
 
-      // Unused placeholders now
+      // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
+      specificationsTable: input.specificationsTable,
+      specificationsHeading: "",
     },
   ];
 
   const pdfBytes = await generate({
-    template: tmpl,
+    template,
     inputs: pdfInputs,
-    plugins: { text, image, line, rectangle, table },
+    plugins: { text, image, line, rectangle, Table: table },
   });
 
   return pdfBytes;

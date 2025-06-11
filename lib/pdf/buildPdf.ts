@@ -15,6 +15,8 @@ import {
   DEFAULT_PRODUCT_IMAGE_BASE64,
 } from "./helpers";
 
+// @ts-nocheck
+
 interface BuildPdfInput {
   productDataFromSource: any; // The fully resolved product data object
   productImageBase64: string;
@@ -82,83 +84,6 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
       "Inter-Bold": { data: interBoldFontBytes, subset: true },
     };
     console.log("Custom fonts loaded from:", fontDir);
-
-    // Dynamically anchor warranty/shipping block to the footer so it never
-    // appears to "float" when the upper content is short.
-    try {
-      // We only adjust the first-page schema (index 0)
-      const pageSchema = Array.isArray(template.schemas)
-        ? template.schemas[0]
-        : undefined;
-      if (pageSchema) {
-        const getByName = (name: string) =>
-          pageSchema.find((n: any) => n.name === name);
-
-        const shippingHeadingNode = getByName("shippingHeading");
-        const shippingTextNode = getByName("shippingText");
-        const warrantyNode = getByName("warrantyText");
-        const pedLogoNode = getByName("pedLogo");
-        const ceLogoNode = getByName("ceLogo");
-        const irelandLogoNode = getByName("irelandLogo");
-
-        const footerBg = (template as any).basePdf.staticSchema?.find(
-          (n: any) => n.name === "footerBackground"
-        );
-
-        if (
-          shippingHeadingNode &&
-          shippingTextNode &&
-          warrantyNode &&
-          pedLogoNode &&
-          ceLogoNode &&
-          irelandLogoNode &&
-          footerBg
-        ) {
-          const footerTopY = footerBg.position.y; // y=283 by template
-
-          // Capture original relative offsets so visual layout stays the same
-          const offsetWarranty =
-            warrantyNode.position.y - shippingHeadingNode.position.y; // -15
-          const offsetShipText =
-            shippingTextNode.position.y - shippingHeadingNode.position.y; // +10
-          const offsetPed =
-            pedLogoNode.position.y - shippingHeadingNode.position.y; // +12
-          const offsetCe =
-            ceLogoNode.position.y - shippingHeadingNode.position.y; // +12
-          const offsetIe =
-            irelandLogoNode.position.y - shippingHeadingNode.position.y; // -1
-
-          const bottomMostRel = Math.max(
-            offsetPed + (pedLogoNode.height || 0),
-            offsetCe + (ceLogoNode.height || 0),
-            offsetIe + (irelandLogoNode.height || 0)
-          ); // ≈42 mm
-
-          const bottomPadding = 3; // mm gap above footer
-
-          const newShipHeadingY = footerTopY - bottomPadding - bottomMostRel;
-
-          // Apply shifts
-          shippingHeadingNode.position.y = newShipHeadingY;
-          shippingTextNode.position.y = newShipHeadingY + offsetShipText;
-          warrantyNode.position.y = newShipHeadingY + offsetWarranty;
-          pedLogoNode.position.y = newShipHeadingY + offsetPed;
-          ceLogoNode.position.y = newShipHeadingY + offsetCe;
-          irelandLogoNode.position.y = newShipHeadingY + offsetIe;
-
-          console.log("block-probe", {
-            warranty: !!warrantyNode,
-            shipHead: !!shippingHeadingNode,
-            shipText: !!shippingTextNode,
-            ped: !!pedLogoNode,
-            ce: !!ceLogoNode,
-            ie: !!irelandLogoNode,
-          });
-        }
-      }
-    } catch (dynErr) {
-      console.warn("Dynamic bottom-anchor adjustment failed:", dynErr);
-    }
   } catch (loadError: any) {
     console.error(
       "Error loading template or fonts for PDFME in buildPdf:",

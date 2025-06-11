@@ -185,7 +185,7 @@
         "name": "specificationsTable",
         "position": { "x": 22, "y": 188 },
         "width": 175,
-        "height": 45,
+        "height": 60,
         "content": "",
         "showHead": false,
         "head": ["Property", "Value"],

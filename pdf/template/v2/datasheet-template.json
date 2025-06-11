@@ -238,7 +238,15 @@
         },
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }],
         "columnStyles": {
-          "alignment": { "0": "left", "1": "left" }
+          "alignment": { "0": "left", "1": "left" },
+          "padding": {
+            "0": { "top": 2, "right": 3, "bottom": 2, "left": 3 },
+            "1": { "top": 2, "right": 3, "bottom": 2, "left": 3 }
+          },
+          "borderWidth": {
+            "0": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 },
+            "1": { "top": 0.1, "right": 0.1, "bottom": 0.1, "left": 0.1 }
+          }
         }
       }
     ]

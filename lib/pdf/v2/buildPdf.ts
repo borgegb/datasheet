@@ -1,5 +1,12 @@
 import { generate } from "@pdfme/generator";
-import { text, image, line, rectangle, table } from "@pdfme/schemas";
+import {
+  text,
+  image,
+  line,
+  rectangle,
+  table,
+  getDynamicHeightsForTable,
+} from "@pdfme/schemas";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font } from "@pdfme/common";
 
@@ -91,6 +98,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
         bottom: 1,
         left: 2,
       };
+      // Try to force uniform row height
+      tableSchema.bodyStyles.minCellHeight = 5; // 5mm minimum height
+      tableSchema.bodyStyles.maxCellHeight = 5; // 5mm maximum height (if supported)
     }
 
     // Update column styles - handle the legacy format
@@ -113,6 +123,29 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
         left: 2,
         right: 2,
       };
+    }
+
+    // Log actual row heights to debug the issue
+    try {
+      const dynamicHeights = await getDynamicHeightsForTable(
+        JSON.stringify(processedTable),
+        {
+          schema: tableSchema as any,
+          basePdf: template.basePdf as any,
+          options: { font: fontMap },
+          _cache: new Map(),
+        }
+      );
+      console.log("🔍 Actual row heights:", dynamicHeights);
+      console.log("🔍 Row height variance:", {
+        min: Math.min(...dynamicHeights.slice(1)), // Skip header
+        max: Math.max(...dynamicHeights.slice(1)),
+        avg:
+          dynamicHeights.slice(1).reduce((a, b) => a + b, 0) /
+          (dynamicHeights.length - 1),
+      });
+    } catch (err) {
+      console.error("Error getting dynamic heights:", err);
     }
 
     // Keep the fixed height from template (45mm) - this prevents overflow

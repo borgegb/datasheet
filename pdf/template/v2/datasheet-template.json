@@ -116,9 +116,9 @@
         "type": "text",
         "name": "shippingHeading",
         "content": "Shipping Information",
-        "position": { "x": 22, "y": 257 },
+        "position": { "x": 22, "y": 258 },
         "width": 100,
-        "height": 8,
+        "height": 6,
         "fontName": "Poppins-Bold",
         "fontSize": 12,
         "fontColor": "#2c5234",
@@ -154,7 +154,7 @@
       {
         "type": "image",
         "name": "irelandLogo",
-        "position": { "x": 162, "y": 244 },
+        "position": { "x": 162, "y": 249 },
         "width": 35,
         "height": 35
       }

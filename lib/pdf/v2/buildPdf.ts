@@ -1,29 +1,39 @@
-export async function buildPdfV2(): Promise<Uint8Array> {
-  // Minimal scaffolding: just embed the base template with no dynamic fields
+interface BuildPdfInput {
+  appliedLogoBase64Data: string;
+  productTitle: string;
+  productSubtitle: string;
+  introParagraph: string;
+  productImageBase64?: string;
+}
+
+export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
+  // Initial rebuild step: fill header & intro only, leave other fields empty
   const { generate } = await import("@pdfme/generator");
   const { text, image, line, rectangle, table } = await import(
     "@pdfme/schemas"
   );
-  const { promises: fs } = await import("node:fs");
-  const path = await import("node:path");
-  const templatePath = path.resolve(
-    process.cwd(),
-    "pdf/template/datasheet-template.json"
-  );
-  const template = JSON.parse(await fs.readFile(templatePath, "utf8"));
+  // Importing JSON at build time ensures template is bundled with the lambda
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - allow json import
+  import datasheetTemplate from "../../../pdf/template/datasheet-template.json";
 
-  // For a skeleton generation we just supply empty values for schema names
+  const template = datasheetTemplate as any;
+
   const inputs = [
     {
-      appliedLogo: "",
-      productTitle: "",
-      productSubtitle: "",
-      introParagraph: "",
+      appliedLogo: input.appliedLogoBase64Data,
+      productTitle: input.productTitle,
+      productSubtitle: input.productSubtitle,
+      introParagraph: input.introParagraph,
+
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      productimage: "",
+
+      productimage: input.productImageBase64 || "",
+
       specificationsHeading: "",
       specificationsTable: [],
+
       warrantyText: "",
       shippingText: "",
       shippingHeading: "",

@@ -105,7 +105,7 @@
         "type": "text",
         "name": "warrantyText",
         "position": { "x": 22, "y": 252 },
-        "width": 140,
+        "width": 130,
         "height": 6,
         "fontName": "Inter-Bold",
         "fontSize": 9,
@@ -140,14 +140,14 @@
       {
         "type": "image",
         "name": "pedLogo",
-        "position": { "x": 136, "y": 264 },
+        "position": { "x": 133, "y": 264 },
         "width": 12,
         "height": 12
       },
       {
         "type": "image",
         "name": "ceLogo",
-        "position": { "x": 150, "y": 264 },
+        "position": { "x": 147, "y": 264 },
         "width": 12,
         "height": 12
       },

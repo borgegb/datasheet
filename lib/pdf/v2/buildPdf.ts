@@ -50,6 +50,15 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // DEBUG: log cleaned/truncated table
   console.log("cleanTable", JSON.stringify(truncatedTable));
 
+  // DEBUG: log individual cell lengths
+  truncatedTable.forEach((row, rowIndex) => {
+    row.forEach((cell, cellIndex) => {
+      console.log(
+        `Cell [${rowIndex},${cellIndex}]: "${cell}" (length: ${cell.length})`
+      );
+    });
+  });
+
   let fontMap: any = {};
   let fallbackName = "";
 
@@ -68,6 +77,10 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     specsTableNode.headStyles.fontName = fallbackName;
     specsTableNode.bodyStyles.fontName = fallbackName;
     specsTableNode.fontName = fallbackName; // Set at table level too
+
+    // Add minCellHeight to force consistent row heights
+    specsTableNode.bodyStyles.minCellHeight = 6;
+    specsTableNode.headStyles.minCellHeight = 6;
 
     // Also set in column styles if they exist
     if (specsTableNode.columnStyles) {
@@ -117,7 +130,22 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       specsTableNode.height = accurateHeightMm;
 
       console.log("rowHeights", dynamicHeights);
-    } catch (_) {}
+
+      // Force minimum row height of 6mm
+      const minRowHeight = 6;
+      const adjustedHeights = dynamicHeights.map((height, index) => {
+        if (index === 0) return 0; // Keep header at 0 since showHead is false
+        return Math.max(height, minRowHeight);
+      });
+
+      console.log("adjustedHeights", adjustedHeights);
+
+      // Calculate total height
+      const totalHeight = adjustedHeights.reduce((sum, h) => sum + h, 0);
+      specsTableNode.height = totalHeight;
+    } catch (err) {
+      console.error("Error in getDynamicHeightsForTable:", err);
+    }
   }
 
   // ---- Build minimal inputs (header, intro, image) ----

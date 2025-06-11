@@ -211,7 +211,8 @@
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": { "top": 3, "right": 5, "bottom": 3, "left": 5 }
+          "padding": { "top": 1, "right": 5, "bottom": 1, "left": 5 },
+          "minCellHeight": 6
         },
         "bodyStyles": {
           "fontName": "Inter-Regular",
@@ -227,9 +228,10 @@
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": { "top": 2, "right": 3, "bottom": 2, "left": 3 },
+          "padding": { "top": 1, "right": 3, "bottom": 1, "left": 3 },
           "backgroundColor": "",
-          "alternateBackgroundColor": ""
+          "alternateBackgroundColor": "",
+          "minCellHeight": 6
         },
         "columnStyles": {
           "0": { "alignment": "left" },

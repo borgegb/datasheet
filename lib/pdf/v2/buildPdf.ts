@@ -76,7 +76,12 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      specificationsTable: input.specificationsTable,
+      specificationsTable: input.specificationsTable.map((row) =>
+        row.map((cell) => {
+          const str = String(cell ?? "");
+          return str.length > 50 ? `${str.slice(0, 47)}…` : str;
+        })
+      ),
       specificationsHeading: "",
     },
   ];

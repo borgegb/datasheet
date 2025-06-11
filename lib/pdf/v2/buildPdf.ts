@@ -1,5 +1,12 @@
 import { generate } from "@pdfme/generator";
-import { text, image, line, rectangle, table } from "@pdfme/schemas";
+import {
+  text,
+  image,
+  line,
+  rectangle,
+  table,
+  getDynamicHeightsForTable,
+} from "@pdfme/schemas";
 import type { Template } from "@pdfme/common";
 
 interface BuildPdfInput {
@@ -30,12 +37,22 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
-    const rowCount = Array.isArray(input.specificationsTable)
-      ? input.specificationsTable.length
-      : 0;
-    // Approximate row height (font 9pt, padding, border) ≈ 6 mm
-    const calculatedHeightMm = Math.max(rowCount * 6, 6); // at least one row
-    specsTableNode.height = calculatedHeightMm;
+    try {
+      const dynamicHeights = await getDynamicHeightsForTable(
+        JSON.stringify(input.specificationsTable),
+        {
+          // cast since templates aren't strongly typed here
+          schema: specsTableNode as any,
+          basePdf: template.basePdf as any,
+          options: {},
+          _cache: new Map(),
+        }
+      );
+      const accurateHeightMm = dynamicHeights.reduce((sum, h) => sum + h, 0);
+      specsTableNode.height = accurateHeightMm;
+    } catch (_) {
+      // fallback: stick with original height if calc fails
+    }
   }
 
   // ---- Build minimal inputs (header, intro, image) ----

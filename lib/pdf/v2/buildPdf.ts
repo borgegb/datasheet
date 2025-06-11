@@ -51,8 +51,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
           .replace(/\r?\n|\r/g, " ")
           .trim();
 
-        // Truncate very aggressively to force single line
-        const maxLength = 15; // Much shorter to prevent wrapping
+        // Truncate to prevent wrapping in wider columns
+        const maxLength = 25; // Increased for wider columns
         if (cleaned.length > maxLength) {
           return cleaned.substring(0, maxLength - 1) + "…";
         }

@@ -10,7 +10,11 @@ import path from "node:path";
 // Import the new buildPdf function
 import { buildPdfV2 } from "../../../lib/pdf/v2/buildPdf";
 // Import a helper constant that might be used for default images
-import { DEFAULT_PRODUCT_IMAGE_BASE64 } from "../../../lib/pdf/_legacy/helpers_legacy";
+import {
+  DEFAULT_PRODUCT_IMAGE_BASE64,
+  getWarrantyText,
+  getShippingText,
+} from "../../../lib/pdf/_legacy/helpers_legacy";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -170,6 +174,15 @@ export async function POST(req: Request) {
       }`,
       introParagraph: productDataFromSource.description || "",
       productImageBase64,
+      warrantyText: getWarrantyText(productDataFromSource.warranty),
+      shippingHeading: "Shipping Information",
+      shippingText: getShippingText(
+        productDataFromSource.shipping_info,
+        productDataFromSource.product_title
+      ),
+      pedLogo: pedLogoBase64Data,
+      ceLogo: ceLogoBase64Data,
+      irelandLogo: irelandLogoBase64Data,
     } as const;
 
     const pdfBytes = await buildPdfV2(headerInput);

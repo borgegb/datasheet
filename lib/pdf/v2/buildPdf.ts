@@ -8,6 +8,12 @@ interface BuildPdfInput {
   productSubtitle: string;
   introParagraph: string;
   productImageBase64?: string;
+  warrantyText: string;
+  shippingHeading: string;
+  shippingText: string;
+  pedLogo?: string;
+  ceLogo?: string;
+  irelandLogo?: string;
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
@@ -28,17 +34,19 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
       productimage: input.productImageBase64 || "",
 
-      // Empty placeholders for remaining schema names so pdfme doesn't complain
+      // Fill new footer-related fields
+      warrantyText: input.warrantyText,
+      shippingHeading: input.shippingHeading,
+      shippingText: input.shippingText,
+      pedLogo: input.pedLogo || "",
+      ceLogo: input.ceLogo || "",
+      irelandLogo: input.irelandLogo || "",
+
+      // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
       specificationsHeading: "",
       specificationsTable: [],
-      warrantyText: "",
-      shippingText: "",
-      shippingHeading: "",
-      pedLogo: "",
-      ceLogo: "",
-      irelandLogo: "",
     },
   ];
 

@@ -51,8 +51,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
           .replace(/\r?\n|\r/g, " ")
           .trim();
 
-        // Truncate if needed - shorter to ensure single line
-        const maxLength = 30;
+        // Truncate very aggressively to force single line
+        const maxLength = 15; // Much shorter to prevent wrapping
         if (cleaned.length > maxLength) {
           return cleaned.substring(0, maxLength - 1) + "…";
         }
@@ -89,19 +89,16 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
     if (tableSchema.bodyStyles) {
       tableSchema.bodyStyles.fontName = defaultFontName;
-      // Ensure compact styling for uniform small rows
-      tableSchema.bodyStyles.fontSize = 7; // Even smaller font
-      tableSchema.bodyStyles.lineHeight = 0.9; // Tighter line height
+      // Make styling extremely compact to naturally reduce row heights
+      tableSchema.bodyStyles.fontSize = 6; // Very small font
+      tableSchema.bodyStyles.lineHeight = 0.8; // Very tight line height
       tableSchema.bodyStyles.padding = {
-        top: 0.5,
-        right: 1,
-        bottom: 0.5,
-        left: 1,
+        top: 0.2,
+        right: 0.5,
+        bottom: 0.2,
+        left: 0.5,
       };
-      // Try different height properties
-      tableSchema.bodyStyles.height = 5; // Fixed height
-      tableSchema.bodyStyles.cellHeight = 5; // Alternative property
-      tableSchema.bodyStyles.rowHeight = 5; // Another alternative
+      // Remove height overrides - let pdfme calculate naturally with compact styling
     }
 
     // Update column styles - handle the legacy format
@@ -110,26 +107,26 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       tableSchema.columnStyles.fontName["0"] = defaultFontName;
     }
 
-    // Update column padding to be more compact
+    // Update column padding to be extremely compact
     if (tableSchema.columnStyles && tableSchema.columnStyles.padding) {
       tableSchema.columnStyles.padding["0"] = {
-        top: 0.5,
-        bottom: 0.5,
-        left: 1,
-        right: 1,
+        top: 0.2,
+        bottom: 0.2,
+        left: 0.5,
+        right: 0.5,
       };
       tableSchema.columnStyles.padding["1"] = {
-        top: 0.5,
-        bottom: 0.5,
-        left: 1,
-        right: 1,
+        top: 0.2,
+        bottom: 0.2,
+        left: 0.5,
+        right: 0.5,
       };
     }
 
-    // Try to override the table's internal height calculation mechanism
-    tableSchema.autoHeight = false; // Disable auto height calculation
-    tableSchema.dynamicHeight = false; // Disable dynamic height
-    tableSchema.fixedRowHeight = 5; // Set fixed row height
+    // Remove all height overrides - let pdfme calculate naturally
+    // tableSchema.autoHeight = false;
+    // tableSchema.dynamicHeight = false;
+    // tableSchema.fixedRowHeight = 5;
 
     // Log actual row heights to debug the issue
     try {
@@ -154,33 +151,11 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       const actualTotalHeight = dynamicHeights.reduce((sum, h) => sum + h, 0);
       console.log("🔍 Actual total height from pdfme:", actualTotalHeight);
 
-      // FORCE uniform row heights by overriding pdfme's calculation
-      const UNIFORM_ROW_HEIGHT = 5; // 5mm per row
-      const uniformHeights = dynamicHeights.map((height, index) => {
-        if (index === 0) return 0; // Keep header at 0 (showHead is false)
-        return UNIFORM_ROW_HEIGHT;
-      });
+      // Let pdfme calculate the height naturally with our compact styling
+      const naturalTotalHeight = dynamicHeights.reduce((sum, h) => sum + h, 0);
 
-      console.log("🎯 Forced uniform heights:", uniformHeights);
-
-      // Override the table height calculation
-      const totalUniformHeight = uniformHeights.reduce(
-        (sum: number, h: number) => sum + h,
-        0
-      );
-      tableSchema.height = Math.min(totalUniformHeight, 45); // Don't exceed template limit
-
-      // Try to force pdfme to use our uniform heights by setting row-specific properties
-      tableSchema.rowHeights = uniformHeights; // Custom property
-      tableSchema.fixedRowHeights = uniformHeights; // Alternative property
-      tableSchema.uniformRowHeight = UNIFORM_ROW_HEIGHT; // Single value property
-
-      // Also try setting it in bodyStyles
-      tableSchema.bodyStyles.fixedHeight = UNIFORM_ROW_HEIGHT;
-      tableSchema.bodyStyles.uniformHeight = UNIFORM_ROW_HEIGHT;
-
-      console.log("🎯 Final table height:", tableSchema.height);
-      console.log("🎯 Applied uniform row height properties");
+      console.log("🎯 Natural calculated height:", naturalTotalHeight);
+      console.log("🎯 Using natural height calculation - no overrides");
       console.log("🎯 Table position:", {
         x: tableSchema.position.x,
         y: tableSchema.position.y,

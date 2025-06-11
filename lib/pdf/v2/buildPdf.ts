@@ -33,15 +33,21 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   ).default;
 
   // --- Dynamically resize the Specs table so it never bleeds into the blocks underneath ----
+  const truncatedTable = input.specificationsTable.map((row) =>
+    row.map((cell) => {
+      const str = String(cell ?? "");
+      return str.length > 50 ? `${str.slice(0, 47)}…` : str;
+    })
+  );
+
   const specsTableNode = (template as any).schemas?.[0]?.find(
     (n: any) => n.name === "specificationsTable"
   );
   if (specsTableNode) {
     try {
       const dynamicHeights = await getDynamicHeightsForTable(
-        JSON.stringify(input.specificationsTable),
+        JSON.stringify(truncatedTable),
         {
-          // cast since templates aren't strongly typed here
           schema: specsTableNode as any,
           basePdf: template.basePdf as any,
           options: {},
@@ -50,9 +56,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       );
       const accurateHeightMm = dynamicHeights.reduce((sum, h) => sum + h, 0);
       specsTableNode.height = accurateHeightMm;
-    } catch (_) {
-      // fallback: stick with original height if calc fails
-    }
+    } catch (_) {}
   }
 
   // ---- Build minimal inputs (header, intro, image) ----
@@ -76,12 +80,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Placeholders for yet-to-be-added blocks
       keyFeaturesHeading: "",
       keyFeaturesList: [],
-      specificationsTable: input.specificationsTable.map((row) =>
-        row.map((cell) => {
-          const str = String(cell ?? "");
-          return str.length > 50 ? `${str.slice(0, 47)}…` : str;
-        })
-      ),
+      specificationsTable: truncatedTable,
       specificationsHeading: "",
     },
   ];

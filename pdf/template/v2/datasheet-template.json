@@ -156,6 +156,24 @@
           "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
           "backgroundColor": "",
           "alternateBackgroundColor": ""
+        },
+        "headStyles": {
+          "fontName": "Inter-Bold",
+          "fontSize": 9,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#2A2A2A",
+          "backgroundColor": "#E0E0E0",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "padding": { "top": 3, "bottom": 3, "left": 5, "right": 5 }
         }
       },
       {

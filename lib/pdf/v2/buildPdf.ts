@@ -101,7 +101,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
       // simple table
       specificationsTable: processedTable,
-      specificationsHeading: "",
     },
   ];
 

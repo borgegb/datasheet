@@ -205,10 +205,10 @@
         "fontSize": 9,
         "fontColor": "#2A2A2A",
         "lineHeight": 1.4,
-        "iconWidth": 10,
-        "iconHeight": 10,
-        "iconTextSpacing": 6,
-        "itemSpacing": 6
+        "iconWidth": 3.5,
+        "iconHeight": 3.5,
+        "iconTextSpacing": 2,
+        "itemSpacing": 2
       },
       {
         "type": "image",

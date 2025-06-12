@@ -90,10 +90,10 @@ const iconTextList: Plugin<any> = {
       fontSize = 9,
       fontColor = "#2A2A2A",
       lineHeight = 1.4,
-      iconWidth = 10,
-      iconHeight = 10,
-      iconTextSpacing = 6,
-      itemSpacing = 6,
+      iconWidth = 3.5,
+      iconHeight = 3.5,
+      iconTextSpacing = 2,
+      itemSpacing = 2,
     } = schema;
 
     const blockXpt = mm2pt(mmX);
@@ -185,17 +185,17 @@ const iconTextList: Plugin<any> = {
         title: "Line Height (multiplier)",
         default: 1.4,
       },
-      iconWidth: { type: "number", title: "Icon Width (mm)", default: 10 },
-      iconHeight: { type: "number", title: "Icon Height (mm)", default: 10 },
+      iconWidth: { type: "number", title: "Icon Width (mm)", default: 3.5 },
+      iconHeight: { type: "number", title: "Icon Height (mm)", default: 3.5 },
       iconTextSpacing: {
         type: "number",
         title: "Spacing Icon-Text (mm)",
-        default: 6,
+        default: 2,
       },
       itemSpacing: {
         type: "number",
         title: "Spacing Between Items (mm)",
-        default: 6,
+        default: 2,
       },
     },
     defaultSchema: {
@@ -208,10 +208,10 @@ const iconTextList: Plugin<any> = {
       fontSize: 9,
       fontColor: "#2A2A2A",
       lineHeight: 1.4,
-      iconWidth: 10,
-      iconHeight: 10,
-      iconTextSpacing: 6,
-      itemSpacing: 6,
+      iconWidth: 3.5,
+      iconHeight: 3.5,
+      iconTextSpacing: 2,
+      itemSpacing: 2,
     },
   },
 };

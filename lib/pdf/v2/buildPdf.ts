@@ -133,7 +133,7 @@ const iconTextList: Plugin<any> = {
       // Calculate positions - improved baseline calculation
       const rowTop = pageHeight - blockYpt - yOffsetPt;
       const iconAbsX = blockXpt;
-      const iconAbsY = rowTop - mm2pt(iconHeight);
+      const iconAbsY = rowTop - fontSize - (mm2pt(iconHeight) - fontSize) / 2; // Align icon with first line of text
       const textAbsX = blockXpt + mm2pt(iconWidth) + mm2pt(iconTextSpacing);
       const textBaselineY = rowTop - fontSize; // Align to first line baseline
 

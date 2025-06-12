@@ -106,7 +106,7 @@ const iconTextList: Plugin<any> = {
     const FONTS = arg.options?.font || {};
     let pdfFont = FONTS[fontName];
     if (pdfFont?.data instanceof Uint8Array) {
-      pdfFont = await pdfDoc.embedFont(pdfFont.data, { subset: true });
+      pdfFont = await pdfDoc.embedFont(pdfFont.data, { subset: false });
     }
     if (!pdfFont) pdfFont = await pdfDoc.embedFont("Helvetica");
 
@@ -266,13 +266,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       ]);
 
     fontMap = {
-      "Poppins-Bold": { data: poppinsBoldFontBytes, subset: true },
+      "Poppins-Bold": { data: poppinsBoldFontBytes, subset: false },
       "Inter-Regular": {
         data: interRegularFontBytes,
-        subset: true,
+        subset: false,
         fallback: true,
       },
-      "Inter-Bold": { data: interBoldFontBytes, subset: true },
+      "Inter-Bold": { data: interBoldFontBytes, subset: false },
     };
     console.log("Custom fonts loaded from:", fontDir);
   } catch (loadError: any) {

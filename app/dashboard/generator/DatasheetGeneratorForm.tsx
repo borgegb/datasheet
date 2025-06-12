@@ -958,11 +958,64 @@ export default function DatasheetGeneratorForm({
                   onChange={(e) => {
                     const value = e.target.value;
                     const lineCount = countLines(value);
+
+                    // Allow the change if within limits
                     if (
                       value.length <= KEY_FEATURES_MAX_CHARS &&
                       lineCount <= KEY_FEATURES_MAX_LINES
                     ) {
                       setKeyFeatures(value);
+                      return;
+                    }
+
+                    // If over limits, try to truncate intelligently
+                    let truncatedValue = value;
+
+                    // First, truncate by character count if needed
+                    if (value.length > KEY_FEATURES_MAX_CHARS) {
+                      truncatedValue = value.substring(
+                        0,
+                        KEY_FEATURES_MAX_CHARS
+                      );
+                    }
+
+                    // Then, truncate by line count if needed
+                    const lines = truncatedValue.split("\n");
+                    const nonEmptyLines = lines.filter(
+                      (line) => line.trim().length > 0
+                    );
+
+                    if (nonEmptyLines.length > KEY_FEATURES_MAX_LINES) {
+                      // Keep only the first N non-empty lines, preserving empty lines in between
+                      let keptNonEmptyCount = 0;
+                      const truncatedLines = [];
+
+                      for (const line of lines) {
+                        if (line.trim().length > 0) {
+                          if (keptNonEmptyCount < KEY_FEATURES_MAX_LINES) {
+                            truncatedLines.push(line);
+                            keptNonEmptyCount++;
+                          } else {
+                            break;
+                          }
+                        } else {
+                          // Keep empty lines if we haven't reached the limit yet
+                          if (keptNonEmptyCount < KEY_FEATURES_MAX_LINES) {
+                            truncatedLines.push(line);
+                          }
+                        }
+                      }
+                      truncatedValue = truncatedLines.join("\n");
+                    }
+
+                    // Set the truncated value
+                    setKeyFeatures(truncatedValue);
+
+                    // Show a toast notification if content was truncated
+                    if (truncatedValue !== value) {
+                      toast.info(
+                        "Content was automatically trimmed to fit the character and line limits."
+                      );
                     }
                   }}
                   placeholder="Enter key features, one per line (will be bulleted)"

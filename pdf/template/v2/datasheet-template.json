@@ -191,14 +191,21 @@
         "verticalAlignment": "middle"
       },
       {
-        "type": "table",
         "name": "specificationsTable",
+        "type": "table",
         "position": { "x": 22, "y": 183 },
-        "width": 175,
+        "width": 177,
         "height": 45,
+        "content": "",
         "showHead": false,
-        "head": ["", ""],
+        "head": ["Property", "Value"],
         "headWidthPercentages": [50, 50],
+        "fontName": "Inter-Regular",
+        "tableStyles": {
+          "borderColor": "#CCCCCC",
+          "borderWidth": 0.1,
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+        },
         "headStyles": {
           "fontName": "Inter-Bold",
           "fontSize": 9,
@@ -206,26 +213,16 @@
           "alignment": "left",
           "verticalAlignment": "middle",
           "lineHeight": 1,
-          "fontColor": "#ffffff",
-          "borderColor": "",
-          "backgroundColor": "#2c5234",
+          "fontColor": "#2A2A2A",
+          "backgroundColor": "#E0E0E0",
+          "borderColor": "#000000",
           "borderWidth": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
           },
-          "padding": {
-            "top": 2,
-            "right": 2,
-            "bottom": 2,
-            "left": 2
-          }
-        },
-        "tableStyles": {
-          "borderWidth": 0.1,
-          "borderColor": "#CCCCCC",
-          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+          "padding": { "top": 3, "bottom": 3, "left": 5, "right": 5 }
         },
         "bodyStyles": {
           "fontName": "Inter-Regular",
@@ -234,26 +231,28 @@
           "alignment": "left",
           "verticalAlignment": "middle",
           "lineHeight": 1,
-          "fontColor": "#000000",
+          "fontColor": "#2A2A2A",
           "borderColor": "#CCCCCC",
-          "backgroundColor": "",
-
           "borderWidth": {
             "top": 0.1,
             "right": 0.1,
             "bottom": 0.1,
             "left": 0.1
           },
-          "padding": {
-            "top": 1,
-            "bottom": 1,
-            "left": 2,
-            "right": 2
-          }
+          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+          "backgroundColor": "",
+          "alternateBackgroundColor": ""
         },
-        "columnStyles": {},
-        "required": false,
-        "readOnly": false
+        "columnStyles": {
+          "fontName": { "0": "Inter-Bold" },
+          "padding": {
+            "0": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+            "1": { "top": 2, "bottom": 2, "left": 3, "right": 3 }
+          },
+          "alignment": { "0": "left", "1": "left" },
+          "verticalAlignment": { "0": "middle", "1": "middle" }
+        },
+        "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
       }
     ]
   ]

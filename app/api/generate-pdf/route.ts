@@ -177,6 +177,7 @@ export async function POST(req: Request) {
       warrantyText: getWarrantyText(productDataFromSource.warranty),
       shippingHeading: "Shipping Information",
       shippingData: productDataFromSource.shipping_info || "",
+      imageOrientation: productDataFromSource.image_orientation || "portrait",
       pedLogo:
         productDataFromSource.optional_logos?.origin === true
           ? pedLogoBase64Data

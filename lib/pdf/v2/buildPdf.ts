@@ -327,12 +327,18 @@ interface BuildPdfInput {
   irelandLogo?: string;
   specificationsTable: string[][]; // two-column body rows
   keyFeaturesList?: Array<{ icon: string; text: string }>; // Add key features
+  imageOrientation?: "portrait" | "landscape"; // Add image orientation
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
-  // Load template
+  // Load template based on image orientation
+  const templateFileName =
+    input.imageOrientation === "landscape"
+      ? "datasheet-template-landscape.json"
+      : "datasheet-template.json";
+
   const templateData = (
-    await import("../../../pdf/template/v2/datasheet-template.json")
+    await import(`../../../pdf/template/v2/${templateFileName}`)
   ).default;
 
   // Fix padding type

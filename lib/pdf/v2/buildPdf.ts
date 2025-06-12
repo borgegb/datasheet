@@ -68,7 +68,7 @@ const iconTextList: Plugin<any> = {
       container.style.width = "100%";
       container.style.height = "100%";
       container.style.overflow = "hidden";
-      container.style.fontFamily = schema.fontName || "Inter-Regular";
+      container.style.fontFamily = schema.fontName || "Roboto";
       container.style.fontSize = `${schema.fontSize || 10}pt`;
       container.style.color = schema.fontColor || "#000000";
       if (Array.isArray(value)) {
@@ -88,7 +88,7 @@ const iconTextList: Plugin<any> = {
       position: { x: mmX, y: mmY } = { x: 0, y: 0 },
       width: mmWidth = 100,
       height: mmHeight = 100,
-      fontName = "Inter-Regular",
+      fontName = "Roboto",
       fontSize = 9,
       fontColor = "#2A2A2A",
       lineHeight = 1.4,
@@ -106,8 +106,8 @@ const iconTextList: Plugin<any> = {
     const items = Array.isArray(value) ? value : [];
     const FONTS = arg.options?.font || {};
 
-    // Use Inter-Regular font from our font map
-    const fontData = FONTS[fontName] || FONTS["Inter-Regular"];
+    // Use the specified font from our font map (includes pdfme's default Roboto)
+    const fontData = FONTS[fontName];
     let pdfFont;
 
     if (fontData) {
@@ -182,7 +182,7 @@ const iconTextList: Plugin<any> = {
       fontName: {
         type: "string",
         title: "Font Name",
-        default: "Inter-Regular",
+        default: "Roboto",
       },
       fontSize: { type: "number", title: "Font Size", default: 9 },
       fontColor: {
@@ -214,7 +214,7 @@ const iconTextList: Plugin<any> = {
       position: { x: 20, y: 20 },
       width: 150,
       height: 100,
-      fontName: "Inter-Regular",
+      fontName: "Roboto",
       fontSize: 9,
       fontColor: "#2A2A2A",
       lineHeight: 1.4,
@@ -260,7 +260,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Set up fonts - load the proper fonts from filesystem
   const fontDir = path.resolve(process.cwd(), "pdf/fonts");
 
-  let fontMap: Font = {};
+  // Get pdfme's default fonts (includes Roboto)
+  const defaultFonts = getDefaultFont();
+
+  let fontMap: Font = {
+    // Include pdfme's default Roboto font to avoid character encoding issues
+    ...defaultFonts,
+  };
 
   try {
     const poppinsBoldPath = path.join(fontDir, "Poppins-Bold.ttf");
@@ -274,16 +280,18 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
         fs.readFile(interBoldPath),
       ]);
 
+    // Add our custom fonts to the font map
     fontMap = {
+      ...fontMap,
       "Poppins-Bold": { data: poppinsBoldFontBytes, subset: false },
       "Inter-Regular": {
         data: interRegularFontBytes,
         subset: false,
-        fallback: true,
       },
       "Inter-Bold": { data: interBoldFontBytes, subset: false },
     };
     console.log("Custom fonts loaded from:", fontDir);
+    console.log("Available fonts:", Object.keys(fontMap));
   } catch (loadError: any) {
     console.error("Error loading fonts for PDFME:", loadError);
     throw new Error(`Failed to load PDF fonts: ${loadError.message}`);

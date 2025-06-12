@@ -2,6 +2,7 @@ import { generate } from "@pdfme/generator";
 import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font, Plugin } from "@pdfme/common";
 
 // --- SVG Checkmark Definition ---
@@ -67,7 +68,7 @@ const iconTextList: Plugin<any> = {
       container.style.width = "100%";
       container.style.height = "100%";
       container.style.overflow = "hidden";
-      container.style.fontFamily = schema.fontName || "Helvetica";
+      container.style.fontFamily = schema.fontName || "Roboto";
       container.style.fontSize = `${schema.fontSize || 10}pt`;
       container.style.color = schema.fontColor || "#000000";
       if (Array.isArray(value)) {
@@ -87,7 +88,7 @@ const iconTextList: Plugin<any> = {
       position: { x: mmX, y: mmY } = { x: 0, y: 0 },
       width: mmWidth = 100,
       height: mmHeight = 100,
-      fontName = "Inter-Regular",
+      fontName = "Roboto",
       fontSize = 9,
       fontColor = "#2A2A2A",
       lineHeight = 1.4,
@@ -104,11 +105,11 @@ const iconTextList: Plugin<any> = {
 
     const items = Array.isArray(value) ? value : [];
     const FONTS = arg.options?.font || {};
-    let pdfFont = FONTS[fontName];
-    if (pdfFont?.data instanceof Uint8Array) {
-      pdfFont = await pdfDoc.embedFont(pdfFont.data, { subset: false });
-    }
-    if (!pdfFont) pdfFont = await pdfDoc.embedFont("Helvetica");
+
+    // Use standard pdfme font (Roboto) to avoid character encoding issues
+    const defaultFonts = getDefaultFont();
+    const defaultFontName = Object.keys(defaultFonts)[0];
+    let pdfFont = await pdfDoc.embedFont(defaultFonts[defaultFontName].data);
 
     const rgbColor = hexToRgb(fontColor);
     let yOffsetPt = 0;
@@ -173,7 +174,7 @@ const iconTextList: Plugin<any> = {
       fontName: {
         type: "string",
         title: "Font Name",
-        default: "Inter-Regular",
+        default: "Roboto",
       },
       fontSize: { type: "number", title: "Font Size", default: 9 },
       fontColor: {
@@ -205,7 +206,7 @@ const iconTextList: Plugin<any> = {
       position: { x: 20, y: 20 },
       width: 150,
       height: 100,
-      fontName: "Inter-Regular",
+      fontName: "Roboto",
       fontSize: 9,
       fontColor: "#2A2A2A",
       lineHeight: 1.4,

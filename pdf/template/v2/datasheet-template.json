@@ -37,6 +37,74 @@
         "alignment": "right",
         "verticalAlignment": "middle",
         "name": "footerWebsite2"
+      },
+      {
+        "type": "text",
+        "name": "warrantyTextStatic",
+        "content": "{warrantyText}",
+        "position": { "x": 22, "y": 252 },
+        "width": 135,
+        "height": 6,
+        "fontName": "Inter-Bold",
+        "fontSize": 9,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "readOnly": true
+      },
+      {
+        "type": "text",
+        "name": "shippingHeadingStatic",
+        "content": "Shipping Information",
+        "position": { "x": 22, "y": 258 },
+        "width": 100,
+        "height": 6,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "readOnly": true
+      },
+      {
+        "type": "text",
+        "name": "shippingTextStatic",
+        "content": "{shippingText}",
+        "position": { "x": 22, "y": 265 },
+        "width": 100,
+        "height": 17,
+        "fontName": "Inter-Regular",
+        "fontSize": 9,
+        "fontColor": "#2A2A2A",
+        "alignment": "left",
+        "lineHeight": 1.3,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "pedLogoStatic",
+        "content": "{pedLogo}",
+        "position": { "x": 133, "y": 264 },
+        "width": 12,
+        "height": 12,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "ceLogoStatic",
+        "content": "{ceLogo}",
+        "position": { "x": 147, "y": 264 },
+        "width": 12,
+        "height": 12,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "irelandLogoStatic",
+        "content": "{irelandLogo}",
+        "position": { "x": 162, "y": 247 },
+        "width": 35,
+        "height": 35,
+        "readOnly": true
       }
     ]
   },
@@ -186,63 +254,6 @@
         "columnStyles": {},
         "required": false,
         "readOnly": false
-      },
-      {
-        "type": "text",
-        "name": "warrantyText",
-        "position": { "x": 22, "y": 252 },
-        "width": 135,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 9,
-        "fontColor": "#2c5234",
-        "alignment": "left"
-      },
-      {
-        "type": "text",
-        "name": "shippingHeading",
-        "content": "Shipping Information",
-        "position": { "x": 22, "y": 258 },
-        "width": 100,
-        "height": 6,
-        "fontName": "Poppins-Bold",
-        "fontSize": 12,
-        "fontColor": "#2c5234",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "shippingText",
-        "position": { "x": 22, "y": 265 },
-        "width": 100,
-        "height": 17,
-        "fontName": "Inter-Regular",
-        "fontSize": 9,
-        "fontColor": "#2A2A2A",
-        "alignment": "left",
-        "lineHeight": 1.3
-      },
-      {
-        "type": "image",
-        "name": "pedLogo",
-        "position": { "x": 133, "y": 264 },
-        "width": 12,
-        "height": 12
-      },
-      {
-        "type": "image",
-        "name": "ceLogo",
-        "position": { "x": 147, "y": 264 },
-        "width": 12,
-        "height": 12
-      },
-      {
-        "type": "image",
-        "name": "irelandLogo",
-        "position": { "x": 162, "y": 247 },
-        "width": 35,
-        "height": 35
       }
     ]
   ]

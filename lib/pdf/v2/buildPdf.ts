@@ -84,23 +84,20 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Prepare inputs
   const inputs = [
     {
+      // Dynamic schema inputs
       appliedLogo: input.appliedLogoBase64Data,
       productTitle: input.productTitle,
       productSubtitle: input.productSubtitle,
       introParagraph: input.introParagraph,
       productimage: input.productImageBase64 || "",
+      specificationsTable: processedTable,
+
+      // Static schema placeholder inputs (for placeholder replacement)
       warrantyText: input.warrantyText,
-      shippingHeading: input.shippingHeading,
       shippingText: input.shippingText,
       pedLogo: input.pedLogo || "",
       ceLogo: input.ceLogo || "",
       irelandLogo: input.irelandLogo || "",
-
-      keyFeaturesHeading: "",
-      keyFeaturesList: [],
-
-      // simple table
-      specificationsTable: processedTable,
     },
   ];
 

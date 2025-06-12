@@ -180,9 +180,18 @@ export async function POST(req: Request) {
         productDataFromSource.shipping_info,
         productDataFromSource.product_title
       ),
-      pedLogo: pedLogoBase64Data,
-      ceLogo: ceLogoBase64Data,
-      irelandLogo: irelandLogoBase64Data,
+      pedLogo:
+        productDataFromSource.optional_logos?.origin === true
+          ? pedLogoBase64Data
+          : "",
+      ceLogo:
+        productDataFromSource.optional_logos?.ceMark === true
+          ? ceLogoBase64Data
+          : "",
+      irelandLogo:
+        productDataFromSource.optional_logos?.includeIrelandLogo === true
+          ? irelandLogoBase64Data
+          : "",
       specificationsTable: (() => {
         // Pass raw data to buildPdf.ts for processing
         const rawSpecs = productDataFromSource.tech_specs;

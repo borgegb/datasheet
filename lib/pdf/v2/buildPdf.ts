@@ -1,6 +1,7 @@
 import { generate } from "@pdfme/generator";
 import { text, image, line, rectangle, table } from "@pdfme/schemas";
-import { getDefaultFont } from "@pdfme/common";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import type { Template, Font, Plugin } from "@pdfme/common";
 
 // --- SVG Checkmark Definition ---
@@ -247,49 +248,36 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     },
   } as Template;
 
-  // Set up fonts - use the default font for everything
-  const defaultFonts = getDefaultFont();
-  const defaultFontName = Object.keys(defaultFonts)[0];
-  const fontData = defaultFonts[defaultFontName].data;
+  // Set up fonts - load the proper fonts from filesystem
+  const fontDir = path.resolve(process.cwd(), "pdf/fonts");
 
-  // Create font map with proper structure
-  const fontMap: Font = {
-    [defaultFontName]: {
-      data: fontData,
-      fallback: true,
-    },
-  };
+  let fontMap: Font = {};
 
-  // Update all other text elements to use the default font
-  const schemas = template.schemas[0];
-  schemas.forEach((schema: any) => {
-    if (schema.type === "text" && schema.fontName) {
-      // Keep the schema's font name but ensure it's in our font map
-      if (!fontMap[schema.fontName]) {
-        fontMap[schema.fontName] = {
-          data: fontData,
-          fallback: false,
-        };
-      }
-    }
-  });
+  try {
+    const poppinsBoldPath = path.join(fontDir, "Poppins-Bold.ttf");
+    const interRegularPath = path.join(fontDir, "Inter-Regular.ttf");
+    const interBoldPath = path.join(fontDir, "Inter-Bold.ttf");
 
-  // Also check static schemas
-  if (
-    typeof template.basePdf === "object" &&
-    "staticSchema" in template.basePdf &&
-    template.basePdf.staticSchema
-  ) {
-    template.basePdf.staticSchema.forEach((schema: any) => {
-      if (schema.type === "text" && schema.fontName) {
-        if (!fontMap[schema.fontName]) {
-          fontMap[schema.fontName] = {
-            data: fontData,
-            fallback: false,
-          };
-        }
-      }
-    });
+    const [poppinsBoldFontBytes, interRegularFontBytes, interBoldFontBytes] =
+      await Promise.all([
+        fs.readFile(poppinsBoldPath),
+        fs.readFile(interRegularPath),
+        fs.readFile(interBoldPath),
+      ]);
+
+    fontMap = {
+      "Poppins-Bold": { data: poppinsBoldFontBytes, subset: true },
+      "Inter-Regular": {
+        data: interRegularFontBytes,
+        subset: true,
+        fallback: true,
+      },
+      "Inter-Bold": { data: interBoldFontBytes, subset: true },
+    };
+    console.log("Custom fonts loaded from:", fontDir);
+  } catch (loadError: any) {
+    console.error("Error loading fonts for PDFME:", loadError);
+    throw new Error(`Failed to load PDF fonts: ${loadError.message}`);
   }
 
   // Prepare inputs – table passes straight through without trimming

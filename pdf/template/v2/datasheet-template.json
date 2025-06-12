@@ -5,6 +5,19 @@
     "padding": [15, 11, 15, 22],
     "staticSchema": [
       {
+        "type": "text",
+        "name": "keyFeaturesHeadingStatic",
+        "content": "Key Features",
+        "position": { "x": 22, "y": 73 },
+        "width": 107,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
         "type": "rectangle",
         "name": "specsHeaderBgStatic",
         "position": { "x": 22, "y": 180 },
@@ -181,19 +194,6 @@
         "fontColor": "#2A2A2A",
         "alignment": "left",
         "lineHeight": 1.3
-      },
-      {
-        "type": "text",
-        "name": "keyFeaturesHeading",
-        "content": "Key Features",
-        "position": { "x": 22, "y": 73 },
-        "width": 107,
-        "height": 8,
-        "fontName": "Poppins-Bold",
-        "fontSize": 12,
-        "fontColor": "#2c5234",
-        "alignment": "left",
-        "verticalAlignment": "middle"
       },
       {
         "type": "iconTextList",

@@ -210,10 +210,10 @@ export default function DatasheetGeneratorForm({
       // Package shipping text
       const dimensions =
         packageLength && packageWidth && packageHeight
-          ? `${packageLength}×${packageWidth}×${packageHeight}${packageDimensionUnit}`
+          ? `${packageLength} × ${packageWidth} × ${packageHeight} ${packageDimensionUnit}`
           : "[dimensions]";
       const weight = packageWeight
-        ? `${packageWeight}${packageWeightUnit}`
+        ? `${packageWeight} ${packageWeightUnit}`
         : "[weight]";
 
       return `The ${productName} is shipped as an individual package measuring ${dimensions} with a weight of ${weight}. Each unit is carefully packaged to ensure safe delivery.`;
@@ -223,7 +223,7 @@ export default function DatasheetGeneratorForm({
       const label = shippingUnitType;
       const plural =
         units === "1" ? label : label === "box" ? "boxes" : `${label}s`;
-      return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+      return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
     }
   };
 

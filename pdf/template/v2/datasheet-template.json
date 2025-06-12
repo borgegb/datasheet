@@ -157,9 +157,7 @@
         "position": { "x": 162, "y": 247 },
         "width": 35,
         "height": 35
-      }
-    ],
-    [
+      },
       {
         "type": "table",
         "name": "specificationsTable",
@@ -207,7 +205,7 @@
           "fontColor": "#000000",
           "borderColor": "#CCCCCC",
           "backgroundColor": "",
-          "alternateBackgroundColor": "#f5f5f5",
+
           "borderWidth": {
             "top": 0.1,
             "right": 0.1,

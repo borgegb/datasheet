@@ -1025,6 +1025,8 @@ export default function DatasheetGeneratorForm({
                     const pastedText = e.clipboardData.getData("text");
                     if (!pastedText) return;
 
+                    console.log("Raw pasted text:", JSON.stringify(pastedText));
+
                     // Get current cursor position
                     const textarea = e.target as HTMLTextAreaElement;
                     const cursorStart = textarea.selectionStart;
@@ -1036,23 +1038,36 @@ export default function DatasheetGeneratorForm({
                     const afterCursor = currentValue.substring(cursorEnd);
 
                     // Clean and format pasted text to preserve line breaks
+                    // Handle different line break styles more aggressively
                     const cleanedPastedText = pastedText
-                      .split(/[\r\n]+/) // Split on any line break combination
+                      .replace(/\r\n/g, "\n") // Convert Windows line breaks
+                      .replace(/\r/g, "\n") // Convert Mac line breaks
+                      .split("\n") // Split on newlines
                       .map((line) => line.trim()) // Trim whitespace
                       .filter((line) => line.length > 0) // Remove empty lines
                       .join("\n"); // Rejoin with single line breaks
 
+                    console.log(
+                      "Cleaned pasted text:",
+                      JSON.stringify(cleanedPastedText)
+                    );
+
                     const newValue =
                       beforeCursor + cleanedPastedText + afterCursor;
+                    console.log("Final new value:", JSON.stringify(newValue));
 
                     // Apply the same validation logic as onChange
                     const lineCount = countLines(newValue);
+                    console.log("Line count:", lineCount);
 
                     if (
                       newValue.length <= KEY_FEATURES_MAX_CHARS &&
                       lineCount <= KEY_FEATURES_MAX_LINES
                     ) {
-                      setKeyFeatures(newValue);
+                      console.log("Set features directly (within limits)");
+                      setTimeout(() => {
+                        setKeyFeatures(newValue);
+                      }, 0);
                       return;
                     }
 
@@ -1096,16 +1111,24 @@ export default function DatasheetGeneratorForm({
                       truncatedValue = truncatedLines.join("\n");
                     }
 
-                    setKeyFeatures(truncatedValue);
+                    console.log(
+                      "Final truncated value:",
+                      JSON.stringify(truncatedValue)
+                    );
 
-                    // Show notification if content was truncated
-                    if (truncatedValue !== newValue) {
-                      const originalLines = countLines(newValue);
-                      const keptLines = countLines(truncatedValue);
-                      toast.info(
-                        `Pasted content trimmed: kept ${keptLines} of ${originalLines} lines to fit limits.`
-                      );
-                    }
+                    // Use setTimeout to ensure state update happens after event processing
+                    setTimeout(() => {
+                      setKeyFeatures(truncatedValue);
+
+                      // Show notification if content was truncated
+                      if (truncatedValue !== newValue) {
+                        const originalLines = countLines(newValue);
+                        const keptLines = countLines(truncatedValue);
+                        toast.info(
+                          `Pasted content trimmed: kept ${keptLines} of ${originalLines} lines to fit limits.`
+                        );
+                      }
+                    }, 0);
                   }}
                   placeholder="Enter key features, one per line (will be bulleted)"
                   rows={5}

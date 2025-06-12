@@ -42,7 +42,7 @@
         "type": "text",
         "name": "warrantyTextStatic",
         "content": "{warrantyText}",
-        "position": { "x": 22, "y": 248 },
+        "position": { "x": 22, "y": 255 },
         "width": 135,
         "height": 6,
         "fontName": "Inter-Bold",

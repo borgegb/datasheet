@@ -5,6 +5,108 @@
     "padding": [15, 11, 15, 22],
     "staticSchema": [
       {
+        "type": "text",
+        "name": "keyFeaturesHeadingStatic",
+        "content": "Key Features",
+        "position": { "x": 22, "y": 73 },
+        "width": 107,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "rectangle",
+        "name": "specsHeaderBgStatic",
+        "position": { "x": 22, "y": 180 },
+        "width": 177,
+        "height": 8,
+        "color": "#2c5234"
+      },
+      {
+        "type": "text",
+        "name": "specificationsHeadingStatic",
+        "content": "Specifications",
+        "position": { "x": 25, "y": 180 },
+        "width": 170,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 14,
+        "fontColor": "#ffffff",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "text",
+        "name": "warrantyTextStatic",
+        "content": "{warrantyText}",
+        "position": { "x": 22, "y": 244 },
+        "width": 140,
+        "height": 6,
+        "fontName": "Inter-Bold",
+        "fontSize": 9,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "readOnly": true
+      },
+      {
+        "type": "text",
+        "name": "shippingHeadingStatic",
+        "content": "Shipping Information",
+        "position": { "x": 22, "y": 254 },
+        "width": 100,
+        "height": 6,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "readOnly": true
+      },
+      {
+        "type": "text",
+        "name": "shippingTextStatic",
+        "content": "{shippingText}",
+        "position": { "x": 22, "y": 261 },
+        "width": 100,
+        "height": 17,
+        "fontName": "Inter-Regular",
+        "fontSize": 9,
+        "fontColor": "#2A2A2A",
+        "alignment": "left",
+        "lineHeight": 1.3,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "pedLogoStatic",
+        "content": "{pedLogo}",
+        "position": { "x": 133, "y": 260 },
+        "width": 12,
+        "height": 12,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "ceLogoStatic",
+        "content": "{ceLogo}",
+        "position": { "x": 147, "y": 260 },
+        "width": 12,
+        "height": 12,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "irelandLogoStatic",
+        "content": "{irelandLogo}",
+        "position": { "x": 162, "y": 243 },
+        "width": 35,
+        "height": 35,
+        "readOnly": true
+      },
+      {
         "type": "rectangle",
         "position": { "x": 0, "y": 283 },
         "width": 210,
@@ -45,7 +147,7 @@
       {
         "type": "image",
         "name": "appliedLogo",
-        "position": { "x": 160, "y": 18 },
+        "position": { "x": 174, "y": 18 },
         "width": 25,
         "height": 25
       },
@@ -53,7 +155,7 @@
         "type": "text",
         "name": "productTitle",
         "position": { "x": 22, "y": 20 },
-        "width": 130,
+        "width": 147,
         "height": 12,
         "fontName": "Poppins-Bold",
         "fontSize": 16,
@@ -65,7 +167,7 @@
         "type": "text",
         "name": "productSubtitle",
         "position": { "x": 22, "y": 32 },
-        "width": 130,
+        "width": 147,
         "height": 7,
         "fontName": "Inter-Bold",
         "fontSize": 10,
@@ -94,70 +196,34 @@
         "lineHeight": 1.3
       },
       {
-        "type": "text",
-        "name": "keyFeaturesHeading",
-        "content": "Key Features",
-        "position": { "x": 22, "y": 73 },
-        "width": 100,
-        "height": 8,
-        "fontName": "Poppins-Bold",
-        "fontSize": 12,
-        "fontColor": "#2c5234",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
         "type": "iconTextList",
         "name": "keyFeaturesList",
         "position": { "x": 22, "y": 83 },
         "width": 100,
-        "height": 150,
-        "fontName": "Inter-Regular",
+        "height": 85,
+        "fontName": "Roboto",
         "fontSize": 9,
         "fontColor": "#2A2A2A",
         "lineHeight": 1.4,
-        "iconWidth": 10,
-        "iconHeight": 10,
-        "iconTextSpacing": 6,
-        "itemSpacing": 6,
-        "iconColor": "#2c5234"
+        "iconWidth": 3.5,
+        "iconHeight": 3.5,
+        "iconTextSpacing": 2,
+        "itemSpacing": 2
       },
       {
         "type": "image",
         "name": "productimage",
-        "position": { "x": 124, "y": 73 },
+        "position": { "x": 130, "y": 73 },
         "width": 68,
         "height": 99,
         "fit": "contain"
       },
       {
-        "type": "rectangle",
-        "name": "specsHeaderBg",
-        "position": { "x": 22, "y": 175 },
-        "width": 177,
-        "height": 8,
-        "color": "#2c5234"
-      },
-      {
-        "type": "text",
-        "name": "specificationsHeading",
-        "content": "Specifications",
-        "position": { "x": 25, "y": 175 },
-        "width": 170,
-        "height": 8,
-        "fontName": "Poppins-Bold",
-        "fontSize": 14,
-        "fontColor": "#ffffff",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
         "name": "specificationsTable",
         "type": "table",
-        "position": { "x": 22, "y": 183 },
+        "position": { "x": 22, "y": 188 },
         "width": 177,
         "height": 45,
-
         "content": "",
         "showHead": false,
         "head": ["Property", "Value"],
@@ -215,63 +281,6 @@
           "verticalAlignment": { "0": "middle", "1": "middle" }
         },
         "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
-      },
-      {
-        "type": "text",
-        "name": "warrantyText",
-        "position": { "x": 22, "y": 235 },
-        "width": 177,
-        "height": 10,
-        "fontName": "Inter-Bold",
-        "fontSize": 9,
-        "fontColor": "#2c5234",
-        "alignment": "left"
-      },
-      {
-        "type": "text",
-        "name": "shippingHeading",
-        "content": "Shipping Information",
-        "position": { "x": 22, "y": 250 },
-        "width": 100,
-        "height": 8,
-        "fontName": "Poppins-Bold",
-        "fontSize": 12,
-        "fontColor": "#2c5234",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "shippingText",
-        "position": { "x": 22, "y": 260 },
-        "width": 100,
-        "height": 25,
-        "fontName": "Inter-Regular",
-        "fontSize": 9,
-        "fontColor": "#2A2A2A",
-        "alignment": "left",
-        "lineHeight": 1.3
-      },
-      {
-        "type": "image",
-        "name": "pedLogo",
-        "position": { "x": 140, "y": 262 },
-        "width": 8,
-        "height": 8
-      },
-      {
-        "type": "image",
-        "name": "ceLogo",
-        "position": { "x": 150, "y": 262 },
-        "width": 8,
-        "height": 8
-      },
-      {
-        "type": "image",
-        "name": "irelandLogo",
-        "position": { "x": 162, "y": 249 },
-        "width": 31,
-        "height": 33
       }
     ]
   ]

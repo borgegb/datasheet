@@ -6,14 +6,17 @@ import type { Template, Font } from "@pdfme/common";
 
 // Helpers from the same directory (lib/pdf/helpers.ts)
 import {
-  hexToRgb, // Though not directly used in this file, iconTextList might use it implicitly if it were here
-  mm2pt, // Same as above
+  hexToRgb,
+  mm2pt,
   iconTextList,
   CHECKMARK_SVG,
   getWarrantyText,
   getShippingText,
   DEFAULT_PRODUCT_IMAGE_BASE64,
+  anchorShippingGroupToFooter,
 } from "./helpers";
+
+// @ts-nocheck
 
 interface BuildPdfInput {
   productDataFromSource: any; // The fully resolved product data object
@@ -59,6 +62,7 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
 
   try {
     template = JSON.parse(await fs.readFile(templatePath, "utf8"));
+    anchorShippingGroupToFooter(template);
     console.log("PDFME template loaded from:", templatePath);
 
     const poppinsBoldPath = path.join(fontDir, "Poppins-Bold.ttf");
@@ -110,8 +114,17 @@ export async function buildPdf(input: BuildPdfInput): Promise<Buffer> {
       const parsedSpecs =
         typeof rawSpecs === "string" ? JSON.parse(rawSpecs) : rawSpecs;
       if (Array.isArray(parsedSpecs)) {
-        specsForTable = parsedSpecs
-          .filter((item: any) => item && (item.label || item.value))
+        const filtered = parsedSpecs.filter(
+          (item: any) => item && (item.label || item.value)
+        );
+
+        // Each table row is ~8-9 mm tall in this template, and the reserved box
+        // in the schema is 45 mm high → max ≈ 5 rows.  Clip to first 5 so we
+        // never overflow into the Shipping area.
+        const MAX_ROWS = 5;
+
+        specsForTable = filtered
+          .slice(0, MAX_ROWS)
           .map((item: any) => [
             (item.label ?? "").toString(),
             (item.value ?? "").toString(),

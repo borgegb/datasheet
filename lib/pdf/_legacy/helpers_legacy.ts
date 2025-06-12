@@ -1,5 +1,5 @@
-import { rgb } from "pdf-lib"; // rgb is used by iconTextList
-import type { Plugin } from "@pdfme/common"; // For iconTextList type
+import { rgb, PDFFont } from "pdf-lib"; // rgb is used by iconTextList
+import type { Plugin, Template } from "@pdfme/common"; // For iconTextList type
 
 // --- SVG Checkmark Definition ---
 export const CHECKMARK_SVG =
@@ -26,6 +26,29 @@ export const hexToRgb = (
 
 // --- Helper: mm → pt (1 mm = 72 / 25.4 pt) ---
 export const mm2pt = (mm: number): number => mm * 2.83464567;
+
+const wrap = (
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number
+): string[] => {
+  const words = text.split(/\\s+/);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+};
 
 // --- Custom PDFME Plugin for IconTextList ---
 export const iconTextList: Plugin<any> = {
@@ -91,14 +114,38 @@ export const iconTextList: Plugin<any> = {
     for (const item of items) {
       if (!item?.text) continue;
       const maxWidth = blockWidthPt - (iconWidth + iconTextSpacing);
-      const textWidth = pdfFont.widthOfTextAtSize(item.text, fontSize);
-      const lines = Math.ceil(textWidth / maxWidth);
-      const textHeight = lines * fontSize * lineHeight;
-      const rowHeight = Math.max(textHeight, iconHeight);
 
-      if (yOffsetPt + rowHeight > blockHeightPt) break;
+      const linesArr = wrap(item.text, pdfFont, fontSize, maxWidth);
+      const rowHeight = Math.max(
+        linesArr.length * fontSize * lineHeight,
+        iconHeight
+      );
 
-      const rowTop = pageHeight - blockYpt - yOffsetPt;
+      if (yOffsetPt + rowHeight > blockHeightPt) {
+        if (linesArr.length > 0) {
+          const lastLine = linesArr[linesArr.length - 1];
+          linesArr[linesArr.length - 1] = lastLine.replace(/\\s*\\S+$/, " …");
+          const truncatedText = linesArr.join("\\n");
+
+          const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
+
+          const textAbsX = blockXpt + iconWidth + iconTextSpacing;
+          const textBaselineY = rowTop - iconHeight * 0.8;
+
+          await page.drawText(truncatedText, {
+            x: textAbsX,
+            y: textBaselineY,
+            font: pdfFont,
+            size: fontSize,
+            color: rgb(rgbColor.red, rgbColor.green, rgbColor.blue),
+            maxWidth: maxWidth,
+            lineHeight: fontSize * lineHeight,
+          });
+        }
+        break;
+      }
+
+      const rowTop = pageHeight - blockYpt - yOffsetPt - rowHeight;
       const iconAbsX = blockXpt;
       const iconAbsY = rowTop;
       const textAbsX = blockXpt + iconWidth + iconTextSpacing;
@@ -112,7 +159,7 @@ export const iconTextList: Plugin<any> = {
           height: iconHeight,
         });
       }
-      await page.drawText(item.text, {
+      await page.drawText(linesArr.join("\\n"), {
         x: textAbsX,
         y: textBaselineY,
         font: pdfFont,
@@ -197,17 +244,79 @@ export const getWarrantyText = (code: string | null): string => {
 
 // --- Helper function for Shipping Text ---
 export const getShippingText = (
-  codeOrUnits: string | null,
+  shippingData: string | null,
   productTitle?: string
 ): string => {
-  // Check if it's a number (our units)
-  const units = parseInt(codeOrUnits || "4");
-  if (!isNaN(units) && productTitle) {
+  if (!shippingData || !productTitle) {
+    return "Shipping information not specified.";
+  }
+
+  // Try to parse as JSON first (new enhanced format)
+  try {
+    const parsed = JSON.parse(shippingData);
+
+    // If custom text is provided, use it directly
+    if (parsed.customText) {
+      return parsed.customText;
+    }
+
+    // Handle package shipping
+    if (parsed.method === "package") {
+      const dimensions =
+        parsed.length && parsed.width && parsed.height
+          ? `${parsed.length}×${parsed.width}×${parsed.height}${
+              parsed.dimensionUnit || "mm"
+            }`
+          : "[dimensions not specified]";
+      const weight = parsed.weight
+        ? `${parsed.weight}${parsed.weightUnit || "kg"}`
+        : "[weight not specified]";
+
+      return `The ${productTitle} is shipped as an individual package measuring ${dimensions} with a weight of ${weight}. Each unit is carefully packaged to ensure safe delivery.`;
+    }
+
+    // Handle pallet shipping (new JSON format)
+    if (parsed.method === "pallet" && parsed.units && parsed.unitType) {
+      const qty = parseInt(parsed.units);
+      const label = parsed.unitType;
+      const plural =
+        qty === 1
+          ? label
+          : label === "box"
+          ? "boxes"
+          : label.endsWith("s")
+          ? label
+          : `${label}s`;
+      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    }
+  } catch {
+    // JSON parse failed, fall back to legacy parsing
+  }
+
+  // Legacy format parsing (existing behavior for backward compatibility)
+  const match = shippingData.match(/(\d+)\s+(\w+)/);
+  if (match) {
+    const qty = parseInt(match[1]);
+    const label = match[2];
+    const plural =
+      qty === 1
+        ? label
+        : label === "box"
+        ? "boxes"
+        : label.endsWith("s")
+        ? label
+        : `${label}s`;
+    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+  }
+
+  // Fallback: numeric only
+  const units = parseInt(shippingData || "4");
+  if (!isNaN(units)) {
     return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
   }
 
-  // Fallback to existing code-based logic
-  switch (codeOrUnits) {
+  // Handle legacy hardcoded cases
+  switch (shippingData) {
     case "expedited":
       return "The Applied 20 Litre Classic Blast Machine will be securely mounted on a wooden pallet measuring 1200mm x 1000mm. Please note that up to four units can be shipped on a single pallet. To maximise value and efficiency, we recommend shipping the full quantity per pallet whenever possible.";
     case "std":
@@ -215,9 +324,59 @@ export const getShippingText = (
     case "freight":
       return "Freight shipping information placeholder.";
     default:
-      return "Shipping information not specified.";
+      // If it's plain text (not JSON, not a pattern), treat it as custom text
+      return shippingData;
   }
 };
+
+const ORIGINAL_OFFSETS_MM = {
+  // Shifted downwards by 6 mm to tighten gap above footer block
+  warrantyText: 241 - 283, // -42
+  shippingHeading: 256 - 283, // -27
+  shippingText: 266 - 283, // -17
+  pedLogo: 268 - 283, // -15
+  ceLogo: 268 - 283, // -15
+  irelandLogo: 255 - 283, // -28
+};
+
+export function anchorShippingGroupToFooter(template: Template): void {
+  const footer = (template as any).basePdf.staticSchema.find(
+    (n: any) => n.name === "footerBackground"
+  );
+  if (!footer) return;
+
+  const footerTopY = footer.position.y as number;
+  const BOTTOM_PADDING_MM = 3; // leave a small gap above footer background
+
+  // Collect shipping-group nodes per page so we can compute bounding box
+  for (const page of (template as any).schemas) {
+    const nodes: any[] = page.filter((n: any) =>
+      [
+        "warrantyText",
+        "shippingHeading",
+        "shippingText",
+        "pedLogo",
+        "ceLogo",
+        "irelandLogo",
+      ].includes(n.name)
+    );
+
+    if (nodes.length === 0) continue;
+
+    // Determine current bottom of the group (largest y + height)
+    const bottomMost = Math.max(
+      ...nodes.map((n) => (n.position.y as number) + (n.height ?? 0))
+    );
+
+    const targetBottom = footerTopY - BOTTOM_PADDING_MM;
+    const delta = targetBottom - bottomMost;
+
+    // Shift all nodes by the same delta so bottom aligns to target
+    nodes.forEach((n) => {
+      n.position.y = (n.position.y as number) + delta;
+    });
+  }
+}
 
 export const DEFAULT_PRODUCT_IMAGE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";

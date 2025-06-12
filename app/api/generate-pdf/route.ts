@@ -8,9 +8,13 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 // Import the new buildPdf function
-import { buildPdf } from "../../../lib/pdf/buildPdf"; // Adjust path as necessary
+import { buildPdfV2 } from "../../../lib/pdf/v2/buildPdf";
 // Import a helper constant that might be used for default images
-import { DEFAULT_PRODUCT_IMAGE_BASE64 } from "../../../lib/pdf/helpers";
+import {
+  DEFAULT_PRODUCT_IMAGE_BASE64,
+  getWarrantyText,
+  getShippingText,
+} from "../../../lib/pdf/_legacy/helpers_legacy";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -161,15 +165,66 @@ export async function POST(req: Request) {
       );
     }
 
-    // Call the refactored buildPdf function
-    const pdfBytes = await buildPdf({
-      productDataFromSource,
-      productImageBase64,
+    // Build minimal input for header section for v2
+    const headerInput = {
       appliedLogoBase64Data,
-      irelandLogoBase64Data,
-      pedLogoBase64Data,
-      ceLogoBase64Data,
-    });
+      productTitle: productDataFromSource.product_title || "",
+      productSubtitle: `Product Code ${
+        productDataFromSource.product_code || ""
+      }`,
+      introParagraph: productDataFromSource.description || "",
+      productImageBase64,
+      warrantyText: getWarrantyText(productDataFromSource.warranty),
+      shippingHeading: "Shipping Information",
+      shippingData: productDataFromSource.shipping_info || "",
+      pedLogo:
+        productDataFromSource.optional_logos?.origin === true
+          ? pedLogoBase64Data
+          : "",
+      ceLogo:
+        productDataFromSource.optional_logos?.ceMark === true
+          ? ceLogoBase64Data
+          : "",
+      irelandLogo:
+        productDataFromSource.optional_logos?.includeIrelandLogo === true
+          ? irelandLogoBase64Data
+          : "",
+      keyFeaturesList: (() => {
+        const keyFeaturesRaw = productDataFromSource.key_features || "";
+        const keyFeaturesArray = keyFeaturesRaw
+          .split("\n")
+          .map((f: string) => f.trim().replace(/\r$/, "").trim())
+          .filter((f: string) => f);
+        return keyFeaturesArray.map((featureText: string) => ({
+          icon: '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#2c5234"/><path d="M11.97 5.97a.75.75 0 0 0-1.06-1.06L7.25 8.56 5.53 6.84a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l4.19-4.18z" fill="#ffffff"/></svg>',
+          text: featureText,
+        }));
+      })(),
+      specificationsTable: (() => {
+        // Pass raw data to buildPdf.ts for processing
+        const rawSpecs = productDataFromSource.tech_specs;
+        try {
+          const parsed = Array.isArray(rawSpecs)
+            ? rawSpecs
+            : typeof rawSpecs === "string"
+            ? JSON.parse(rawSpecs)
+            : [];
+          // Just return the parsed data, let buildPdf.ts handle filtering and formatting
+          return (parsed || []).map((r: any) => [
+            (r.label ?? "").toString(),
+            (r.value ?? "").toString(),
+          ]);
+        } catch {
+          return [["", ""]];
+        }
+      })(),
+    } as const;
+
+    console.log(
+      "📋 Specs data being passed to buildPdf:",
+      headerInput.specificationsTable
+    );
+    const pdfBytes = await buildPdfV2(headerInput);
 
     // Construct the file path as per the old structure
     if (!productDataFromSource.organization_id || !productId) {

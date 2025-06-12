@@ -16,7 +16,11 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useState,
+  useEffect,
 } from "react";
+import { ImageCropperDialog } from "@/components/ui/image-cropper-dialog";
+import React from "react";
 
 export const formatBytes = (
   bytes: number,
@@ -63,6 +67,46 @@ const Dropzone = ({
     (restProps.errors.length > 0 && !restProps.isSuccess) ||
     restProps.files.some((file) => file.errors.length !== 0);
 
+  // --- Cropping state ---
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const prevFileCountRef = React.useRef(restProps.files.length);
+
+  // Detect newly added file to start cropping (only first file, assumes maxFiles=1 for images)
+  useEffect(() => {
+    if (restProps.files.length > prevFileCountRef.current) {
+      const latest = restProps.files[restProps.files.length - 1] as File & {
+        __cropped?: boolean;
+      };
+      if (!latest.__cropped) {
+        setCropFile(latest);
+      }
+    }
+    prevFileCountRef.current = restProps.files.length;
+  }, [restProps.files]);
+
+  const handleCropCancel = () => {
+    // Remove the file awaiting crop
+    if (cropFile) {
+      restProps.setFiles(restProps.files.filter((f) => f !== cropFile));
+    }
+    setCropFile(null);
+  };
+
+  const handleCropSave = (cropped: File) => {
+    const newFile: any = cropped;
+    (newFile as any).preview = URL.createObjectURL(cropped);
+    (newFile as any).errors = [];
+    (newFile as any).__cropped = true;
+
+    // Replace original file in list
+    restProps.setFiles([
+      ...restProps.files.filter((f) => f !== cropFile),
+      newFile,
+    ]);
+    setCropFile(null);
+  };
+  // ----------------------
+
   return (
     <DropzoneContext.Provider value={{ ...restProps }}>
       <div
@@ -78,6 +122,13 @@ const Dropzone = ({
       >
         <input {...getInputProps()} />
         {children}
+        {/* Crop dialog */}
+        <ImageCropperDialog
+          open={!!cropFile}
+          file={cropFile}
+          onCancel={handleCropCancel}
+          onSave={handleCropSave}
+        />
       </div>
     </DropzoneContext.Provider>
   );

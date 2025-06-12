@@ -192,6 +192,17 @@ export async function POST(req: Request) {
         productDataFromSource.optional_logos?.includeIrelandLogo === true
           ? irelandLogoBase64Data
           : "",
+      keyFeaturesList: (() => {
+        const keyFeaturesRaw = productDataFromSource.key_features || "";
+        const keyFeaturesArray = keyFeaturesRaw
+          .split("\n")
+          .map((f: string) => f.trim().replace(/\r$/, "").trim())
+          .filter((f: string) => f);
+        return keyFeaturesArray.map((featureText: string) => ({
+          icon: '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#2c5234"/><path d="M11.97 5.97a.75.75 0 0 0-1.06-1.06L7.25 8.56 5.53 6.84a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l4.19-4.18z" fill="#ffffff"/></svg>',
+          text: featureText,
+        }));
+      })(),
       specificationsTable: (() => {
         // Pass raw data to buildPdf.ts for processing
         const rawSpecs = productDataFromSource.tech_specs;

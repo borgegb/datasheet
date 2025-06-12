@@ -183,6 +183,34 @@
         "lineHeight": 1.3
       },
       {
+        "type": "text",
+        "name": "keyFeaturesHeading",
+        "content": "Key Features",
+        "position": { "x": 22, "y": 73 },
+        "width": 107,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "iconTextList",
+        "name": "keyFeaturesList",
+        "position": { "x": 22, "y": 83 },
+        "width": 100,
+        "height": 85,
+        "fontName": "Inter-Regular",
+        "fontSize": 9,
+        "fontColor": "#2A2A2A",
+        "lineHeight": 1.4,
+        "iconWidth": 10,
+        "iconHeight": 10,
+        "iconTextSpacing": 6,
+        "itemSpacing": 6
+      },
+      {
         "type": "image",
         "name": "productimage",
         "position": { "x": 130, "y": 73 },

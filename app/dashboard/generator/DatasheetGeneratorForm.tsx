@@ -116,8 +116,25 @@ export default function DatasheetGeneratorForm({
     initialData?.key_features || ""
   );
   const [warranty, setWarranty] = useState(initialData?.warranty || "");
+
+  // --- Enhanced Shipping State ---
+  const [shippingMethod, setShippingMethod] = useState<"pallet" | "package">(
+    "pallet"
+  );
   const [shippingUnits, setShippingUnits] = useState("4");
   const [shippingUnitType, setShippingUnitType] = useState("unit");
+  // Package dimensions state
+  const [packageLength, setPackageLength] = useState("");
+  const [packageWidth, setPackageWidth] = useState("");
+  const [packageHeight, setPackageHeight] = useState("");
+  const [packageWeight, setPackageWeight] = useState("");
+  const [packageDimensionUnit, setPackageDimensionUnit] = useState("mm");
+  const [packageWeightUnit, setPackageWeightUnit] = useState("kg");
+  // Editable shipping text
+  const [customShippingText, setCustomShippingText] = useState("");
+  const [useCustomShippingText, setUseCustomShippingText] = useState(false);
+  // --- End Enhanced Shipping State ---
+
   const [imageOrientation, setImageOrientation] = useState(
     initialData?.image_orientation || "portrait"
   );
@@ -188,11 +205,26 @@ export default function DatasheetGeneratorForm({
   // Helper function to generate shipping text
   const generateShippingText = (): string => {
     const productName = productTitle || "[Product Name]";
-    const units = shippingUnits || "1";
-    const label = shippingUnitType;
-    const plural =
-      units === "1" ? label : label === "box" ? "boxes" : `${label}s`;
-    return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+
+    if (shippingMethod === "package") {
+      // Package shipping text
+      const dimensions =
+        packageLength && packageWidth && packageHeight
+          ? `${packageLength}×${packageWidth}×${packageHeight}${packageDimensionUnit}`
+          : "[dimensions]";
+      const weight = packageWeight
+        ? `${packageWeight}${packageWeightUnit}`
+        : "[weight]";
+
+      return `The ${productName} is shipped as an individual package measuring ${dimensions} with a weight of ${weight}. Each unit is carefully packaged to ensure safe delivery.`;
+    } else {
+      // Pallet shipping text (existing logic)
+      const units = shippingUnits || "1";
+      const label = shippingUnitType;
+      const plural =
+        units === "1" ? label : label === "box" ? "boxes" : `${label}s`;
+      return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    }
   };
 
   // useEffect to fetch USER, PROFILE, and CATEGORIES
@@ -312,19 +344,48 @@ export default function DatasheetGeneratorForm({
       }
       setKeyFeatures(initialData.key_features || "");
       setWarranty(initialData.warranty || "");
-      // Parse shipping units and type from existing shipping_info if it contains a number
+
+      // Parse shipping info - enhanced to handle new shipping structure
       if (initialData.shipping_info) {
-        const match = initialData.shipping_info.match(/(\d+)\s+(\w+)/);
-        if (match) {
-          setShippingUnits(match[1]);
-          setShippingUnitType(match[2].replace(/s$/, ""));
-        } else {
-          setShippingUnits("4");
-          setShippingUnitType("unit");
+        try {
+          // Try to parse as JSON first (new format)
+          const shippingData = JSON.parse(initialData.shipping_info);
+          if (shippingData.method) {
+            setShippingMethod(shippingData.method);
+            if (shippingData.method === "pallet") {
+              setShippingUnits(shippingData.units || "4");
+              setShippingUnitType(shippingData.unitType || "unit");
+            } else if (shippingData.method === "package") {
+              setPackageLength(shippingData.length || "");
+              setPackageWidth(shippingData.width || "");
+              setPackageHeight(shippingData.height || "");
+              setPackageWeight(shippingData.weight || "");
+              setPackageDimensionUnit(shippingData.dimensionUnit || "mm");
+              setPackageWeightUnit(shippingData.weightUnit || "kg");
+            }
+            if (shippingData.customText) {
+              setCustomShippingText(shippingData.customText);
+              setUseCustomShippingText(true);
+            }
+          }
+        } catch {
+          // Fallback: parse legacy format (existing behavior)
+          const match = initialData.shipping_info.match(/(\d+)\s+(\w+)/);
+          if (match) {
+            setShippingUnits(match[1]);
+            setShippingUnitType(match[2].replace(/s$/, ""));
+            setShippingMethod("pallet");
+          } else {
+            // Treat as custom text if no pattern matches
+            setCustomShippingText(initialData.shipping_info);
+            setUseCustomShippingText(true);
+            setShippingMethod("pallet");
+          }
         }
       } else {
         setShippingUnits("4");
         setShippingUnitType("unit");
+        setShippingMethod("pallet");
       }
       setImageOrientation(initialData.image_orientation || "portrait");
       setUploadedImagePath(initialData.image_path || null);
@@ -431,8 +492,17 @@ export default function DatasheetGeneratorForm({
       setWeightUnit("kg");
       setKeyFeatures("");
       setWarranty("");
+      setShippingMethod("pallet");
       setShippingUnits("4");
       setShippingUnitType("unit");
+      setPackageLength("");
+      setPackageWidth("");
+      setPackageHeight("");
+      setPackageWeight("");
+      setPackageDimensionUnit("mm");
+      setPackageWeightUnit("kg");
+      setCustomShippingText("");
+      setUseCustomShippingText(false);
       setImageOrientation("portrait");
       setIncludeCeLogo(false);
       setIncludeOriginLogo(false);
@@ -1141,51 +1211,242 @@ export default function DatasheetGeneratorForm({
               </div>
             </div>
 
-            {/* Section 4: Shipping Info - Full Width */}
+            {/* Section 4: Enhanced Shipping/Packaging Info - Full Width */}
             <div className="space-y-1.5">
-              <Label htmlFor="shipping-info">Shipping Info</Label>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Select
-                    name="shippingUnitType"
-                    value={shippingUnitType}
-                    onValueChange={setShippingUnitType}
+              <Label htmlFor="shipping-info">Shipping / Packaging Info</Label>
+              <div className="space-y-4">
+                {/* Shipping Method Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Shipping Method</Label>
+                  <RadioGroup
+                    value={shippingMethod}
+                    onValueChange={(value: "pallet" | "package") =>
+                      setShippingMethod(value)
+                    }
+                    className="flex space-x-6"
                   >
-                    <SelectTrigger className="w-28">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unit">unit(s)</SelectItem>
-                      <SelectItem value="package">package(s)</SelectItem>
-                      <SelectItem value="bag">bag(s)</SelectItem>
-                      <SelectItem value="box">box(es)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm">per pallet:</span>
-                  <Input
-                    name="shippingUnits"
-                    id="shipping-units"
-                    type="number"
-                    value={shippingUnits}
-                    onChange={(e) => setShippingUnits(e.target.value)}
-                    placeholder="4"
-                    className="w-20"
-                    min="1"
-                    max="1000"
-                  />
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pallet" id="ship-pallet" />
+                      <Label
+                        htmlFor="ship-pallet"
+                        className="font-normal cursor-pointer"
+                      >
+                        Ship via Pallet
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="package" id="ship-package" />
+                      <Label
+                        htmlFor="ship-package"
+                        className="font-normal cursor-pointer"
+                      >
+                        Ship via Package
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                {/* Preview of shipping text */}
-                <div className="bg-muted p-3 rounded-md border">
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Preview:
-                  </Label>
-                  <p className="text-sm mt-1">{generateShippingText()}</p>
+
+                {/* Conditional UI based on shipping method */}
+                {shippingMethod === "pallet" ? (
+                  // Pallet shipping configuration (existing)
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        name="shippingUnitType"
+                        value={shippingUnitType}
+                        onValueChange={setShippingUnitType}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unit">unit(s)</SelectItem>
+                          <SelectItem value="package">package(s)</SelectItem>
+                          <SelectItem value="bag">bag(s)</SelectItem>
+                          <SelectItem value="box">box(es)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm">per pallet:</span>
+                      <Input
+                        name="shippingUnits"
+                        id="shipping-units"
+                        type="number"
+                        value={shippingUnits}
+                        onChange={(e) => setShippingUnits(e.target.value)}
+                        placeholder="4"
+                        className="w-20"
+                        min="1"
+                        max="1000"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  // Package shipping configuration (new)
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">
+                      Package Dimensions
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label
+                          htmlFor="pkg-length"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Length
+                        </Label>
+                        <Input
+                          id="pkg-length"
+                          type="number"
+                          value={packageLength}
+                          onChange={(e) => setPackageLength(e.target.value)}
+                          placeholder="100"
+                        />
+                      </div>
+                      <div>
+                        <Label
+                          htmlFor="pkg-width"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Width
+                        </Label>
+                        <Input
+                          id="pkg-width"
+                          type="number"
+                          value={packageWidth}
+                          onChange={(e) => setPackageWidth(e.target.value)}
+                          placeholder="50"
+                        />
+                      </div>
+                      <div>
+                        <Label
+                          htmlFor="pkg-height"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Height
+                        </Label>
+                        <Input
+                          id="pkg-height"
+                          type="number"
+                          value={packageHeight}
+                          onChange={(e) => setPackageHeight(e.target.value)}
+                          placeholder="30"
+                        />
+                      </div>
+                      <div>
+                        <Select
+                          value={packageDimensionUnit}
+                          onValueChange={setPackageDimensionUnit}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="mm">mm</SelectItem>
+                            <SelectItem value="cm">cm</SelectItem>
+                            <SelectItem value="in">in</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label
+                          htmlFor="pkg-weight"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Package Weight
+                        </Label>
+                        <Input
+                          id="pkg-weight"
+                          type="number"
+                          value={packageWeight}
+                          onChange={(e) => setPackageWeight(e.target.value)}
+                          placeholder="2.5"
+                        />
+                      </div>
+                      <div>
+                        <Select
+                          value={packageWeightUnit}
+                          onValueChange={setPackageWeightUnit}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kg">kg</SelectItem>
+                            <SelectItem value="g">g</SelectItem>
+                            <SelectItem value="lbs">lbs</SelectItem>
+                            <SelectItem value="oz">oz</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Generated text preview and custom text option */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="custom-shipping"
+                      checked={useCustomShippingText}
+                      onCheckedChange={(checked) => {
+                        setUseCustomShippingText(Boolean(checked));
+                        if (!checked) {
+                          setCustomShippingText("");
+                        } else {
+                          setCustomShippingText(generateShippingText());
+                        }
+                      }}
+                    />
+                    <Label
+                      htmlFor="custom-shipping"
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Customize shipping text
+                    </Label>
+                  </div>
+
+                  {useCustomShippingText ? (
+                    <Textarea
+                      value={customShippingText}
+                      onChange={(e) => setCustomShippingText(e.target.value)}
+                      placeholder="Enter custom shipping information..."
+                      rows={3}
+                    />
+                  ) : (
+                    <div className="bg-muted p-3 rounded-md border">
+                      <Label className="text-sm font-medium text-muted-foreground">
+                        Preview:
+                      </Label>
+                      <p className="text-sm mt-1">{generateShippingText()}</p>
+                    </div>
+                  )}
                 </div>
-                {/* Hidden input for form submission */}
+
+                {/* Hidden inputs for form submission */}
                 <input
                   type="hidden"
                   name="shippingInfo"
-                  value={`${shippingUnits} ${shippingUnitType}`}
+                  value={JSON.stringify({
+                    method: shippingMethod,
+                    ...(shippingMethod === "pallet"
+                      ? {
+                          units: shippingUnits,
+                          unitType: shippingUnitType,
+                        }
+                      : {
+                          length: packageLength,
+                          width: packageWidth,
+                          height: packageHeight,
+                          weight: packageWeight,
+                          dimensionUnit: packageDimensionUnit,
+                          weightUnit: packageWeightUnit,
+                        }),
+                    ...(useCustomShippingText
+                      ? { customText: customShippingText }
+                      : {}),
+                  })}
                 />
               </div>
             </div>

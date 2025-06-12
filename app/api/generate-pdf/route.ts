@@ -176,10 +176,7 @@ export async function POST(req: Request) {
       productImageBase64,
       warrantyText: getWarrantyText(productDataFromSource.warranty),
       shippingHeading: "Shipping Information",
-      shippingText: getShippingText(
-        productDataFromSource.shipping_info,
-        productDataFromSource.product_title
-      ),
+      shippingData: productDataFromSource.shipping_info || "",
       pedLogo:
         productDataFromSource.optional_logos?.origin === true
           ? pedLogoBase64Data

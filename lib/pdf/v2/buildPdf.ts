@@ -226,6 +226,93 @@ const iconTextList: Plugin<any> = {
   },
 };
 
+// --- Enhanced Shipping Text Helper for v2 ---
+const getShippingTextV2 = (
+  shippingData: string | null,
+  productTitle?: string
+): string => {
+  if (!shippingData || !productTitle) {
+    return "Shipping information not specified.";
+  }
+
+  // Try to parse as JSON first (new enhanced format)
+  try {
+    const parsed = JSON.parse(shippingData);
+
+    // If custom text is provided, use it directly
+    if (parsed.customText) {
+      return parsed.customText;
+    }
+
+    // Handle package shipping
+    if (parsed.method === "package") {
+      const dimensions =
+        parsed.length && parsed.width && parsed.height
+          ? `${parsed.length}×${parsed.width}×${parsed.height}${
+              parsed.dimensionUnit || "mm"
+            }`
+          : "[dimensions not specified]";
+      const weight = parsed.weight
+        ? `${parsed.weight}${parsed.weightUnit || "kg"}`
+        : "[weight not specified]";
+
+      return `The ${productTitle} is shipped as an individual package measuring ${dimensions} with a weight of ${weight}. Each unit is carefully packaged to ensure safe delivery.`;
+    }
+
+    // Handle pallet shipping (new JSON format)
+    if (parsed.method === "pallet" && parsed.units && parsed.unitType) {
+      const qty = parseInt(parsed.units);
+      const label = parsed.unitType;
+      const plural =
+        qty === 1
+          ? label
+          : label === "box"
+          ? "boxes"
+          : label.endsWith("s")
+          ? label
+          : `${label}s`;
+      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    }
+  } catch {
+    // JSON parse failed, fall back to legacy parsing
+  }
+
+  // Legacy format parsing (existing behavior for backward compatibility)
+  const match = shippingData.match(/(\d+)\s+(\w+)/);
+  if (match) {
+    const qty = parseInt(match[1]);
+    const label = match[2];
+    const plural =
+      qty === 1
+        ? label
+        : label === "box"
+        ? "boxes"
+        : label.endsWith("s")
+        ? label
+        : `${label}s`;
+    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+  }
+
+  // Fallback: numeric only
+  const units = parseInt(shippingData || "4");
+  if (!isNaN(units)) {
+    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+  }
+
+  // Handle legacy hardcoded cases
+  switch (shippingData) {
+    case "expedited":
+      return "The Applied 20 Litre Classic Blast Machine will be securely mounted on a wooden pallet measuring 1200mm x 1000mm. Please note that up to four units can be shipped on a single pallet. To maximise value and efficiency, we recommend shipping the full quantity per pallet whenever possible.";
+    case "std":
+      return "The Applied 20 Litre Classic Blast Machine is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm.  Up to four units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.";
+    case "freight":
+      return "Freight shipping information placeholder.";
+    default:
+      // If it's plain text (not JSON, not a pattern), treat it as custom text
+      return shippingData;
+  }
+};
+
 interface BuildPdfInput {
   appliedLogoBase64Data: string;
   productTitle: string;
@@ -234,7 +321,7 @@ interface BuildPdfInput {
   productImageBase64?: string;
   warrantyText: string;
   shippingHeading: string;
-  shippingText: string;
+  shippingData: string; // Changed from shippingText - will be processed by getShippingTextV2
   pedLogo?: string;
   ceLogo?: string;
   irelandLogo?: string;
@@ -314,7 +401,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
       // Static schema placeholder inputs (for placeholder replacement)
       warrantyText: input.warrantyText,
-      shippingText: input.shippingText,
+      shippingText: getShippingTextV2(input.shippingData, input.productTitle),
       pedLogo: input.pedLogo || "",
       ceLogo: input.ceLogo || "",
       irelandLogo: input.irelandLogo || "",

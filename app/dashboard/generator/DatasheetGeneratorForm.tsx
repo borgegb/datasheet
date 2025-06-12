@@ -1018,6 +1018,95 @@ export default function DatasheetGeneratorForm({
                       );
                     }
                   }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+
+                    // Get pasted text
+                    const pastedText = e.clipboardData.getData("text");
+                    if (!pastedText) return;
+
+                    // Get current cursor position
+                    const textarea = e.target as HTMLTextAreaElement;
+                    const cursorStart = textarea.selectionStart;
+                    const cursorEnd = textarea.selectionEnd;
+
+                    // Get current value and insert pasted text at cursor
+                    const currentValue = keyFeatures;
+                    const beforeCursor = currentValue.substring(0, cursorStart);
+                    const afterCursor = currentValue.substring(cursorEnd);
+
+                    // Clean and format pasted text to preserve line breaks
+                    const cleanedPastedText = pastedText
+                      .split(/[\r\n]+/) // Split on any line break combination
+                      .map((line) => line.trim()) // Trim whitespace
+                      .filter((line) => line.length > 0) // Remove empty lines
+                      .join("\n"); // Rejoin with single line breaks
+
+                    const newValue =
+                      beforeCursor + cleanedPastedText + afterCursor;
+
+                    // Apply the same validation logic as onChange
+                    const lineCount = countLines(newValue);
+
+                    if (
+                      newValue.length <= KEY_FEATURES_MAX_CHARS &&
+                      lineCount <= KEY_FEATURES_MAX_LINES
+                    ) {
+                      setKeyFeatures(newValue);
+                      return;
+                    }
+
+                    // If over limits, truncate intelligently
+                    let truncatedValue = newValue;
+
+                    // First, truncate by character count if needed
+                    if (newValue.length > KEY_FEATURES_MAX_CHARS) {
+                      truncatedValue = newValue.substring(
+                        0,
+                        KEY_FEATURES_MAX_CHARS
+                      );
+                    }
+
+                    // Then, truncate by line count if needed
+                    const lines = truncatedValue.split("\n");
+                    const nonEmptyLines = lines.filter(
+                      (line) => line.trim().length > 0
+                    );
+
+                    if (nonEmptyLines.length > KEY_FEATURES_MAX_LINES) {
+                      // Keep only the first N non-empty lines, preserving line structure
+                      let keptNonEmptyCount = 0;
+                      const truncatedLines = [];
+
+                      for (const line of lines) {
+                        if (line.trim().length > 0) {
+                          if (keptNonEmptyCount < KEY_FEATURES_MAX_LINES) {
+                            truncatedLines.push(line);
+                            keptNonEmptyCount++;
+                          } else {
+                            break;
+                          }
+                        } else {
+                          // Keep empty lines if we haven't reached the limit yet
+                          if (keptNonEmptyCount < KEY_FEATURES_MAX_LINES) {
+                            truncatedLines.push(line);
+                          }
+                        }
+                      }
+                      truncatedValue = truncatedLines.join("\n");
+                    }
+
+                    setKeyFeatures(truncatedValue);
+
+                    // Show notification if content was truncated
+                    if (truncatedValue !== newValue) {
+                      const originalLines = countLines(newValue);
+                      const keptLines = countLines(truncatedValue);
+                      toast.info(
+                        `Pasted content trimmed: kept ${keptLines} of ${originalLines} lines to fit limits.`
+                      );
+                    }
+                  }}
                   placeholder="Enter key features, one per line (will be bulleted)"
                   rows={5}
                   maxLength={KEY_FEATURES_MAX_CHARS}

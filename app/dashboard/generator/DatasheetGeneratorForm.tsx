@@ -1220,9 +1220,24 @@ export default function DatasheetGeneratorForm({
                   <Label className="text-sm font-medium">Shipping Method</Label>
                   <RadioGroup
                     value={shippingMethod}
-                    onValueChange={(value: "pallet" | "package") =>
-                      setShippingMethod(value)
-                    }
+                    onValueChange={(value: "pallet" | "package") => {
+                      setShippingMethod(value);
+                      // Populate dummy data when switching to package mode
+                      if (
+                        value === "package" &&
+                        !packageLength &&
+                        !packageWidth &&
+                        !packageHeight &&
+                        !packageWeight
+                      ) {
+                        setPackageLength("250");
+                        setPackageWidth("200");
+                        setPackageHeight("150");
+                        setPackageWeight("3.5");
+                        setPackageDimensionUnit("mm");
+                        setPackageWeightUnit("kg");
+                      }
+                    }}
                     className="flex space-x-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -1333,11 +1348,17 @@ export default function DatasheetGeneratorForm({
                         />
                       </div>
                       <div>
+                        <Label
+                          htmlFor="pkg-unit"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Unit
+                        </Label>
                         <Select
                           value={packageDimensionUnit}
                           onValueChange={setPackageDimensionUnit}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="pkg-unit">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1365,11 +1386,17 @@ export default function DatasheetGeneratorForm({
                         />
                       </div>
                       <div>
+                        <Label
+                          htmlFor="pkg-weight-unit"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Unit
+                        </Label>
                         <Select
                           value={packageWeightUnit}
                           onValueChange={setPackageWeightUnit}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="pkg-weight-unit">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

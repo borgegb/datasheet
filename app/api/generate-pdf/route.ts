@@ -171,6 +171,10 @@ export async function POST(req: Request) {
       productTitle: productDataFromSource.product_title || "",
       productSubtitle: `Product Code ${
         productDataFromSource.product_code || ""
+      }${
+        productDataFromSource.weight
+          ? ` | Weight ${productDataFromSource.weight}`
+          : ""
       }`,
       introParagraph: productDataFromSource.description || "",
       productImageBase64,

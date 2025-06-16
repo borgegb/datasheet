@@ -263,15 +263,16 @@ const getShippingTextV2 = (
     if (parsed.method === "pallet" && parsed.units && parsed.unitType) {
       const qty = parseInt(parsed.units);
       const label = parsed.unitType;
-      const plural =
-        qty === 1
-          ? label
-          : label === "box"
-          ? "boxes"
-          : label.endsWith("s")
-          ? label
-          : `${label}s`;
-      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+
+      if (qty === 1) {
+        // Special case for single unit - use "One" and singular form
+        return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. One ${label} is shipped per pallet.`;
+      } else {
+        // Multiple units - use existing logic
+        const plural =
+          label === "box" ? "boxes" : label.endsWith("s") ? label : `${label}s`;
+        return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+      }
     }
   } catch {
     // JSON parse failed, fall back to legacy parsing
@@ -282,21 +283,27 @@ const getShippingTextV2 = (
   if (match) {
     const qty = parseInt(match[1]);
     const label = match[2];
-    const plural =
-      qty === 1
-        ? label
-        : label === "box"
-        ? "boxes"
-        : label.endsWith("s")
-        ? label
-        : `${label}s`;
-    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+
+    if (qty === 1) {
+      // Special case for single unit - use "One" and singular form
+      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. One ${label} is shipped per pallet.`;
+    } else {
+      // Multiple units - use existing logic
+      const plural =
+        label === "box" ? "boxes" : label.endsWith("s") ? label : `${label}s`;
+      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    }
   }
 
   // Fallback: numeric only
   const units = parseInt(shippingData || "4");
   if (!isNaN(units)) {
-    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    if (units === 1) {
+      // Special case for single unit - use "One" and singular form
+      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. One unit is shipped per pallet.`;
+    } else {
+      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    }
   }
 
   // Handle legacy hardcoded cases

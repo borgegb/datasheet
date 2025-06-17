@@ -11,10 +11,6 @@ export default function CreateDatasheetPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  const handleProductSelect = (product: any) => {
-    setSelectedProduct(product);
-  };
-
   return (
     <div className="flex h-full">
       {/* Sidebar */}
@@ -27,7 +23,7 @@ export default function CreateDatasheetPage() {
       >
         <div className="h-full p-4">
           <ProductSelector
-            onProductSelect={handleProductSelect}
+            onProductSelect={setSelectedProduct}
             className="h-full"
           />
         </div>

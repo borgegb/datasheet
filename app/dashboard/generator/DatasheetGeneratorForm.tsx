@@ -93,14 +93,12 @@ interface ProductData {
 interface DatasheetGeneratorFormProps {
   initialData?: Partial<ProductData> | null; // Make optional, allow partial data
   editingProductId?: string | null; // Pass the ID for context
-  onProductSelect?: (product: any) => void; // Add product selection handler
   selectedProduct?: any; // Product selected from sidebar
 }
 
 export default function DatasheetGeneratorForm({
   initialData = null,
   editingProductId = null,
-  onProductSelect,
   selectedProduct,
 }: DatasheetGeneratorFormProps) {
   // --- Get search params ---
@@ -344,11 +342,7 @@ export default function DatasheetGeneratorForm({
 
   // --- Product Selection Handler ---
   const handleProductSelect = (product: any) => {
-    // If external handler is provided, use it, otherwise handle internally
-    if (onProductSelect) {
-      onProductSelect(product);
-      return;
-    }
+    console.log("Selected product:", product); // Debug log
 
     // Map product data to form fields
     setProductTitle(product.title);
@@ -366,25 +360,39 @@ export default function DatasheetGeneratorForm({
       setKeyFeatures("");
     }
 
-    // Map specifications
+    // Map specifications with better parsing
     if (
       product.specifications &&
       Array.isArray(product.specifications) &&
       product.specifications.length > 0
     ) {
+      console.log("Original specifications:", product.specifications); // Debug log
+
       const formattedSpecs = product.specifications.map(
         (spec: string, index: number) => {
-          // Try to split by colon if it exists, otherwise treat as label with empty value
-          const parts = spec.split(":");
-          return {
-            id: index,
-            label: parts[0]?.trim() || spec,
-            value: parts.slice(1).join(":")?.trim() || "",
-          };
+          // Try to split by colon if it exists
+          const colonIndex = spec.indexOf(":");
+          if (colonIndex > 0) {
+            return {
+              id: index,
+              label: spec.substring(0, colonIndex).trim(),
+              value: spec.substring(colonIndex + 1).trim(),
+            };
+          } else {
+            // If no colon, treat the whole string as the label
+            return {
+              id: index,
+              label: spec.trim(),
+              value: "",
+            };
+          }
         }
       );
+
+      console.log("Formatted specifications:", formattedSpecs); // Debug log
       setSpecs(formattedSpecs);
     } else {
+      console.log("No specifications found or empty array"); // Debug log
       setSpecs([]);
     }
 

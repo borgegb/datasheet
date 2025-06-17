@@ -161,3 +161,4 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
     </Dialog>
   );
 };
+ 

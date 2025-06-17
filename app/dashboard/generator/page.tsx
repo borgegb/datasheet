@@ -1,15 +1,69 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import DatasheetGeneratorForm from "./DatasheetGeneratorForm";
+import ProductSelector from "@/components/ProductSelector";
+import { Button } from "@/components/ui/button";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 export default function CreateDatasheetPage() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  const handleProductSelect = (product: any) => {
+    setSelectedProduct(product);
+  };
+
   return (
-    <div className="flex flex-col flex-1 p-4 md:p-6">
-      <Suspense fallback={<FormSkeleton />}>
-        <DatasheetGeneratorForm />
-      </Suspense>
+    <div className="flex h-full">
+      {/* Sidebar */}
+      <div
+        className={`
+          transition-all duration-300 ease-in-out
+          ${isSidebarOpen ? "w-80" : "w-0"}
+          overflow-hidden bg-background border-r
+        `}
+      >
+        <div className="h-full p-4">
+          <ProductSelector
+            onProductSelect={handleProductSelect}
+            className="h-full"
+          />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Toggle Button */}
+        <div className="p-4 border-b bg-background">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="flex items-center gap-2"
+          >
+            {isSidebarOpen ? (
+              <>
+                <PanelLeftClose className="h-4 w-4" />
+                Hide Products
+              </>
+            ) : (
+              <>
+                <PanelLeftOpen className="h-4 w-4" />
+                Show Products
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Form Content */}
+        <div className="flex-1 p-4 md:p-6 overflow-auto">
+          <Suspense fallback={<FormSkeleton />}>
+            <DatasheetGeneratorForm selectedProduct={selectedProduct} />
+          </Suspense>
+        </div>
+      </div>
     </div>
   );
 }

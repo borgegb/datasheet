@@ -30,7 +30,16 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Download, Save, Eye, X, Plus } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  Save,
+  Eye,
+  X,
+  Plus,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -84,11 +93,15 @@ interface ProductData {
 interface DatasheetGeneratorFormProps {
   initialData?: Partial<ProductData> | null; // Make optional, allow partial data
   editingProductId?: string | null; // Pass the ID for context
+  onProductSelect?: (product: any) => void; // Add product selection handler
+  selectedProduct?: any; // Product selected from sidebar
 }
 
 export default function DatasheetGeneratorForm({
   initialData = null,
   editingProductId = null,
+  onProductSelect,
+  selectedProduct,
 }: DatasheetGeneratorFormProps) {
   // --- Get search params ---
   const searchParams = useSearchParams();
@@ -185,6 +198,11 @@ export default function DatasheetGeneratorForm({
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   // -----------------------------
 
+  // --- AI Generation State ---
+  const [isGeneratingFeatures, setIsGeneratingFeatures] = useState(false);
+  const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
+  // -------------------------
+
   // --- Server Action State with useActionState ---
   const [saveState, saveFormAction, isSavePending] = useActionState(
     saveDatasheet,
@@ -232,6 +250,153 @@ export default function DatasheetGeneratorForm({
       }
     }
   };
+
+  // --- AI Generation Functions ---
+  const handleGenerateFeatures = async () => {
+    if (!productTitle && !description) {
+      toast.error("Please enter a product title or description first.");
+      return;
+    }
+
+    setIsGeneratingFeatures(true);
+    toast.info("🤖 Generating key features...", { duration: 10000 });
+
+    try {
+      const response = await fetch("/api/generate-features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productTitle,
+          productCode,
+          description,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate features");
+      }
+
+      const { features } = await response.json();
+
+      if (features && Array.isArray(features)) {
+        setKeyFeatures(features.join("\n"));
+        toast.success("✨ Key features generated!", { duration: 5000 });
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (error: any) {
+      console.error("Error generating features:", error);
+      toast.error(`Failed to generate features: ${error.message}`);
+    } finally {
+      setIsGeneratingFeatures(false);
+    }
+  };
+
+  const handleGenerateSpecs = async () => {
+    if (!productTitle && !description) {
+      toast.error("Please enter a product title or description first.");
+      return;
+    }
+
+    setIsGeneratingSpecs(true);
+    toast.info("🤖 Generating specifications...", { duration: 10000 });
+
+    try {
+      const response = await fetch("/api/generate-specifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productTitle,
+          productCode,
+          description,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate specifications");
+      }
+
+      const { specifications } = await response.json();
+
+      if (specifications && Array.isArray(specifications)) {
+        // Convert to the format expected by the form
+        const formattedSpecs = specifications.map(
+          (spec: any, index: number) => ({
+            id: index,
+            label: spec.label,
+            value: spec.value,
+          })
+        );
+        setSpecs(formattedSpecs);
+        toast.success("✨ Specifications generated!", { duration: 5000 });
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (error: any) {
+      console.error("Error generating specifications:", error);
+      toast.error(`Failed to generate specifications: ${error.message}`);
+    } finally {
+      setIsGeneratingSpecs(false);
+    }
+  };
+
+  // --- Product Selection Handler ---
+  const handleProductSelect = (product: any) => {
+    // If external handler is provided, use it, otherwise handle internally
+    if (onProductSelect) {
+      onProductSelect(product);
+      return;
+    }
+
+    // Map product data to form fields
+    setProductTitle(product.title);
+    setProductCode(product.item_number !== "N/A" ? product.item_number : "");
+    setDescription(product.description);
+
+    // Map key features
+    if (
+      product.key_features &&
+      Array.isArray(product.key_features) &&
+      product.key_features.length > 0
+    ) {
+      setKeyFeatures(product.key_features.join("\n"));
+    } else {
+      setKeyFeatures("");
+    }
+
+    // Map specifications
+    if (
+      product.specifications &&
+      Array.isArray(product.specifications) &&
+      product.specifications.length > 0
+    ) {
+      const formattedSpecs = product.specifications.map(
+        (spec: string, index: number) => {
+          // Try to split by colon if it exists, otherwise treat as label with empty value
+          const parts = spec.split(":");
+          return {
+            id: index,
+            label: parts[0]?.trim() || spec,
+            value: parts.slice(1).join(":")?.trim() || "",
+          };
+        }
+      );
+      setSpecs(formattedSpecs);
+    } else {
+      setSpecs([]);
+    }
+
+    // Clear image and other fields that don't have mappings
+    setUploadedImagePath(null);
+    setUploadedFileName(null);
+    setWeightValue("");
+    setWarranty("");
+
+    toast.success(`Populated form with "${product.title}"`);
+  };
+  // -------------------------------
 
   // useEffect to fetch USER, PROFILE, and CATEGORIES
   useEffect(() => {
@@ -649,6 +814,14 @@ export default function DatasheetGeneratorForm({
   }, [saveState, user, router]); // Add user and router dependencies as they're used inside
   // ----------------------------------------------------------------------
 
+  // --- Handle selectedProduct from sidebar ---
+  useEffect(() => {
+    if (selectedProduct) {
+      handleProductSelect(selectedProduct);
+    }
+  }, [selectedProduct]);
+  // ----------------------------------------
+
   // --- handlePreview remains the same ---
   const handlePreview = async () => {
     if (isPreviewing || isGenerating || !user) {
@@ -956,7 +1129,26 @@ export default function DatasheetGeneratorForm({
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="key-features">Key Features</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="key-features">Key Features</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateFeatures}
+                    disabled={
+                      isGeneratingFeatures || (!productTitle && !description)
+                    }
+                    className="h-7 px-2 text-xs"
+                  >
+                    {isGeneratingFeatures ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1 h-3 w-3" />
+                    )}
+                    {isGeneratingFeatures ? "Generating..." : "AI Generate"}
+                  </Button>
+                </div>
                 <Textarea
                   name="keyFeatures"
                   id="key-features"
@@ -1148,7 +1340,26 @@ export default function DatasheetGeneratorForm({
               <div className="space-y-4 sm:col-span-2">
                 {" "}
                 {/* Span across both columns */}
-                <Label>Technical Specifications</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Technical Specifications</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateSpecs}
+                    disabled={
+                      isGeneratingSpecs || (!productTitle && !description)
+                    }
+                    className="h-7 px-2 text-xs"
+                  >
+                    {isGeneratingSpecs ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Wand2 className="mr-1 h-3 w-3" />
+                    )}
+                    {isGeneratingSpecs ? "Generating..." : "AI Generate"}
+                  </Button>
+                </div>
                 <div className="space-y-3">
                   {specs.map((spec, index) => (
                     <div key={spec.id} className="flex items-center gap-2">

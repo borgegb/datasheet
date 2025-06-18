@@ -269,6 +269,8 @@ export default function DatasheetGeneratorForm({
           productTitle,
           productCode,
           description,
+          currentKeyFeatures: keyFeatures, // Send current features so AI can build upon them
+          specifications: specs, // Send specs for additional context
         }),
       });
 
@@ -310,6 +312,8 @@ export default function DatasheetGeneratorForm({
           productTitle,
           productCode,
           description,
+          currentSpecifications: specs, // Send current specs so AI can build upon them
+          keyFeatures, // Send features for additional context
         }),
       });
 

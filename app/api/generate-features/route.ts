@@ -33,7 +33,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { productTitle, productCode, description } = await request.json();
+    const {
+      productTitle,
+      productCode,
+      description,
+      currentKeyFeatures,
+      specifications,
+    } = await request.json();
 
     if (!productTitle && !description) {
       return NextResponse.json(
@@ -42,20 +48,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = `Generate 5 compelling key features for this product:
-
-Product Title: ${productTitle || "N/A"}
+    // Build context from current data
+    let contextInfo = `Product Title: ${productTitle || "N/A"}
 Product Code: ${productCode || "N/A"}
-Description: ${description || "No description provided"}
+Description: ${description || "No description provided"}`;
 
-The features should be:
+    // Add current features if they exist
+    if (currentKeyFeatures?.trim()) {
+      contextInfo += `\n\nCurrent Key Features:\n${currentKeyFeatures}`;
+    }
+
+    // Add specifications for additional context
+    if (
+      specifications &&
+      Array.isArray(specifications) &&
+      specifications.length > 0
+    ) {
+      contextInfo += `\n\nTechnical Specifications:\n`;
+      specifications.forEach((spec: any) => {
+        if (spec.label && spec.value) {
+          contextInfo += `- ${spec.label}: ${spec.value}\n`;
+        }
+      });
+    }
+
+    const hasExistingFeatures = currentKeyFeatures?.trim();
+    const instruction = hasExistingFeatures
+      ? "enhance or add to the existing features"
+      : "generate 5 compelling key features";
+
+    const prompt = `${
+      instruction.charAt(0).toUpperCase() + instruction.slice(1)
+    } for this product:
+
+${contextInfo}
+
+${
+  hasExistingFeatures
+    ? `Requirements for enhancing/adding features:
+- Build upon and complement the existing features listed above
+- Add new features that aren't already covered
+- Ensure all features work together as a cohesive set
+- Don't duplicate or contradict existing features
+- If existing features are good, you may keep some and improve others
+- Total should be exactly 5 features (including any you keep from existing)`
+    : `Requirements for new features:`
+}
 - Specific and technical where appropriate
 - Marketing-focused to highlight benefits
 - Professional and industry-appropriate
 - Clear and concise (each feature should be 1-2 sentences max)
 - Focused on what makes this product valuable to customers
 
-Generate exactly 5 features.`;
+Generate exactly 5 features total.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-2024-08-06",

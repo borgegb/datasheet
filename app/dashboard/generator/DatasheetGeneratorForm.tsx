@@ -39,6 +39,7 @@ import {
   Plus,
   Sparkles,
   Wand2,
+  RefreshCw,
 } from "lucide-react";
 import {
   Select,
@@ -199,6 +200,7 @@ export default function DatasheetGeneratorForm({
   // --- AI Generation State ---
   const [isGeneratingFeatures, setIsGeneratingFeatures] = useState(false);
   const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
+  const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
   // -------------------------
 
   // --- Server Action State with useActionState ---
@@ -337,6 +339,49 @@ export default function DatasheetGeneratorForm({
       toast.error(`Failed to generate specifications: ${error.message}`);
     } finally {
       setIsGeneratingSpecs(false);
+    }
+  };
+
+  const handleEnhanceDescription = async () => {
+    if (!description?.trim()) {
+      toast.error("Please enter a description first.");
+      return;
+    }
+
+    setIsEnhancingDescription(true);
+    toast.info("🤖 Enhancing description...", { duration: 10000 });
+
+    try {
+      const response = await fetch("/api/enhance-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentDescription: description,
+          productTitle,
+          productCode,
+          specifications: specs,
+          keyFeatures,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to enhance description");
+      }
+
+      const { enhancedDescription } = await response.json();
+
+      if (enhancedDescription) {
+        setDescription(enhancedDescription);
+        toast.success("✨ Description enhanced!", { duration: 5000 });
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (error: any) {
+      console.error("Error enhancing description:", error);
+      toast.error(`Failed to enhance description: ${error.message}`);
+    } finally {
+      setIsEnhancingDescription(false);
     }
   };
 
@@ -1113,9 +1158,26 @@ export default function DatasheetGeneratorForm({
             {/* Section 2: Descriptions & Specs */}
             <div className="space-y-6">
               <div className="space-y-1.5">
-                <Label htmlFor="description">
-                  Description <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">
+                    Description <span className="text-red-500">*</span>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEnhanceDescription}
+                    disabled={isEnhancingDescription || !description?.trim()}
+                    className="h-7 px-2 text-xs"
+                  >
+                    {isEnhancingDescription ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                    )}
+                    {isEnhancingDescription ? "Enhancing..." : "Enhance Text"}
+                  </Button>
+                </div>
                 <Textarea
                   name="description"
                   id="description"
@@ -1907,10 +1969,14 @@ export default function DatasheetGeneratorForm({
                 isDownloadingPdf || // Disable while downloading
                 isPreviewing ||
                 isLoadingData ||
+                isEnhancingDescription || // Disable while enhancing description
                 uploadProps.loading // Disable while uploading image
               }
             >
-              {isSavePending || isGeneratingPdf || isDownloadingPdf ? (
+              {isSavePending ||
+              isGeneratingPdf ||
+              isDownloadingPdf ||
+              isEnhancingDescription ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Download className="mr-2 h-4 w-4" /> // Use Download icon?
@@ -1921,6 +1987,8 @@ export default function DatasheetGeneratorForm({
                 ? "Generating PDF..."
                 : isDownloadingPdf
                 ? "Downloading..."
+                : isEnhancingDescription
+                ? "Enhancing Text..."
                 : "Generate & Save Datasheet"}
             </Button>
 

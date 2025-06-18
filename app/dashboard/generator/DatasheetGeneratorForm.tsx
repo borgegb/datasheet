@@ -1175,7 +1175,7 @@ export default function DatasheetGeneratorForm({
                     ) : (
                       <RefreshCw className="mr-1 h-3 w-3" />
                     )}
-                    {isEnhancingDescription ? "Enhancing..." : "Enhance Text"}
+                    {isEnhancingDescription ? "Enhancing..." : "Enhance"}
                   </Button>
                 </div>
                 <Textarea

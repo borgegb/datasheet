@@ -63,7 +63,7 @@ Generate exactly 5 features.`;
         {
           role: "system",
           content:
-            "You are an expert product marketing specialist. Generate compelling, accurate key features for products based on their details.",
+            "You are an expert product marketing specialist. Generate compelling, accurate key features for products based on their details. Use British English spelling, terminology, and phrasing throughout (e.g., 'optimise' not 'optimize', 'colour' not 'color', 'realise' not 'realize', 'centre' not 'center').",
         },
         {
           role: "user",

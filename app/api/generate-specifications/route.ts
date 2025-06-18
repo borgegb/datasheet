@@ -85,7 +85,7 @@ Generate exactly 5 specifications with both label and value.`;
         {
           role: "system",
           content:
-            "You are an expert technical product specialist. Generate accurate, realistic technical specifications for products based on their details. Always include appropriate units and realistic values.",
+            "You are an expert technical product specialist. Generate accurate, realistic technical specifications for products based on their details. Always include appropriate units and realistic values. Use British English spelling, terminology, and phrasing throughout (e.g., 'optimise' not 'optimize', 'colour' not 'color', 'realise' not 'realize', 'centre' not 'center').",
         },
         {
           role: "user",

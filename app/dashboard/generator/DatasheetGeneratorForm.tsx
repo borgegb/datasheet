@@ -369,11 +369,23 @@ export default function DatasheetGeneratorForm({
         throw new Error(errorData.error || "Failed to enhance description");
       }
 
-      const { enhancedDescription } = await response.json();
+      const { enhancedDescription, characterCount } = await response.json();
 
       if (enhancedDescription) {
         setDescription(enhancedDescription);
-        toast.success("✨ Description enhanced!", { duration: 5000 });
+
+        // Show warning if close to or at the character limit
+        if (characterCount >= 497) {
+          toast.success("✨ Description enhanced!", {
+            description: `⚠️ Generated ${characterCount}/500 characters (at limit)`,
+            duration: 7000,
+          });
+        } else {
+          toast.success("✨ Description enhanced!", {
+            description: `Generated ${characterCount}/500 characters`,
+            duration: 5000,
+          });
+        }
       } else {
         throw new Error("Invalid response format");
       }

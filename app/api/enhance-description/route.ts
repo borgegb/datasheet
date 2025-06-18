@@ -12,7 +12,7 @@ const enhancedDescriptionSchema = {
     enhanced_description: {
       type: "string" as const,
       description:
-        "The enhanced product description, professional and compelling, max 500 characters",
+        "The enhanced product description, MUST be 500 characters or less (including spaces and punctuation)",
     },
   },
   required: ["enhanced_description"] as const,
@@ -73,20 +73,26 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Enhance the following product description to be more professional, compelling, and market-ready.
 
-Current Description: "${currentDescription}"
+**CRITICAL CONSTRAINT: The enhanced description MUST be 500 characters or less (including spaces and punctuation). This is a hard limit.**
+
+Current Description: "${currentDescription}" (${
+      currentDescription.length
+    } characters)
 
 ${contextInfo ? `Additional Context:\n${contextInfo}` : ""}
 
 Requirements:
+- **MAXIMUM 500 characters total (including spaces and punctuation)**
 - Make it professional and compelling for potential customers
 - Include relevant technical details naturally if specifications are provided
 - Highlight key benefits and selling points if features are available
-- Keep it concise but informative (max 500 characters)
 - Use proper product terminology and industry language
 - Focus on what makes this product valuable to customers
 - Maintain accuracy - don't invent specifications or features not provided
 
-Enhance the description to be marketing-ready while staying technically accurate.`;
+**REMEMBER: Count every character including spaces. Stay well under 500 characters to ensure compliance.**
+
+Enhance the description to be marketing-ready while staying technically accurate and within the 500 character limit.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-2024-08-06",
@@ -94,7 +100,7 @@ Enhance the description to be marketing-ready while staying technically accurate
         {
           role: "system",
           content:
-            "You are an expert product marketing copywriter specialising in industrial and technical products. Create compelling, accurate product descriptions that highlight benefits whilst maintaining technical credibility. Always stay within the 500 character limit. Use British English spelling, terminology, and phrasing throughout (e.g., 'optimise' not 'optimize', 'colour' not 'color', 'realise' not 'realize', 'centre' not 'center').",
+            "You are an expert product marketing copywriter specialising in industrial and technical products. Create compelling, accurate product descriptions that highlight benefits whilst maintaining technical credibility. CRITICAL: You MUST keep all descriptions to 500 characters or less (including spaces and punctuation). This is a hard constraint - count every character carefully. If you're close to the limit, prioritise the most important selling points. Use British English spelling, terminology, and phrasing throughout (e.g., 'optimise' not 'optimize', 'colour' not 'color', 'realise' not 'realize', 'centre' not 'center').",
         },
         {
           role: "user",
@@ -110,7 +116,7 @@ Enhance the description to be marketing-ready while staying technically accurate
         },
       },
       temperature: 0.7,
-      max_tokens: 800,
+      max_tokens: 600, // Reduced to encourage shorter responses
     });
 
     const message = completion.choices[0]?.message;
@@ -134,14 +140,18 @@ Enhance the description to be marketing-ready while staying technically accurate
 
     const result = JSON.parse(message.content);
 
-    // Validate character limit
+    // Validate character limit and provide warning if truncated
     if (result.enhanced_description.length > 500) {
+      console.warn(
+        `AI generated description was ${result.enhanced_description.length} characters, truncating to 500`
+      );
       result.enhanced_description =
         result.enhanced_description.substring(0, 497) + "...";
     }
 
     return NextResponse.json({
       enhancedDescription: result.enhanced_description,
+      characterCount: result.enhanced_description.length,
       usage: completion.usage,
     });
   } catch (error: any) {

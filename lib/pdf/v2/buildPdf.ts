@@ -553,6 +553,14 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   }
 
   // Prepare inputs
+  console.log("Top corner logo debug:", {
+    appliedLogoLength: input.appliedLogoBase64Data.length,
+    appliedLogoPrefix: input.appliedLogoBase64Data.substring(0, 50),
+  });
+
+  // SAFETY: Ensure logoInputs never contains appliedLogo field
+  delete logoInputs.appliedLogo;
+
   const inputs = [
     {
       // Dynamic schema inputs
@@ -579,6 +587,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     logoInputsKeys: Object.keys(logoInputs),
     irelandLogoExists: !!logoInputs.irelandLogo,
     clientLogoExists: !!logoInputs.clientLogo,
+    appliedLogoInLogoInputs: !!logoInputs.appliedLogo,
+    logoInputsContent: logoInputs,
   });
 
   // Generate PDF

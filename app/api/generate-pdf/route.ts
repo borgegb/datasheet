@@ -32,27 +32,14 @@ const supabase: SupabaseClient = createClient(
 async function loadAssetAsBase64(assetFilename: string): Promise<string> {
   try {
     const assetPath = path.resolve(process.cwd(), "pdf/assets", assetFilename);
-    console.log(`Loading asset: ${assetFilename} from path: ${assetPath}`);
     const assetBytes = await fs.readFile(assetPath);
-    console.log(
-      `Asset ${assetFilename} loaded, size: ${assetBytes.length} bytes`
-    );
-
     let mimeType = "image/png"; // Default
     if (assetFilename.endsWith(".jpg") || assetFilename.endsWith(".jpeg")) {
       mimeType = "image/jpeg";
-      console.log(
-        `Detected JPEG file: ${assetFilename}, setting mimeType to image/jpeg`
-      );
     }
-
-    const result = `data:${mimeType};base64,${Buffer.from(assetBytes).toString(
+    return `data:${mimeType};base64,${Buffer.from(assetBytes).toString(
       "base64"
     )}`;
-    console.log(
-      `Asset ${assetFilename} converted to base64, total length: ${result.length}, mimeType: ${mimeType}`
-    );
-    return result;
   } catch (error: any) {
     console.warn(
       `Warning: Failed to load asset ${assetFilename}: ${error.message}`

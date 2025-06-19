@@ -525,12 +525,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     logoInputs.clientLogo = clientLogo;
   } else if (templateType === "ireland-applied") {
     // Ireland + Applied templates
-    console.log("Ireland + Applied template debug:", {
-      irelandLogoLength: (input.irelandLogo || "").length,
-      irelandLogoPrefix: (input.irelandLogo || "").substring(0, 50),
-      clientLogoLength: clientLogo.length,
-      clientLogoPrefix: clientLogo.substring(0, 50),
-    });
     logoInputs.irelandLogo = input.irelandLogo || "";
     logoInputs.clientLogo = clientLogo;
   } else if (templateType === "client") {
@@ -553,11 +547,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   }
 
   // Prepare inputs
-  console.log("Top corner logo debug:", {
-    appliedLogoLength: input.appliedLogoBase64Data.length,
-    appliedLogoPrefix: input.appliedLogoBase64Data.substring(0, 50),
-  });
-
   // SAFETY: Ensure logoInputs never contains appliedLogo field
   delete logoInputs.appliedLogo;
 
@@ -582,14 +571,6 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   ];
 
   console.log("Font map keys:", Object.keys(fontMap));
-  console.log("Final logo inputs debug:", {
-    templateType,
-    logoInputsKeys: Object.keys(logoInputs),
-    irelandLogoExists: !!logoInputs.irelandLogo,
-    clientLogoExists: !!logoInputs.clientLogo,
-    appliedLogoInLogoInputs: !!logoInputs.appliedLogo,
-    logoInputsContent: logoInputs,
-  });
 
   // Generate PDF
   const pdfBytes = await generate({

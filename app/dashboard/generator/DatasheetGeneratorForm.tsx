@@ -164,6 +164,9 @@ export default function DatasheetGeneratorForm({
   const [includeIrelandLogo, setIncludeIrelandLogo] = useState(
     initialData?.optional_logos?.includeIrelandLogo || false
   );
+  const [includeAppliedLogo, setIncludeAppliedLogo] = useState(
+    initialData?.optional_logos?.includeAppliedLogo || false
+  );
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     // Initialize from initialData if editing
     initialData?.category_ids || []
@@ -639,6 +642,7 @@ export default function DatasheetGeneratorForm({
       setIncludeCeLogo(logos.ceMark || false);
       setIncludeOriginLogo(logos.origin || false);
       setIncludeIrelandLogo(logos.includeIrelandLogo || false);
+      setIncludeAppliedLogo(logos.includeAppliedLogo || false);
       // Restore selected catalog ID
       setSelectedCatalogId(initialData.catalog_id || "");
 
@@ -758,6 +762,7 @@ export default function DatasheetGeneratorForm({
       setIncludeCeLogo(false);
       setIncludeOriginLogo(false);
       setIncludeIrelandLogo(false);
+      setIncludeAppliedLogo(false);
       setSelectedCategoryIds([]);
       setUploadedImagePath(null);
       setUploadedFileName(null);
@@ -1640,6 +1645,22 @@ export default function DatasheetGeneratorForm({
                       Include "Designed & Manufactured in Ireland" Logo
                     </Label>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      name="includeAppliedLogo"
+                      id="logo-applied"
+                      checked={includeAppliedLogo}
+                      onCheckedChange={(checked) =>
+                        setIncludeAppliedLogo(Boolean(checked))
+                      }
+                    />
+                    <Label
+                      htmlFor="logo-applied"
+                      className="font-normal cursor-pointer"
+                    >
+                      Include "Applied Genuine Parts" Logo
+                    </Label>
+                  </div>
                 </div>
 
                 {/* Logo Layout Preview */}
@@ -1649,38 +1670,106 @@ export default function DatasheetGeneratorForm({
                   </Label>
                   <div className="flex items-center gap-2 flex-wrap">
                     {(() => {
-                      const isClientTemplate =
-                        !includeIrelandLogo &&
-                        ((includeOriginLogo && !includeCeLogo) ||
-                          (includeCeLogo && !includeOriginLogo));
+                      // New template selection logic
+                      const hasApplied = includeAppliedLogo;
+                      const hasIreland = includeIrelandLogo;
+                      const hasPed = includeOriginLogo;
+                      const hasCe = includeCeLogo;
+                      const hasCerts = hasPed || hasCe;
 
-                      if (isClientTemplate) {
+                      // Special layouts with Applied logo
+                      if (hasApplied && hasIreland && !hasCerts) {
+                        // Ireland + Applied layout
                         return (
                           <>
-                            {includeOriginLogo && (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
-                                <img
-                                  src="/logos/ped-logo.png"
-                                  alt="PED Certification"
-                                  className="w-6 h-6 object-contain"
-                                />
-                                <span className="text-xs font-medium text-gray-700">
-                                  PED
-                                </span>
-                              </div>
-                            )}
-                            {includeCeLogo && (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
-                                <img
-                                  src="/logos/ce-logo.png"
-                                  alt="CE Certification"
-                                  className="w-6 h-6 object-contain"
-                                />
-                                <span className="text-xs font-medium text-gray-700">
-                                  CE
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                              <img
+                                src="/logos/ireland-logo.png"
+                                alt="Designed & Manufactured in Ireland"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-gray-700">
+                                Ireland
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                              <img
+                                src="/logos/applied-genuine-parts.png"
+                                alt="Applied Genuine Parts"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-blue-700">
+                                Applied Genuine Parts
+                              </span>
+                            </div>
+                          </>
+                        );
+                      } else if (
+                        hasApplied &&
+                        !hasIreland &&
+                        hasPed &&
+                        !hasCe
+                      ) {
+                        // Applied + PED layout (existing client template)
+                        return (
+                          <>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                              <img
+                                src="/logos/ped-logo.png"
+                                alt="PED Certification"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-gray-700">
+                                PED
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                              <img
+                                src="/logos/applied-genuine-parts.png"
+                                alt="Applied Genuine Parts"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-blue-700">
+                                Applied Genuine Parts
+                              </span>
+                            </div>
+                          </>
+                        );
+                      } else if (
+                        hasApplied &&
+                        !hasIreland &&
+                        hasCe &&
+                        !hasPed
+                      ) {
+                        // Applied + CE layout (existing client template)
+                        return (
+                          <>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                              <img
+                                src="/logos/ce-logo.png"
+                                alt="CE Certification"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-gray-700">
+                                CE
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                              <img
+                                src="/logos/applied-genuine-parts.png"
+                                alt="Applied Genuine Parts"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-blue-700">
+                                Applied Genuine Parts
+                              </span>
+                            </div>
+                          </>
+                        );
+                      } else if (hasApplied && !hasIreland && !hasCerts) {
+                        // Applied only layout
+                        return (
+                          <>
                             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
                               <img
                                 src="/logos/applied-genuine-parts.png"
@@ -1694,9 +1783,10 @@ export default function DatasheetGeneratorForm({
                           </>
                         );
                       } else {
+                        // Standard layout (no Applied or with complex combinations)
                         return (
                           <>
-                            {includeOriginLogo && (
+                            {hasPed && (
                               <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
                                 <img
                                   src="/logos/ped-logo.png"
@@ -1708,7 +1798,7 @@ export default function DatasheetGeneratorForm({
                                 </span>
                               </div>
                             )}
-                            {includeCeLogo && (
+                            {hasCe && (
                               <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
                                 <img
                                   src="/logos/ce-logo.png"
@@ -1720,7 +1810,7 @@ export default function DatasheetGeneratorForm({
                                 </span>
                               </div>
                             )}
-                            {includeIrelandLogo && (
+                            {hasIreland && (
                               <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
                                 <img
                                   src="/logos/ireland-logo.png"
@@ -1732,13 +1822,26 @@ export default function DatasheetGeneratorForm({
                                 </span>
                               </div>
                             )}
+                            {hasApplied && (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                                <img
+                                  src="/logos/applied-genuine-parts.png"
+                                  alt="Applied Genuine Parts"
+                                  className="w-6 h-6 object-contain"
+                                />
+                                <span className="text-xs font-medium text-blue-700">
+                                  Applied Genuine Parts
+                                </span>
+                              </div>
+                            )}
                           </>
                         );
                       }
                     })()}
                     {!includeOriginLogo &&
                       !includeCeLogo &&
-                      !includeIrelandLogo && (
+                      !includeIrelandLogo &&
+                      !includeAppliedLogo && (
                         <div className="text-xs text-muted-foreground italic">
                           No logos selected
                         </div>
@@ -1746,26 +1849,36 @@ export default function DatasheetGeneratorForm({
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">
                     {(() => {
-                      const isClientTemplate =
-                        !includeIrelandLogo &&
-                        ((includeOriginLogo && !includeCeLogo) ||
-                          (includeCeLogo && !includeOriginLogo));
+                      const hasApplied = includeAppliedLogo;
+                      const hasIreland = includeIrelandLogo;
+                      const hasPed = includeOriginLogo;
+                      const hasCe = includeCeLogo;
+                      const hasCerts = hasPed || hasCe;
 
-                      if (isClientTemplate) {
-                        return "Using client logo layout (Applied Genuine Parts replaces Ireland position)";
+                      if (hasApplied && hasIreland && !hasCerts) {
+                        return "Using Ireland + Applied layout (both logos equal size)";
                       } else if (
-                        includeIrelandLogo ||
-                        (includeOriginLogo && includeCeLogo)
+                        hasApplied &&
+                        !hasIreland &&
+                        hasPed &&
+                        !hasCe
                       ) {
+                        return "Using Applied + PED layout (Applied replaces Ireland position)";
+                      } else if (
+                        hasApplied &&
+                        !hasIreland &&
+                        hasCe &&
+                        !hasPed
+                      ) {
+                        return "Using Applied + CE layout (Applied replaces Ireland position)";
+                      } else if (hasApplied && !hasIreland && !hasCerts) {
+                        return "Using Applied-only layout";
+                      } else if (!hasApplied && (hasIreland || hasCerts)) {
                         return "Using standard logo layout";
-                      } else if (
-                        !includeOriginLogo &&
-                        !includeCeLogo &&
-                        !includeIrelandLogo
-                      ) {
-                        return "No certification or origin logos will be displayed";
+                      } else if (!hasApplied && !hasIreland && !hasCerts) {
+                        return "No logos will be displayed";
                       } else {
-                        return "Using standard logo layout";
+                        return "Using standard logo layout (complex combination)";
                       }
                     })()}
                   </div>

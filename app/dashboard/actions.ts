@@ -866,6 +866,7 @@ export async function saveDatasheet(
       includeIrelandLogo: formData.get("includeIrelandLogo") === "on",
       ceMark: formData.get("includeCeLogo") === "on",
       origin: formData.get("includeOriginLogo") === "on",
+      includeAppliedLogo: formData.get("includeAppliedLogo") === "on",
     },
     catalog_id: formData.get("catalogId") as string | null,
     image_path: formData.get("imagePath") as string | null,

@@ -325,24 +325,43 @@ const getTemplateFileName = (
   imageOrientation: "portrait" | "landscape",
   includePedLogo: boolean,
   includeCeLogo: boolean,
-  includeIrelandLogo: boolean
+  includeIrelandLogo: boolean,
+  includeAppliedLogo: boolean
 ): string => {
   const base =
     imageOrientation === "landscape"
       ? "datasheet-template-landscape"
       : "datasheet-template";
 
-  // Client logo scenarios: only show client logo when exactly one certification logo is selected
-  // AND the Ireland logo is NOT selected
-  if (!includeIrelandLogo && includePedLogo && !includeCeLogo) {
+  const hasCerts = includePedLogo || includeCeLogo;
+
+  // New template selection logic
+  if (includeAppliedLogo && includeIrelandLogo && !hasCerts) {
+    // Ireland + Applied layout
+    return `${base}-ireland-applied.json`;
+  } else if (
+    includeAppliedLogo &&
+    !includeIrelandLogo &&
+    includePedLogo &&
+    !includeCeLogo
+  ) {
+    // Applied + PED layout (existing client template)
     return `${base}-client-ped.json`;
-  } else if (!includeIrelandLogo && includeCeLogo && !includePedLogo) {
+  } else if (
+    includeAppliedLogo &&
+    !includeIrelandLogo &&
+    includeCeLogo &&
+    !includePedLogo
+  ) {
+    // Applied + CE layout (existing client template)
     return `${base}-client-ce.json`;
+  } else if (includeAppliedLogo && !includeIrelandLogo && !hasCerts) {
+    // Applied only layout
+    return `${base}-applied.json`;
   } else {
-    // Use standard template when:
-    // - Ireland logo is selected (regardless of cert logos)
-    // - Both cert logos are selected
-    // - Neither cert logo is selected
+    // Standard template for all other combinations:
+    // - No Applied logo
+    // - Applied + multiple logos (complex combinations)
     return `${base}.json`;
   }
 };
@@ -382,6 +401,7 @@ interface BuildPdfInput {
   includePedLogo?: boolean;
   includeCeLogo?: boolean;
   includeIrelandLogo?: boolean;
+  includeAppliedLogo?: boolean;
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
@@ -390,7 +410,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     input.imageOrientation || "portrait",
     input.includePedLogo || false,
     input.includeCeLogo || false,
-    input.includeIrelandLogo || false
+    input.includeIrelandLogo || false,
+    input.includeAppliedLogo || false
   );
 
   console.log("Template selection debug:", {
@@ -398,6 +419,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     includePedLogo: input.includePedLogo,
     includeCeLogo: input.includeCeLogo,
     includeIrelandLogo: input.includeIrelandLogo,
+    includeAppliedLogo: input.includeAppliedLogo,
     selectedTemplate: templateFileName,
   });
 
@@ -457,21 +479,19 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Prepare inputs – table passes straight through without trimming
   const processedTable = input.specificationsTable;
 
-  // Load client logo if needed (for client logo templates)
+  // Load client logo if needed (for templates that use Applied logo)
   let clientLogo = "";
-  const isClientLogoTemplate =
-    !input.includeIrelandLogo &&
-    ((input.includePedLogo && !input.includeCeLogo) ||
-      (input.includeCeLogo && !input.includePedLogo));
+  const needsAppliedLogo = input.includeAppliedLogo || false;
 
   console.log("Client logo loading debug:", {
-    isClientLogoTemplate,
+    needsAppliedLogo,
     includePedLogo: input.includePedLogo,
     includeCeLogo: input.includeCeLogo,
     includeIrelandLogo: input.includeIrelandLogo,
+    includeAppliedLogo: input.includeAppliedLogo,
   });
 
-  if (isClientLogoTemplate) {
+  if (needsAppliedLogo) {
     try {
       console.log("Loading client logo...");
       clientLogo = await loadClientLogo();
@@ -490,8 +510,24 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Prepare logo inputs based on template type and selections
   let logoInputs: any = {};
 
-  if (isClientLogoTemplate) {
-    // Client logo templates: clientLogo + one certification logo
+  // Determine template type based on the template filename
+  const templateType = templateFileName.includes("-applied")
+    ? "applied-only"
+    : templateFileName.includes("-ireland-applied")
+    ? "ireland-applied"
+    : templateFileName.includes("-client-")
+    ? "client"
+    : "standard";
+
+  if (templateType === "applied-only") {
+    // Applied-only templates
+    logoInputs.clientLogo = clientLogo;
+  } else if (templateType === "ireland-applied") {
+    // Ireland + Applied templates
+    logoInputs.irelandLogo = input.irelandLogo || "";
+    logoInputs.clientLogo = clientLogo;
+  } else if (templateType === "client") {
+    // Client logo templates (Applied + one cert): clientLogo + one certification logo
     logoInputs.clientLogo = clientLogo;
     if (input.includePedLogo) {
       logoInputs.ceLogo = input.pedLogo || ""; // PED logo goes in CE position for client templates
@@ -503,6 +539,10 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     logoInputs.pedLogo = input.pedLogo || "";
     logoInputs.ceLogo = input.ceLogo || "";
     logoInputs.irelandLogo = input.irelandLogo || "";
+    if (needsAppliedLogo) {
+      // For complex combinations, add Applied logo to standard template
+      logoInputs.clientLogo = clientLogo;
+    }
   }
 
   // Prepare inputs

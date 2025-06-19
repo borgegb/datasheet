@@ -188,6 +188,8 @@ export async function POST(req: Request) {
       includeCeLogo: productDataFromSource.optional_logos?.ceMark === true,
       includeIrelandLogo:
         productDataFromSource.optional_logos?.includeIrelandLogo === true,
+      includeAppliedLogo:
+        productDataFromSource.optional_logos?.includeAppliedLogo === true,
 
       // Logo data for templates
       pedLogo:

@@ -1,0 +1,278 @@
+{
+  "basePdf": {
+    "width": 210,
+    "height": 297,
+    "padding": [15, 11, 15, 22],
+    "staticSchema": [
+      {
+        "type": "text",
+        "name": "keyFeaturesHeadingStatic",
+        "content": "Key Features",
+        "position": { "x": 22, "y": 77 },
+        "width": 107,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "rectangle",
+        "name": "specsHeaderBgStatic",
+        "position": { "x": 22, "y": 186 },
+        "width": 177,
+        "height": 8,
+        "color": "#2c5234"
+      },
+      {
+        "type": "text",
+        "name": "specificationsHeadingStatic",
+        "content": "Specifications",
+        "position": { "x": 25, "y": 186 },
+        "width": 170,
+        "height": 8,
+        "fontName": "Poppins-Bold",
+        "fontSize": 14,
+        "fontColor": "#ffffff",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "text",
+        "name": "warrantyTextStatic",
+        "content": "{warrantyText}",
+        "position": { "x": 22, "y": 233 },
+        "width": 175,
+        "height": 6,
+        "fontName": "Inter-Bold",
+        "fontSize": 9,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "readOnly": true
+      },
+      {
+        "type": "text",
+        "name": "shippingHeadingStatic",
+        "content": "Shipping Information",
+        "position": { "x": 22, "y": 248 },
+        "width": 100,
+        "height": 6,
+        "fontName": "Poppins-Bold",
+        "fontSize": 12,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "readOnly": true
+      },
+      {
+        "type": "text",
+        "name": "shippingTextStatic",
+        "content": "{shippingText}",
+        "position": { "x": 22, "y": 256 },
+        "width": 100,
+        "height": 17,
+        "fontName": "Inter-Regular",
+        "fontSize": 9,
+        "fontColor": "#2A2A2A",
+        "alignment": "left",
+        "lineHeight": 1.3,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "irelandLogoStatic",
+        "content": "{irelandLogo}",
+        "position": { "x": 142, "y": 246 },
+        "width": 30,
+        "height": 30,
+        "readOnly": true
+      },
+      {
+        "type": "image",
+        "name": "clientLogoStatic",
+        "content": "{clientLogo}",
+        "position": { "x": 175, "y": 246 },
+        "width": 30,
+        "height": 30,
+        "readOnly": true
+      },
+      {
+        "type": "rectangle",
+        "position": { "x": 0, "y": 283 },
+        "width": 210,
+        "height": 14,
+        "color": "#2c5234",
+        "name": "footerBackground"
+      },
+      {
+        "type": "text",
+        "content": "www.appliedpi.com",
+        "position": { "x": 22, "y": 286.5 },
+        "width": 80,
+        "height": 7,
+        "fontName": "Inter-Regular",
+        "fontSize": 9.6,
+        "fontColor": "#ffffff",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "name": "footerWebsite1"
+      },
+      {
+        "type": "text",
+        "content": "www.ptocompressors.com",
+        "position": { "x": 105, "y": 286.5 },
+        "width": 94,
+        "height": 7,
+        "fontName": "Inter-Regular",
+        "fontSize": 9.6,
+        "fontColor": "#ffffff",
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "name": "footerWebsite2"
+      }
+    ]
+  },
+  "schemas": [
+    [
+      {
+        "type": "image",
+        "name": "appliedLogo",
+        "position": { "x": 174, "y": 18 },
+        "width": 25,
+        "height": 25
+      },
+      {
+        "type": "text",
+        "name": "productTitle",
+        "position": { "x": 22, "y": 20 },
+        "width": 147,
+        "height": 12,
+        "fontName": "Poppins-Bold",
+        "fontSize": 16,
+        "fontColor": "#2c5234",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "text",
+        "name": "productSubtitle",
+        "position": { "x": 22, "y": 32 },
+        "width": 147,
+        "height": 7,
+        "fontName": "Inter-Bold",
+        "fontSize": 10,
+        "fontColor": "#868686",
+        "alignment": "left",
+        "verticalAlignment": "middle"
+      },
+      {
+        "type": "line",
+        "name": "titleSeparator",
+        "position": { "x": 22, "y": 45 },
+        "width": 177,
+        "height": 0.3,
+        "color": "#808080"
+      },
+      {
+        "type": "text",
+        "name": "introParagraph",
+        "position": { "x": 22, "y": 50 },
+        "width": 170,
+        "height": 20,
+        "fontName": "Inter-Regular",
+        "fontSize": 9,
+        "fontColor": "#2A2A2A",
+        "alignment": "left",
+        "lineHeight": 1.3
+      },
+      {
+        "type": "iconTextList",
+        "name": "keyFeaturesList",
+        "position": { "x": 22, "y": 87 },
+        "width": 95,
+        "height": 90,
+        "fontName": "Roboto",
+        "fontSize": 9,
+        "fontColor": "#2A2A2A",
+        "lineHeight": 1.4,
+        "iconWidth": 3.5,
+        "iconHeight": 3.5,
+        "iconTextSpacing": 2,
+        "itemSpacing": 2
+      },
+      {
+        "type": "image",
+        "name": "productimage",
+        "position": { "x": 126, "y": 73 },
+        "width": 72,
+        "height": 107,
+        "fit": "contain"
+      },
+      {
+        "name": "specificationsTable",
+        "type": "table",
+        "position": { "x": 22, "y": 194 },
+        "width": 177,
+        "height": 45,
+        "content": "",
+        "showHead": false,
+        "head": ["Property", "Value"],
+        "headWidthPercentages": [50, 50],
+        "fontName": "Inter-Regular",
+        "tableStyles": {
+          "borderColor": "#CCCCCC",
+          "borderWidth": 0.1,
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+        },
+        "headStyles": {
+          "fontName": "Inter-Bold",
+          "fontSize": 9,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#2A2A2A",
+          "backgroundColor": "#E0E0E0",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "padding": { "top": 3, "bottom": 3, "left": 5, "right": 5 }
+        },
+        "bodyStyles": {
+          "fontName": "Inter-Regular",
+          "fontSize": 9,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#2A2A2A",
+          "borderColor": "#CCCCCC",
+          "borderWidth": {
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1,
+            "left": 0.1
+          },
+          "padding": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+          "backgroundColor": "",
+          "alternateBackgroundColor": ""
+        },
+        "columnStyles": {
+          "fontName": { "0": "Inter-Bold" },
+          "padding": {
+            "0": { "top": 2, "bottom": 2, "left": 3, "right": 3 },
+            "1": { "top": 2, "bottom": 2, "left": 3, "right": 3 }
+          },
+          "alignment": { "0": "left", "1": "left" },
+          "verticalAlignment": { "0": "middle", "1": "middle" }
+        },
+        "fills": [{ "pos": ":;1", "color": "#EFF2EF" }]
+      }
+    ]
+  ]
+}

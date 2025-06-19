@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       pedLogoBase64Data,
       ceLogoBase64Data,
     ] = await Promise.all([
-      loadAssetAsBase64("Appliedlogo.jpg"),
+      loadAssetAsBase64("applied-genuine-parts-logo-512px.png"),
       loadAssetAsBase64("ireland_logo_512.png"),
       loadAssetAsBase64("ped-logo.png"),
       loadAssetAsBase64("ce-logo.png"),

@@ -32,14 +32,27 @@ const supabase: SupabaseClient = createClient(
 async function loadAssetAsBase64(assetFilename: string): Promise<string> {
   try {
     const assetPath = path.resolve(process.cwd(), "pdf/assets", assetFilename);
+    console.log(`Loading asset: ${assetFilename} from path: ${assetPath}`);
     const assetBytes = await fs.readFile(assetPath);
+    console.log(
+      `Asset ${assetFilename} loaded, size: ${assetBytes.length} bytes`
+    );
+
     let mimeType = "image/png"; // Default
     if (assetFilename.endsWith(".jpg") || assetFilename.endsWith(".jpeg")) {
       mimeType = "image/jpeg";
+      console.log(
+        `Detected JPEG file: ${assetFilename}, setting mimeType to image/jpeg`
+      );
     }
-    return `data:${mimeType};base64,${Buffer.from(assetBytes).toString(
+
+    const result = `data:${mimeType};base64,${Buffer.from(assetBytes).toString(
       "base64"
     )}`;
+    console.log(
+      `Asset ${assetFilename} converted to base64, total length: ${result.length}, mimeType: ${mimeType}`
+    );
+    return result;
   } catch (error: any) {
     console.warn(
       `Warning: Failed to load asset ${assetFilename}: ${error.message}`
@@ -68,7 +81,7 @@ export async function POST(req: Request) {
       pedLogoBase64Data,
       ceLogoBase64Data,
     ] = await Promise.all([
-      loadAssetAsBase64("applied-genuine-parts-logo-512px.png"),
+      loadAssetAsBase64("Appliedlogo.jpg"),
       loadAssetAsBase64("ireland_logo_512.png"),
       loadAssetAsBase64("ped-logo.png"),
       loadAssetAsBase64("ce-logo.png"),

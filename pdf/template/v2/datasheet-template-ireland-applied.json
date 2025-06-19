@@ -83,7 +83,7 @@
         "type": "image",
         "name": "irelandLogoStatic",
         "content": "{irelandLogo}",
-        "position": { "x": 142, "y": 246 },
+        "position": { "x": 136, "y": 246 },
         "width": 30,
         "height": 30,
         "readOnly": true
@@ -92,7 +92,7 @@
         "type": "image",
         "name": "clientLogoStatic",
         "content": "{clientLogo}",
-        "position": { "x": 175, "y": 246 },
+        "position": { "x": 169, "y": 246 },
         "width": 30,
         "height": 30,
         "readOnly": true

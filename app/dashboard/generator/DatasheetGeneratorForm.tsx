@@ -386,10 +386,15 @@ export default function DatasheetGeneratorForm({
       if (enhancedDescription) {
         setDescription(enhancedDescription);
 
-        // Show warning if close to or at the character limit
-        if (characterCount >= 497) {
+        // Show appropriate message based on character count
+        if (characterCount === 500) {
           toast.success("✨ Description enhanced!", {
-            description: `⚠️ Generated ${characterCount}/500 characters (at limit)`,
+            description: `Generated ${characterCount}/500 characters (perfect fit!)`,
+            duration: 5000,
+          });
+        } else if (characterCount >= 497) {
+          toast.success("✨ Description enhanced!", {
+            description: `⚠️ Generated ${characterCount}/500 characters (truncated from longer text)`,
             duration: 7000,
           });
         } else {

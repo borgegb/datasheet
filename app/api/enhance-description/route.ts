@@ -143,10 +143,14 @@ Enhance the description to be marketing-ready while staying technically accurate
     // Validate character limit and provide warning if truncated
     if (result.enhanced_description.length > 500) {
       console.warn(
-        `AI generated description was ${result.enhanced_description.length} characters, truncating to 500`
+        `AI generated description was ${result.enhanced_description.length} characters, truncating to 497 + "..." = 500`
       );
       result.enhanced_description =
         result.enhanced_description.substring(0, 497) + "...";
+    } else if (result.enhanced_description.length === 500) {
+      console.log(
+        `AI generated description is exactly 500 characters - keeping as is`
+      );
     }
 
     return NextResponse.json({

@@ -511,12 +511,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   let logoInputs: any = {};
 
   // Determine template type based on the template filename
-  const templateType = templateFileName.includes("-applied")
-    ? "applied-only"
-    : templateFileName.includes("-ireland-applied")
+  // Check more specific patterns first to avoid false matches
+  const templateType = templateFileName.includes("-ireland-applied")
     ? "ireland-applied"
     : templateFileName.includes("-client-")
     ? "client"
+    : templateFileName.includes("-applied")
+    ? "applied-only"
     : "standard";
 
   if (templateType === "applied-only") {

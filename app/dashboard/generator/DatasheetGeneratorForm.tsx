@@ -120,7 +120,12 @@ export default function DatasheetGeneratorForm({
   const [specs, setSpecs] = useState<
     { id: number; label: string; value: string }[]
   >(
-    [] // Initialize empty
+    // Initialize with 5 empty specifications
+    Array.from({ length: 5 }, (_, index) => ({
+      id: index,
+      label: "",
+      value: "",
+    }))
   );
   const [weightValue, setWeightValue] = useState("");
   const [weightUnit, setWeightUnit] = useState("kg");
@@ -727,7 +732,13 @@ export default function DatasheetGeneratorForm({
       setProductTitle("");
       setProductCode("");
       setDescription("");
-      setSpecs([]);
+      setSpecs(
+        Array.from({ length: 5 }, (_, index) => ({
+          id: index,
+          label: "",
+          value: "",
+        }))
+      );
       setWeightValue("");
       setWeightUnit("kg");
       setKeyFeatures("");
@@ -1013,7 +1024,9 @@ export default function DatasheetGeneratorForm({
   };
 
   const addSpec = () => {
-    setSpecs([...specs, { id: specs.length, label: "", value: "" }]);
+    if (specs.length < 5) {
+      setSpecs([...specs, { id: specs.length, label: "", value: "" }]);
+    }
   };
 
   const removeSpec = (index: number) => {
@@ -1483,8 +1496,14 @@ export default function DatasheetGeneratorForm({
                   variant="outline"
                   size="sm"
                   onClick={addSpec}
+                  disabled={specs.length >= 5}
                 >
                   <Plus className="mr-2 h-4 w-4" /> Add Specification
+                  {specs.length >= 5 && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Max 5)
+                    </span>
+                  )}
                 </Button>
                 {/* Hidden input to store JSON string for form submission */}
                 <input
@@ -1768,7 +1787,8 @@ export default function DatasheetGeneratorForm({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="sm:col-span-2 space-y-2">
+              {/* TEMPORARILY HIDDEN: Categories section - uncomment when needed */}
+              {/* <div className="sm:col-span-2 space-y-2">
                 <Label>Assign Categories</Label>
                 {isLoadingData && (
                   <p className="text-sm text-muted-foreground">
@@ -1805,7 +1825,7 @@ export default function DatasheetGeneratorForm({
                     ))}
                   </div>
                 )}
-              </div>
+              </div> */}
             </div>
 
             {/* Section 4: Enhanced Shipping/Packaging Info - Full Width */}

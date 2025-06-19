@@ -349,8 +349,11 @@ const loadClientLogo = async (): Promise<string> => {
       process.cwd(),
       "pdf/assets/applied-genuine-parts-logo.svg"
     );
-    const logoContent = await fs.readFile(logoPath, "utf-8");
-    return logoContent;
+    const logoBytes = await fs.readFile(logoPath);
+    // Convert SVG to base64 data URL like other images
+    return `data:image/svg+xml;base64,${Buffer.from(logoBytes).toString(
+      "base64"
+    )}`;
   } catch (error: any) {
     console.error("Error loading client logo:", error);
     throw new Error(`Failed to load client logo: ${error.message}`);
@@ -385,6 +388,13 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     input.includePedLogo || false,
     input.includeCeLogo || false
   );
+
+  console.log("Template selection debug:", {
+    imageOrientation: input.imageOrientation,
+    includePedLogo: input.includePedLogo,
+    includeCeLogo: input.includeCeLogo,
+    selectedTemplate: templateFileName,
+  });
 
   const templateData = (
     await import(`../../../pdf/template/v2/${templateFileName}`)
@@ -447,9 +457,21 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   const isClientLogoTemplate =
     (input.includePedLogo && !input.includeCeLogo) ||
     (input.includeCeLogo && !input.includePedLogo);
+
+  console.log("Client logo loading debug:", {
+    isClientLogoTemplate,
+    includePedLogo: input.includePedLogo,
+    includeCeLogo: input.includeCeLogo,
+  });
+
   if (isClientLogoTemplate) {
     try {
+      console.log("Loading client logo...");
       clientLogo = await loadClientLogo();
+      console.log(
+        "Client logo loaded successfully, length:",
+        clientLogo.length
+      );
     } catch (error) {
       console.error(
         "Failed to load client logo, continuing without it:",

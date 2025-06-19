@@ -213,9 +213,9 @@
       {
         "type": "image",
         "name": "productimage",
-        "position": { "x": 130, "y": 73 },
-        "width": 68,
-        "height": 99,
+        "position": { "x": 125, "y": 73 },
+        "width": 62,
+        "height": 107,
         "fit": "contain"
       },
       {

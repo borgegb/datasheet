@@ -230,13 +230,13 @@ export const iconTextList: Plugin<any> = {
 export const getWarrantyText = (code: string | null): string => {
   switch (code) {
     case "1y":
-      return "This product is covered by a 12-month warranty against defects in materals and workmanship. ";
+      return "This product is covered by a 12-month warranty against defects in materials and workmanship. ";
     case "2y":
       return "This product is covered by a 24-month warranty (Placeholder Text).";
     case "lifetime":
       return "This product is covered by a limited lifetime warranty (Placeholder Text).";
     case "none":
-      return "This product is covered by a 12-month warranty against defects in materals and workmanship. ";
+      return ""; // No warranty text for "none"
     default:
       return "Warranty information not specified.";
   }

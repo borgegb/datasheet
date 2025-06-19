@@ -1528,9 +1528,7 @@ export default function DatasheetGeneratorForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="1y">1 Year Limited</SelectItem>
-                    <SelectItem value="2y">2 Year Limited</SelectItem>
-                    <SelectItem value="lifetime">Lifetime Limited</SelectItem>
+                    <SelectItem value="1y">12 Month Limited</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -20,7 +20,7 @@
       {
         "type": "rectangle",
         "name": "specsHeaderBgStatic",
-        "position": { "x": 22, "y": 183 },
+        "position": { "x": 22, "y": 188 },
         "width": 177,
         "height": 8,
         "color": "#2c5234"
@@ -29,7 +29,7 @@
         "type": "text",
         "name": "specificationsHeadingStatic",
         "content": "Specifications",
-        "position": { "x": 25, "y": 183 },
+        "position": { "x": 25, "y": 188 },
         "width": 170,
         "height": 8,
         "fontName": "Poppins-Bold",
@@ -42,7 +42,7 @@
         "type": "text",
         "name": "warrantyTextStatic",
         "content": "{warrantyText}",
-        "position": { "x": 22, "y": 230 },
+        "position": { "x": 22, "y": 235 },
         "width": 175,
         "height": 6,
         "fontName": "Inter-Bold",
@@ -221,7 +221,7 @@
       {
         "name": "specificationsTable",
         "type": "table",
-        "position": { "x": 22, "y": 191 },
+        "position": { "x": 22, "y": 196 },
         "width": 177,
         "height": 45,
         "content": "",

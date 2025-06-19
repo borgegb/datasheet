@@ -902,6 +902,28 @@ export default function DatasheetGeneratorForm({
   }, [selectedProduct]);
   // ----------------------------------------
 
+  // --- Handle form submission with upload validation ---
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // Check if there are files added but not uploaded
+    const hasUnuploadedFiles =
+      uploadProps.files.length > 0 &&
+      uploadProps.successes.length === 0 &&
+      !uploadProps.loading;
+
+    if (hasUnuploadedFiles) {
+      e.preventDefault(); // Prevent form submission
+      toast.error("Please upload your image before saving the datasheet", {
+        description:
+          "Click the 'Upload image' button to upload your selected file.",
+        duration: 6000,
+      });
+      return;
+    }
+
+    // If no pending uploads, allow normal form submission
+    // The form will automatically call saveFormAction
+  };
+
   // --- handlePreview remains the same ---
   const handlePreview = async () => {
     if (isPreviewing || isGenerating || !user) {
@@ -1087,7 +1109,7 @@ export default function DatasheetGeneratorForm({
       </CardHeader>
       <CardContent>
         {/* Wrap content in a form tag */}
-        <form ref={formRef} action={saveFormAction}>
+        <form ref={formRef} action={saveFormAction} onSubmit={handleFormSubmit}>
           {/* Pass necessary data if needed via hidden fields, although action gets FormData */}
           {editingProductId && (
             <input
@@ -2133,7 +2155,10 @@ export default function DatasheetGeneratorForm({
                 isPreviewing ||
                 isLoadingData ||
                 isEnhancingDescription || // Disable while enhancing description
-                uploadProps.loading // Disable while uploading image
+                uploadProps.loading || // Disable while uploading image
+                (uploadProps.files.length > 0 &&
+                  uploadProps.successes.length === 0 &&
+                  !uploadProps.loading) // Disable when files are added but not uploaded
               }
             >
               {isSavePending ||
@@ -2152,6 +2177,10 @@ export default function DatasheetGeneratorForm({
                 ? "Downloading..."
                 : isEnhancingDescription
                 ? "Enhancing Text..."
+                : uploadProps.files.length > 0 &&
+                  uploadProps.successes.length === 0 &&
+                  !uploadProps.loading
+                ? "Upload Image First"
                 : "Generate & Save Datasheet"}
             </Button>
 

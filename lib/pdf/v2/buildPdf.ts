@@ -324,7 +324,8 @@ const getShippingTextV2 = (
 const getTemplateFileName = (
   imageOrientation: "portrait" | "landscape",
   includePedLogo: boolean,
-  includeCeLogo: boolean
+  includeCeLogo: boolean,
+  includeIrelandLogo: boolean
 ): string => {
   const base =
     imageOrientation === "landscape"
@@ -332,12 +333,16 @@ const getTemplateFileName = (
       : "datasheet-template";
 
   // Client logo scenarios: only show client logo when exactly one certification logo is selected
-  if (includePedLogo && !includeCeLogo) {
+  // AND the Ireland logo is NOT selected
+  if (!includeIrelandLogo && includePedLogo && !includeCeLogo) {
     return `${base}-client-ped.json`;
-  } else if (includeCeLogo && !includePedLogo) {
+  } else if (!includeIrelandLogo && includeCeLogo && !includePedLogo) {
     return `${base}-client-ce.json`;
   } else {
-    // Both logos or neither logo - use standard template
+    // Use standard template when:
+    // - Ireland logo is selected (regardless of cert logos)
+    // - Both cert logos are selected
+    // - Neither cert logo is selected
     return `${base}.json`;
   }
 };
@@ -384,13 +389,15 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   const templateFileName = getTemplateFileName(
     input.imageOrientation || "portrait",
     input.includePedLogo || false,
-    input.includeCeLogo || false
+    input.includeCeLogo || false,
+    input.includeIrelandLogo || false
   );
 
   console.log("Template selection debug:", {
     imageOrientation: input.imageOrientation,
     includePedLogo: input.includePedLogo,
     includeCeLogo: input.includeCeLogo,
+    includeIrelandLogo: input.includeIrelandLogo,
     selectedTemplate: templateFileName,
   });
 
@@ -453,13 +460,15 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Load client logo if needed (for client logo templates)
   let clientLogo = "";
   const isClientLogoTemplate =
-    (input.includePedLogo && !input.includeCeLogo) ||
-    (input.includeCeLogo && !input.includePedLogo);
+    !input.includeIrelandLogo &&
+    ((input.includePedLogo && !input.includeCeLogo) ||
+      (input.includeCeLogo && !input.includePedLogo));
 
   console.log("Client logo loading debug:", {
     isClientLogoTemplate,
     includePedLogo: input.includePedLogo,
     includeCeLogo: input.includeCeLogo,
+    includeIrelandLogo: input.includeIrelandLogo,
   });
 
   if (isClientLogoTemplate) {

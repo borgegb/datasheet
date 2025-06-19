@@ -1602,6 +1602,93 @@ export default function DatasheetGeneratorForm({
                     </Label>
                   </div>
                 </div>
+
+                {/* Logo Layout Preview */}
+                <div className="mt-4 p-3 bg-muted/50 rounded-md border">
+                  <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    Logo Layout Preview:
+                  </Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(() => {
+                      const isClientTemplate =
+                        !includeIrelandLogo &&
+                        ((includeOriginLogo && !includeCeLogo) ||
+                          (includeCeLogo && !includeOriginLogo));
+
+                      if (isClientTemplate) {
+                        return (
+                          <>
+                            <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                              🏢 Applied Genuine Parts
+                            </div>
+                            {includeOriginLogo && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                                🛡️ PED
+                              </div>
+                            )}
+                            {includeCeLogo && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                                ✓ CE
+                              </div>
+                            )}
+                          </>
+                        );
+                      } else {
+                        return (
+                          <>
+                            {includeOriginLogo && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                                🛡️ PED
+                              </div>
+                            )}
+                            {includeCeLogo && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                                ✓ CE
+                              </div>
+                            )}
+                            {includeIrelandLogo && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-xs font-medium">
+                                🇮🇪 Ireland
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+                    })()}
+                    {!includeOriginLogo &&
+                      !includeCeLogo &&
+                      !includeIrelandLogo && (
+                        <div className="text-xs text-muted-foreground italic">
+                          No logos selected
+                        </div>
+                      )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    {(() => {
+                      const isClientTemplate =
+                        !includeIrelandLogo &&
+                        ((includeOriginLogo && !includeCeLogo) ||
+                          (includeCeLogo && !includeOriginLogo));
+
+                      if (isClientTemplate) {
+                        return "Using client logo layout (Applied Genuine Parts replaces Ireland position)";
+                      } else if (
+                        includeIrelandLogo ||
+                        (includeOriginLogo && includeCeLogo)
+                      ) {
+                        return "Using standard logo layout";
+                      } else if (
+                        !includeOriginLogo &&
+                        !includeCeLogo &&
+                        !includeIrelandLogo
+                      ) {
+                        return "No certification or origin logos will be displayed";
+                      } else {
+                        return "Using standard logo layout";
+                      }
+                    })()}
+                  </div>
+                </div>
               </div>
               <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="catalog">Assign to Catalog</Label>

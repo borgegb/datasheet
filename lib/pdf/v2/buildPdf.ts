@@ -320,6 +320,43 @@ const getShippingTextV2 = (
   }
 };
 
+// --- Template Selection Helper ---
+const getTemplateFileName = (
+  imageOrientation: "portrait" | "landscape",
+  includePedLogo: boolean,
+  includeCeLogo: boolean
+): string => {
+  const base =
+    imageOrientation === "landscape"
+      ? "datasheet-template-landscape"
+      : "datasheet-template";
+
+  // Client logo scenarios: only show client logo when exactly one certification logo is selected
+  if (includePedLogo && !includeCeLogo) {
+    return `${base}-client-ped.json`;
+  } else if (includeCeLogo && !includePedLogo) {
+    return `${base}-client-ce.json`;
+  } else {
+    // Both logos or neither logo - use standard template
+    return `${base}.json`;
+  }
+};
+
+// --- Client Logo Loader ---
+const loadClientLogo = async (): Promise<string> => {
+  try {
+    const logoPath = path.resolve(
+      process.cwd(),
+      "pdf/assets/applied-genuine-parts-logo.svg"
+    );
+    const logoContent = await fs.readFile(logoPath, "utf-8");
+    return logoContent;
+  } catch (error: any) {
+    console.error("Error loading client logo:", error);
+    throw new Error(`Failed to load client logo: ${error.message}`);
+  }
+};
+
 interface BuildPdfInput {
   appliedLogoBase64Data: string;
   productTitle: string;
@@ -335,14 +372,19 @@ interface BuildPdfInput {
   specificationsTable: string[][]; // two-column body rows
   keyFeaturesList?: Array<{ icon: string; text: string }>; // Add key features
   imageOrientation?: "portrait" | "landscape"; // Add image orientation
+  // New logo selection flags
+  includePedLogo?: boolean;
+  includeCeLogo?: boolean;
+  includeIrelandLogo?: boolean;
 }
 
 export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Load template based on image orientation
-  const templateFileName =
-    input.imageOrientation === "landscape"
-      ? "datasheet-template-landscape.json"
-      : "datasheet-template.json";
+  const templateFileName = getTemplateFileName(
+    input.imageOrientation || "portrait",
+    input.includePedLogo || false,
+    input.includeCeLogo || false
+  );
 
   const templateData = (
     await import(`../../../pdf/template/v2/${templateFileName}`)
@@ -400,6 +442,40 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   // Prepare inputs – table passes straight through without trimming
   const processedTable = input.specificationsTable;
 
+  // Load client logo if needed (for client logo templates)
+  let clientLogo = "";
+  const isClientLogoTemplate =
+    (input.includePedLogo && !input.includeCeLogo) ||
+    (input.includeCeLogo && !input.includePedLogo);
+  if (isClientLogoTemplate) {
+    try {
+      clientLogo = await loadClientLogo();
+    } catch (error) {
+      console.error(
+        "Failed to load client logo, continuing without it:",
+        error
+      );
+    }
+  }
+
+  // Prepare logo inputs based on template type and selections
+  let logoInputs: any = {};
+
+  if (isClientLogoTemplate) {
+    // Client logo templates: clientLogo + one certification logo
+    logoInputs.clientLogo = clientLogo;
+    if (input.includePedLogo) {
+      logoInputs.ceLogo = input.pedLogo || ""; // PED logo goes in CE position for client templates
+    } else if (input.includeCeLogo) {
+      logoInputs.ceLogo = input.ceLogo || ""; // CE logo stays in CE position
+    }
+  } else {
+    // Standard templates: original logo positioning
+    logoInputs.pedLogo = input.pedLogo || "";
+    logoInputs.ceLogo = input.ceLogo || "";
+    logoInputs.irelandLogo = input.irelandLogo || "";
+  }
+
   // Prepare inputs
   const inputs = [
     {
@@ -415,9 +491,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       // Static schema placeholder inputs (for placeholder replacement)
       warrantyText: input.warrantyText,
       shippingText: getShippingTextV2(input.shippingData, input.productTitle),
-      pedLogo: input.pedLogo || "",
-      ceLogo: input.ceLogo || "",
-      irelandLogo: input.irelandLogo || "",
+
+      // Logo inputs (depends on template type)
+      ...logoInputs,
     },
   ];
 

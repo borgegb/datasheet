@@ -182,6 +182,14 @@ export async function POST(req: Request) {
       shippingHeading: "Shipping Information",
       shippingData: productDataFromSource.shipping_info || "",
       imageOrientation: productDataFromSource.image_orientation || "portrait",
+
+      // Logo flags for template selection
+      includePedLogo: productDataFromSource.optional_logos?.origin === true,
+      includeCeLogo: productDataFromSource.optional_logos?.ceMark === true,
+      includeIrelandLogo:
+        productDataFromSource.optional_logos?.includeIrelandLogo === true,
+
+      // Logo data for templates
       pedLogo:
         productDataFromSource.optional_logos?.origin === true
           ? pedLogoBase64Data

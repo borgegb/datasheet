@@ -213,8 +213,8 @@
       {
         "type": "image",
         "name": "productimage",
-        "position": { "x": 130, "y": 95 },
-        "width": 68,
+        "position": { "x": 120, "y": 95 },
+        "width": 77,
         "height": 51,
         "fit": "contain"
       },

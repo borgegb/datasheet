@@ -347,13 +347,11 @@ const loadClientLogo = async (): Promise<string> => {
   try {
     const logoPath = path.resolve(
       process.cwd(),
-      "pdf/assets/applied-genuine-parts-logo.svg"
+      "pdf/assets/applied-genuine-parts-logo-512px.png"
     );
     const logoBytes = await fs.readFile(logoPath);
-    // Convert SVG to base64 data URL like other images
-    return `data:image/svg+xml;base64,${Buffer.from(logoBytes).toString(
-      "base64"
-    )}`;
+    // Convert PNG to base64 data URL like other images
+    return `data:image/png;base64,${Buffer.from(logoBytes).toString("base64")}`;
   } catch (error: any) {
     console.error("Error loading client logo:", error);
     throw new Error(`Failed to load client logo: ${error.message}`);

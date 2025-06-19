@@ -1618,37 +1618,79 @@ export default function DatasheetGeneratorForm({
                       if (isClientTemplate) {
                         return (
                           <>
-                            <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                              🏢 Applied Genuine Parts
-                            </div>
                             {includeOriginLogo && (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
-                                🛡️ PED
+                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                                <img
+                                  src="/logos/ped-logo.png"
+                                  alt="PED Certification"
+                                  className="w-6 h-6 object-contain"
+                                />
+                                <span className="text-xs font-medium text-gray-700">
+                                  PED
+                                </span>
                               </div>
                             )}
                             {includeCeLogo && (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
-                                ✓ CE
+                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                                <img
+                                  src="/logos/ce-logo.png"
+                                  alt="CE Certification"
+                                  className="w-6 h-6 object-contain"
+                                />
+                                <span className="text-xs font-medium text-gray-700">
+                                  CE
+                                </span>
                               </div>
                             )}
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                              <img
+                                src="/logos/applied-genuine-parts.png"
+                                alt="Applied Genuine Parts"
+                                className="w-6 h-6 object-contain"
+                              />
+                              <span className="text-xs font-medium text-blue-700">
+                                Applied Genuine Parts
+                              </span>
+                            </div>
                           </>
                         );
                       } else {
                         return (
                           <>
                             {includeOriginLogo && (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
-                                🛡️ PED
+                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                                <img
+                                  src="/logos/ped-logo.png"
+                                  alt="PED Certification"
+                                  className="w-6 h-6 object-contain"
+                                />
+                                <span className="text-xs font-medium text-gray-700">
+                                  PED
+                                </span>
                               </div>
                             )}
                             {includeCeLogo && (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
-                                ✓ CE
+                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                                <img
+                                  src="/logos/ce-logo.png"
+                                  alt="CE Certification"
+                                  className="w-6 h-6 object-contain"
+                                />
+                                <span className="text-xs font-medium text-gray-700">
+                                  CE
+                                </span>
                               </div>
                             )}
                             {includeIrelandLogo && (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-xs font-medium">
-                                🇮🇪 Ireland
+                              <div className="flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm">
+                                <img
+                                  src="/logos/ireland-logo.png"
+                                  alt="Designed & Manufactured in Ireland"
+                                  className="w-6 h-6 object-contain"
+                                />
+                                <span className="text-xs font-medium text-gray-700">
+                                  Ireland
+                                </span>
                               </div>
                             )}
                           </>

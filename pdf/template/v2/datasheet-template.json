@@ -101,7 +101,7 @@
         "type": "image",
         "name": "irelandLogoStatic",
         "content": "{irelandLogo}",
-        "position": { "x": 162, "y": 243 },
+        "position": { "x": 162, "y": 246 },
         "width": 35,
         "height": 35,
         "readOnly": true

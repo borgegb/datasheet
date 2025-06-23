@@ -83,7 +83,7 @@
         "type": "image",
         "name": "ceLogoStatic",
         "content": "{ceLogo}",
-        "position": { "x": 171, "y": 250 },
+        "position": { "x": 140, "y": 250 },
         "width": 24,
         "height": 24,
         "readOnly": true

@@ -83,18 +83,18 @@
         "type": "image",
         "name": "pedLogoStatic",
         "content": "{pedLogo}",
-        "position": { "x": 141, "y": 254 },
-        "width": 12,
-        "height": 12,
+        "position": { "x": 130, "y": 254 },
+        "width": 16,
+        "height": 16,
         "readOnly": true
       },
       {
         "type": "image",
         "name": "ceLogoStatic",
         "content": "{ceLogo}",
-        "position": { "x": 155, "y": 254 },
-        "width": 12,
-        "height": 12,
+        "position": { "x": 147, "y": 254 },
+        "width": 16,
+        "height": 16,
         "readOnly": true
       },
       {

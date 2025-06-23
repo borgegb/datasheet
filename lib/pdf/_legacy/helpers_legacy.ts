@@ -287,7 +287,7 @@ export const getShippingText = (
           : label.endsWith("s")
           ? label
           : `${label}s`;
-      return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+      return `The ${productTitle} is securely shipped on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and we recommend shipping the full quantity per pallet to maximise value and efficiency.`;
     }
   } catch {
     // JSON parse failed, fall back to legacy parsing
@@ -306,13 +306,13 @@ export const getShippingText = (
         : label.endsWith("s")
         ? label
         : `${label}s`;
-    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    return `The ${productTitle} is securely shipped on a wooden pallet measuring 1200mm×1000mm. Up to ${qty} ${plural} can be shipped on a single pallet, and we recommend shipping the full quantity per pallet to maximise value and efficiency.`;
   }
 
   // Fallback: numeric only
   const units = parseInt(shippingData || "4");
   if (!isNaN(units)) {
-    return `The ${productTitle} is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+    return `The ${productTitle} is securely shipped on a wooden pallet measuring 1200mm×1000mm. Up to ${units} units can be shipped on a single pallet, and we recommend shipping the full quantity per pallet to maximise value and efficiency.`;
   }
 
   // Handle legacy hardcoded cases
@@ -320,7 +320,7 @@ export const getShippingText = (
     case "expedited":
       return "The Applied 20 Litre Classic Blast Machine will be securely mounted on a wooden pallet measuring 1200mm x 1000mm. Please note that up to four units can be shipped on a single pallet. To maximise value and efficiency, we recommend shipping the full quantity per pallet whenever possible.";
     case "std":
-      return "The Applied 20 Litre Classic Blast Machine is shipped securely mounted on a wooden pallet measuring 1200mm×1000mm.  Up to four units can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.";
+      return "The Applied 20 Litre Classic Blast Machine is securely shipped on a wooden pallet measuring 1200mm×1000mm. Up to four units can be shipped on a single pallet, and we recommend shipping the full quantity per pallet to maximise value and efficiency.";
     case "freight":
       return "Freight shipping information placeholder.";
     default:

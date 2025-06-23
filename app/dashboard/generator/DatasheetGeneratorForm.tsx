@@ -250,11 +250,11 @@ export default function DatasheetGeneratorForm({
 
       if (units === "1") {
         // Special case for single unit - use "One" and singular form
-        return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. One ${label} is shipped per pallet.`;
+        return `The ${productName} is securely shipped on a wooden pallet measuring 1200 mm × 1000 mm. One ${label} is shipped per pallet.`;
       } else {
         // Multiple units - use existing logic
         const plural = label === "box" ? "boxes" : `${label}s`;
-        return `The ${productName} is shipped securely mounted on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${units} ${plural} can be shipped on a single pallet, and it is recommended to ship the full quantity per pallet to maximize value and efficiency.`;
+        return `The ${productName} is securely shipped on a wooden pallet measuring 1200 mm × 1000 mm. Up to ${units} ${plural} can be shipped on a single pallet, and we recommend shipping the full quantity per pallet to maximise value and efficiency.`;
       }
     }
   };

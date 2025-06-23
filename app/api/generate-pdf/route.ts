@@ -224,13 +224,29 @@ export async function POST(req: Request) {
             : typeof rawSpecs === "string"
             ? JSON.parse(rawSpecs)
             : [];
-          // Just return the parsed data, let buildPdf.ts handle filtering and formatting
-          return (parsed || []).map((r: any) => [
+          // Convert parsed data to table rows
+          const dataRows = (parsed || []).map((r: any) => [
             (r.label ?? "").toString(),
             (r.value ?? "").toString(),
           ]);
+
+          // Always ensure exactly 5 rows - pad with empty rows if needed
+          const targetRowCount = 5;
+          while (dataRows.length < targetRowCount) {
+            dataRows.push(["", ""]);
+          }
+
+          // If somehow there are more than 5 rows, trim to 5
+          return dataRows.slice(0, targetRowCount);
         } catch {
-          return [["", ""]];
+          // Return 5 empty rows if parsing fails
+          return [
+            ["", ""],
+            ["", ""],
+            ["", ""],
+            ["", ""],
+            ["", ""],
+          ];
         }
       })(),
     } as const;

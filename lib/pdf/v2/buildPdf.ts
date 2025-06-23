@@ -466,6 +466,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       "Inter-Regular": {
         data: interRegularFontBytes,
         subset: true,
+        fallback: true,
       },
       "Inter-Bold": { data: interBoldFontBytes, subset: true },
     };

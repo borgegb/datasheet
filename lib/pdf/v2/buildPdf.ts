@@ -462,12 +462,12 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     // Add our custom fonts to the font map
     fontMap = {
       ...fontMap,
-      "Poppins-Bold": { data: poppinsBoldFontBytes, subset: false },
+      "Poppins-Bold": { data: poppinsBoldFontBytes, subset: true },
       "Inter-Regular": {
         data: interRegularFontBytes,
-        subset: false,
+        subset: true,
       },
-      "Inter-Bold": { data: interBoldFontBytes, subset: false },
+      "Inter-Bold": { data: interBoldFontBytes, subset: true },
     };
     console.log("Custom fonts loaded from:", fontDir);
     console.log("Available fonts:", Object.keys(fontMap));

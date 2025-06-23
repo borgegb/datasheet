@@ -108,7 +108,7 @@
       },
       {
         "type": "rectangle",
-        "position": { "x": 0, "y": 275 },
+        "position": { "x": 0, "y": 280 },
         "width": 210,
         "height": 14,
         "color": "#2c5234",
@@ -117,7 +117,7 @@
       {
         "type": "text",
         "content": "www.appliedpi.com",
-        "position": { "x": 22, "y": 278.5 },
+        "position": { "x": 22, "y": 283.5 },
         "width": 80,
         "height": 7,
         "fontName": "Inter-Regular",
@@ -130,7 +130,7 @@
       {
         "type": "text",
         "content": "www.ptocompressors.com",
-        "position": { "x": 105, "y": 278.5 },
+        "position": { "x": 105, "y": 283.5 },
         "width": 94,
         "height": 7,
         "fontName": "Inter-Regular",

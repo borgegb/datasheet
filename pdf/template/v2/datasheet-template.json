@@ -70,8 +70,8 @@
         "name": "shippingTextStatic",
         "content": "{shippingText}",
         "position": { "x": 22, "y": 256 },
-        "width": 120,
-        "height": 17,
+        "width": 112,
+        "height": 21,
         "fontName": "Inter-Regular",
         "fontSize": 9,
         "fontColor": "#2A2A2A",
@@ -83,7 +83,7 @@
         "type": "image",
         "name": "pedLogoStatic",
         "content": "{pedLogo}",
-        "position": { "x": 140, "y": 244 },
+        "position": { "x": 140, "y": 247 },
         "width": 24,
         "height": 24,
         "readOnly": true
@@ -92,9 +92,9 @@
         "type": "image",
         "name": "ceLogoStatic",
         "content": "{ceLogo}",
-        "position": { "x": 149, "y": 269 },
-        "width": 8,
-        "height": 8,
+        "position": { "x": 149, "y": 272 },
+        "width": 6,
+        "height": 6,
         "readOnly": true
       },
       {

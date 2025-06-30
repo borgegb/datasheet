@@ -33,6 +33,7 @@ import {
   PlusIcon,
   TrashIcon,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -126,6 +127,8 @@ interface DatasheetsTableProps<TData, TValue> {
   searchColumnId?: string;
   onDeleteRows?: (selectedRows: Row<TData>[]) => void;
   onDeleteRow?: (productId: string) => void;
+  onRemoveFromCatalog?: (productId: string) => void;
+  onRemoveSelectedFromCatalog?: (selectedRows: Row<TData>[]) => void;
   onDownload?: (storagePath: string, filename: string) => void;
   onPrint?: (storagePath: string, filename: string) => void;
   onViewPdf?: (storagePath: string, filename: string) => void;
@@ -143,6 +146,8 @@ export default function DatasheetsTable<TData, TValue>({
   searchColumnId = "product_title",
   onDeleteRows,
   onDeleteRow,
+  onRemoveFromCatalog,
+  onRemoveSelectedFromCatalog,
   onDownload,
   onPrint,
   onViewPdf,
@@ -192,6 +197,8 @@ export default function DatasheetsTable<TData, TValue>({
     },
     meta: {
       onDeleteRow,
+      onRemoveFromCatalog,
+      onRemoveSelectedFromCatalog,
       onDownload,
       onPrint,
       onViewPdf,
@@ -252,6 +259,19 @@ export default function DatasheetsTable<TData, TValue>({
     }
   };
   // --- End Delete Rows Handler ---
+
+  // --- Remove Selected from Catalog Handler ---
+  const handleRemoveSelectedFromCatalog = () => {
+    if (onRemoveSelectedFromCatalog) {
+      onRemoveSelectedFromCatalog(table.getSelectedRowModel().rows);
+      table.resetRowSelection();
+    } else {
+      console.warn(
+        "DatasheetsTable: onRemoveSelectedFromCatalog prop not provided."
+      );
+    }
+  };
+  // --- End Remove Selected from Catalog Handler ---
 
   return (
     <div className="space-y-4">
@@ -446,6 +466,43 @@ export default function DatasheetsTable<TData, TValue>({
               </AlertDialogContent>
             </AlertDialog>
           )}
+
+          {/* Remove Selected from Catalog Button */}
+          {table.getSelectedRowModel().rows.length > 0 &&
+            onRemoveSelectedFromCatalog && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                  >
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5 opacity-70" />
+                    Remove from Catalog (
+                    {table.getSelectedRowModel().rows.length})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove from Catalog?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove {table.getSelectedRowModel().rows.length}{" "}
+                      selected datasheet(s) from this catalog. The datasheets
+                      will not be deleted, just removed from the catalog.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleRemoveSelectedFromCatalog}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      Remove from Catalog
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
 
           {!hideAddButton && (
             <Button asChild size="sm" className="h-8">

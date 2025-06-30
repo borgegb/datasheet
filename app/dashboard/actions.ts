@@ -1230,3 +1230,83 @@ export async function fetchOrgMembers(): Promise<FetchMembersResult> {
 }
 
 // --- End Fetch Org Members Action ---
+
+// --- Action to Remove Product from Catalog ---
+export async function removeProductFromCatalog(productId: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Get current user and verify they have access
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  const userId = userData.user.id;
+
+  // 2. Get user's organization ID
+  const organizationId = await getUserOrgId(supabase);
+  if (!organizationId) {
+    return { error: { message: "User organization not found." } };
+  }
+
+  // 3. Validate input
+  if (!productId) {
+    return { error: { message: "Product ID is required." } };
+  }
+
+  // 4. Verify the product belongs to the user's organization before updating
+  const { data: productCheck, error: checkError } = await supabase
+    .from("products")
+    .select("id, product_title, catalog_id")
+    .eq("id", productId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (checkError || !productCheck) {
+    console.error("Error checking product ownership:", checkError);
+    return { error: { message: "Product not found or access denied." } };
+  }
+
+  // 5. Check if product is actually in a catalog
+  if (!productCheck.catalog_id) {
+    return {
+      error: { message: "Product is not currently assigned to any catalog." },
+    };
+  }
+
+  // 6. Update the product to remove catalog assignment
+  const { data, error: updateError } = await supabase
+    .from("products")
+    .update({
+      catalog_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId)
+    .eq("organization_id", organizationId) // Double-check organization
+    .select("id, product_title")
+    .single();
+
+  if (updateError) {
+    console.error(
+      "Server Action Error (removeProductFromCatalog):",
+      updateError
+    );
+    return {
+      error: {
+        message: `Database error removing product from catalog: ${updateError.message}`,
+      },
+    };
+  }
+
+  // 7. Revalidate relevant paths
+  revalidatePath("/dashboard/products"); // Products list page
+  revalidatePath("/dashboard/catalogs"); // Catalogs page
+  // Note: We can't revalidate the specific catalog page since we don't have the catalog ID
+  // But the client will handle local state updates
+
+  console.log(
+    `Product '${productCheck.product_title}' removed from catalog successfully.`
+  );
+  return { data, error: null };
+}
+// --- End Remove Product from Catalog Action ---

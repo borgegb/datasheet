@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef, FilterFn, RowData } from "@tanstack/react-table";
+import { ColumnDef, FilterFn, RowData, Row } from "@tanstack/react-table";
 import {
   ArrowUpDown,
   MoreHorizontal,
@@ -90,6 +90,8 @@ const getSafeFilename = (
 declare module "@tanstack/react-table" {
   interface TableMeta<TData extends RowData> {
     onDeleteRow?: (productId: string) => void;
+    onRemoveFromCatalog?: (productId: string) => void;
+    onRemoveSelectedFromCatalog?: (selectedRows: Row<TData>[]) => void;
     onDownload?: (storagePath: string, filename: string) => void;
     onPrint?: (storagePath: string, filename: string) => void;
     onViewPdf?: (storagePath: string, filename: string) => void;
@@ -265,6 +267,21 @@ export const columns: ColumnDef<Product>[] = [
                 <Printer className="mr-2 h-4 w-4" /> Print PDF
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {/* Remove from Catalog - only show when handler is available */}
+              {table.options.meta?.onRemoveFromCatalog && (
+                <>
+                  <DropdownMenuItem
+                    className="text-orange-600 focus:text-orange-700 cursor-pointer"
+                    onSelect={() =>
+                      table.options.meta?.onRemoveFromCatalog?.(product.id)
+                    }
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" /> Remove from
+                    Catalog
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive cursor-pointer"
                 onSelect={() => table.options.meta?.onDeleteRow?.(product.id)}

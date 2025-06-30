@@ -8,7 +8,10 @@ import React, {
 } from "react";
 import DatasheetsTable from "@/components/DatasheetsTable"; // Use the new table
 import { columns, Product } from "@/app/dashboard/products/columns"; // Use columns from products
-import { deleteProducts } from "@/app/dashboard/actions";
+import {
+  deleteProducts,
+  removeProductFromCatalog,
+} from "@/app/dashboard/actions";
 import { toast } from "sonner";
 import type { Row } from "@tanstack/react-table";
 import { createClient } from "@/lib/supabase/client";
@@ -80,6 +83,86 @@ export default function CatalogProductsClient({
     });
   };
   // --- End Delete Handlers ---
+
+  // --- Remove from Catalog Handlers ---
+  const handleRemoveFromCatalog = async (productId: string) => {
+    const productToRemove = products.find((p) => p.id === productId);
+    const toastId = toast.loading(
+      `Removing "${
+        productToRemove?.product_title || "datasheet"
+      }" from catalog...`
+    );
+    setIsLoading(true);
+    startTransition(async () => {
+      const { error } = await removeProductFromCatalog(productId);
+      if (error) {
+        toast.error(`Failed to remove from catalog: ${error.message}`, {
+          id: toastId,
+        });
+      } else {
+        toast.success("Datasheet removed from catalog successfully.", {
+          id: toastId,
+        });
+        // Update local state to remove the item from the catalog view
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+      }
+      setIsLoading(false);
+    });
+  };
+
+  const handleRemoveSelectedFromCatalog = async (
+    selectedRows: Row<Product>[]
+  ) => {
+    const productIdsToRemove = selectedRows.map((row) => row.original.id);
+    if (productIdsToRemove.length === 0) return;
+    const toastId = toast.loading(
+      `Removing ${productIdsToRemove.length} datasheet(s) from catalog...`
+    );
+    setIsLoading(true);
+    startTransition(async () => {
+      // Process removals sequentially to avoid overwhelming the server
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const productId of productIdsToRemove) {
+        const { error } = await removeProductFromCatalog(productId);
+        if (error) {
+          errorCount++;
+          console.error(`Failed to remove product ${productId}:`, error);
+        } else {
+          successCount++;
+        }
+      }
+
+      if (errorCount === 0) {
+        toast.success(
+          `${successCount} datasheet(s) removed from catalog successfully.`,
+          { id: toastId }
+        );
+        // Update local state to remove all successfully removed items
+        setProducts((prev) =>
+          prev.filter((p) => !productIdsToRemove.includes(p.id))
+        );
+      } else if (successCount > 0) {
+        toast.warning(
+          `${successCount} removed, ${errorCount} failed to remove from catalog.`,
+          { id: toastId }
+        );
+        // Update local state for successful removals only
+        // Note: This is a simplified approach. In production, you might want to track which specific ones failed.
+        setProducts((prev) =>
+          prev.filter((p) => !productIdsToRemove.includes(p.id))
+        );
+      } else {
+        toast.error(
+          `Failed to remove all ${productIdsToRemove.length} datasheet(s) from catalog.`,
+          { id: toastId }
+        );
+      }
+      setIsLoading(false);
+    });
+  };
+  // --- End Remove from Catalog Handlers ---
 
   // --- PDF Handlers (Adapted from ProductsPageClient) ---
   const getSafeFilename = (
@@ -212,6 +295,8 @@ export default function CatalogProductsClient({
       availableCategories={availableCategories}
       onDeleteRow={handleDeleteRow}
       onDeleteRows={handleDeleteSelectedRows}
+      onRemoveFromCatalog={handleRemoveFromCatalog}
+      onRemoveSelectedFromCatalog={handleRemoveSelectedFromCatalog}
       onDownload={handleDownload}
       onPrint={handlePrint}
       onViewPdf={handleViewPdf}

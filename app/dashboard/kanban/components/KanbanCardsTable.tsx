@@ -35,16 +35,15 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-  Download,
   Eye,
   Search,
   Upload,
-  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { deleteKanbanCards } from "../actions";
 import type { KanbanCard } from "../actions";
+import KanbanCardActions from "./KanbanCardActions";
 
 interface KanbanCardsTableProps {
   initialData: KanbanCard[];
@@ -56,7 +55,6 @@ export default function KanbanCardsTable({
   const [cards, setCards] = useState<KanbanCard[]>(initialData);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState<string | null>(null);
 
   // Filter cards based on search term
   const filteredCards = cards.filter(
@@ -82,55 +80,6 @@ export default function KanbanCardsTable({
       }
 
       setIsDeleting(null);
-    });
-  };
-
-  const handleGeneratePdf = async (cardId: string, partNo: string) => {
-    setIsGeneratingPdf(cardId);
-    const toastId = toast.loading(`Generating PDF for "${partNo}"...`);
-
-    startTransition(async () => {
-      try {
-        // Call API directly following datasheet pattern
-        const res = await fetch("/api/generate-kanban-pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kanbanCardIds: [cardId] }),
-        });
-
-        const { url, error: apiError } = await res.json();
-
-        if (!res.ok) {
-          throw new Error(apiError || "Failed to generate PDF");
-        }
-
-        if (apiError) {
-          throw new Error(apiError);
-        }
-
-        if (url) {
-          toast.success("PDF generated successfully", { id: toastId });
-          // Update local state to reflect PDF is now available
-          setCards((prev) =>
-            prev.map((card) =>
-              card.id === cardId
-                ? { ...card, pdf_storage_path: "generated" } // Mark as having PDF
-                : card
-            )
-          );
-          // Open PDF in new tab
-          window.open(url, "_blank");
-        } else {
-          throw new Error("PDF URL not found in response.");
-        }
-      } catch (error: any) {
-        console.error("Error generating kanban PDF:", error);
-        toast.error(`Failed to generate PDF: ${error.message}`, {
-          id: toastId,
-        });
-      } finally {
-        setIsGeneratingPdf(null);
-      }
     });
   };
 
@@ -189,7 +138,7 @@ export default function KanbanCardsTable({
               <TableHead>Lead Time</TableHead>
               <TableHead>Color</TableHead>
               <TableHead>PDF</TableHead>
-              <TableHead className="w-[70px]">Actions</TableHead>
+              <TableHead className="w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -239,91 +188,89 @@ export default function KanbanCardsTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/kanban/${card.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/kanban/${card.id}/edit`}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        {card.pdf_storage_path ? (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleGeneratePdf(card.id, card.part_no)
-                            }
-                            disabled={isGeneratingPdf === card.id}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            {isGeneratingPdf === card.id
-                              ? "Regenerating..."
-                              : "Download PDF"}
+                    <div className="flex items-center gap-2">
+                      {/* PDF Actions */}
+                      <KanbanCardActions
+                        cardId={card.id}
+                        partNo={card.part_no}
+                        hasPdf={!!card.pdf_storage_path}
+                        pdfStoragePath={card.pdf_storage_path}
+                        onPdfGenerated={() => {
+                          // Update local state to reflect PDF is now available
+                          setCards((prev) =>
+                            prev.map((c) =>
+                              c.id === card.id
+                                ? { ...c, pdf_storage_path: "generated" }
+                                : c
+                            )
+                          );
+                        }}
+                      />
+
+                      {/* Other Actions Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/kanban/${card.id}`}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </Link>
                           </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleGeneratePdf(card.id, card.part_no)
-                            }
-                            disabled={isGeneratingPdf === card.id}
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
-                            {isGeneratingPdf === card.id
-                              ? "Generating..."
-                              : "Generate PDF"}
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/kanban/${card.id}/edit`}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </Link>
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onSelect={(e) => e.preventDefault()}
-                              disabled={isDeleting === card.id}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete the kanban card for{" "}
-                                <strong>{card.part_no}</strong>. This action
-                                cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  handleDelete(card.id, card.part_no)
-                                }
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          <DropdownMenuSeparator />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={(e) => e.preventDefault()}
                                 disabled={isDeleting === card.id}
                               >
-                                {isDeleting === card.id
-                                  ? "Deleting..."
-                                  : "Delete"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Are you sure?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete the kanban card
+                                  for <strong>{card.part_no}</strong>. This
+                                  action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() =>
+                                    handleDelete(card.id, card.part_no)
+                                  }
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  disabled={isDeleting === card.id}
+                                >
+                                  {isDeleting === card.id
+                                    ? "Deleting..."
+                                    : "Delete"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

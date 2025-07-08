@@ -10,6 +10,7 @@ interface KanbanCardActionsProps {
   partNo: string;
   hasPdf: boolean;
   pdfStoragePath?: string | null;
+  onPdfGenerated?: () => void;
 }
 
 export default function KanbanCardActions({
@@ -17,6 +18,7 @@ export default function KanbanCardActions({
   partNo,
   hasPdf,
   pdfStoragePath,
+  onPdfGenerated,
 }: KanbanCardActionsProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -44,11 +46,24 @@ export default function KanbanCardActions({
         }
 
         if (url) {
-          toast.success("PDF generated successfully", { id: toastId });
-          // Open PDF in new tab
-          window.open(url, "_blank");
-          // Refresh the page to update the PDF status
-          window.location.reload();
+          // Show success toast with View PDF button (similar to DatasheetGeneratorForm)
+          toast.success("✅ PDF generated successfully!", {
+            id: toastId,
+            description: "Click the button to view your generated PDF.",
+            action: (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(url, "_blank")}
+              >
+                View PDF
+              </Button>
+            ),
+            duration: 15000, // Keep toast longer so user can click
+          });
+
+          // Call callback to update parent state
+          onPdfGenerated?.();
         } else {
           throw new Error("PDF URL not found in response.");
         }

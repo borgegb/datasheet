@@ -1,7 +1,7 @@
 {
   "basePdf": {
-    "width": 148,
-    "height": 105,
+    "width": 105,  
+  "height": 148,  
     "padding": [0, 0, 0, 0],
     "staticSchema": [
       {

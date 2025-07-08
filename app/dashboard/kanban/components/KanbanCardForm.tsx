@@ -73,6 +73,7 @@ export default function KanbanCardForm({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const router = useRouter();
 
@@ -96,14 +97,6 @@ export default function KanbanCardForm({
           `Card ${editingCardId ? "updated" : "created"} successfully!`
         );
 
-        // Redirect to the card view page
-        const cardId = editingCardId || result.data?.id;
-        if (cardId) {
-          router.push(`/dashboard/kanban/${cardId}`);
-        } else {
-          router.push("/dashboard/kanban");
-        }
-
         return { error: null, data: result.data };
       } catch (error: any) {
         toast.error(`Unexpected error: ${error.message}`);
@@ -112,6 +105,94 @@ export default function KanbanCardForm({
     },
     null
   );
+
+  // Add useEffect to handle PDF generation after successful save
+  useEffect(() => {
+    // Check if save was successful and we have the card data (including ID)
+    // Only auto-generate PDF for new cards, not when editing
+    if (saveState?.data?.id && !saveState.error && !editingCardId) {
+      const savedCardId = saveState.data.id;
+      const savedPartNo = saveState.data.part_no || "card";
+      console.log(
+        `Save successful for ${savedCardId}, starting PDF generation...`
+      );
+
+      // Define async function inside useEffect to chain async calls
+      const generateAndShowPdf = async () => {
+        setIsGeneratingPdf(true);
+        toast.info("🚀 Your Kanban card PDF is being generated...", {
+          duration: 10000,
+        });
+
+        try {
+          const payload = {
+            kanbanCardIds: [savedCardId],
+          };
+
+          console.log("Payload for Kanban PDF generation:", payload);
+
+          const res = await fetch("/api/generate-kanban-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({
+              error: `Request failed with status ${res.status}`,
+            }));
+            throw new Error(
+              errorData.error || `PDF generation failed: ${res.statusText}`
+            );
+          }
+
+          const { url, error: apiError } = await res.json();
+
+          if (apiError) {
+            throw new Error(apiError.message || apiError);
+          }
+
+          if (url) {
+            // Show success toast with View Button (similar to DatasheetGeneratorForm)
+            toast.success("✅ Kanban card PDF generated successfully!", {
+              description: "Click the button to view your generated PDF.",
+              action: (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(url, "_blank")}
+                >
+                  View PDF
+                </Button>
+              ),
+              duration: 15000, // Keep toast longer so user can click
+            });
+
+            // After generation success, navigate to the card view page
+            router.push(`/dashboard/kanban/${savedCardId}`);
+          } else {
+            throw new Error("PDF URL not found in response.");
+          }
+        } catch (error: any) {
+          console.error("Error generating Kanban card PDF:", error);
+          toast.error(
+            `Failed to generate PDF: ${error.message || "Unknown error"}`
+          );
+
+          // Still navigate to the card even if PDF generation failed
+          router.push(`/dashboard/kanban/${savedCardId}`);
+        } finally {
+          setIsGeneratingPdf(false);
+        }
+      };
+
+      // Trigger the async function
+      generateAndShowPdf();
+    } else if (saveState?.data?.id && !saveState.error && editingCardId) {
+      // For editing, just navigate without auto-generating PDF
+      router.push(`/dashboard/kanban/${editingCardId}`);
+    }
+  }, [saveState, router, editingCardId]);
 
   // Fetch user and profile
   useEffect(() => {
@@ -359,6 +440,7 @@ export default function KanbanCardForm({
               type="submit"
               disabled={
                 isSavePending ||
+                isGeneratingPdf ||
                 uploadProps.loading ||
                 (uploadProps.files.length > 0 &&
                   uploadProps.successes.length === 0 &&
@@ -367,16 +449,22 @@ export default function KanbanCardForm({
             >
               {isSavePending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : isGeneratingPdf ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
               {isSavePending
                 ? "Saving..."
+                : isGeneratingPdf
+                ? "Generating PDF..."
                 : uploadProps.files.length > 0 &&
                   uploadProps.successes.length === 0 &&
                   !uploadProps.loading
                 ? "Upload Image First"
-                : `${editingCardId ? "Update" : "Create"} Card`}
+                : editingCardId
+                ? "Update Card"
+                : "Create Card & Generate PDF"}
             </Button>
           </CardFooter>
         </form>

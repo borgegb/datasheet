@@ -110,6 +110,14 @@ export default function KanbanCardsTable({
 
         if (url) {
           toast.success("PDF generated successfully", { id: toastId });
+          // Update local state to reflect PDF is now available
+          setCards((prev) =>
+            prev.map((card) =>
+              card.id === cardId
+                ? { ...card, pdf_storage_path: "generated" } // Mark as having PDF
+                : card
+            )
+          );
           // Open PDF in new tab
           window.open(url, "_blank");
         } else {
@@ -224,7 +232,11 @@ export default function KanbanCardsTable({
                     {getHeaderColorBadge(card.header_color)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">Generate</Badge>
+                    {card.pdf_storage_path ? (
+                      <Badge variant="secondary">Available</Badge>
+                    ) : (
+                      <Badge variant="outline">Not Generated</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -248,17 +260,31 @@ export default function KanbanCardsTable({
                             Edit
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handleGeneratePdf(card.id, card.part_no)
-                          }
-                          disabled={isGeneratingPdf === card.id}
-                        >
-                          <FileText className="mr-2 h-4 w-4" />
-                          {isGeneratingPdf === card.id
-                            ? "Generating..."
-                            : "Generate PDF"}
-                        </DropdownMenuItem>
+                        {card.pdf_storage_path ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleGeneratePdf(card.id, card.part_no)
+                            }
+                            disabled={isGeneratingPdf === card.id}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            {isGeneratingPdf === card.id
+                              ? "Regenerating..."
+                              : "Download PDF"}
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleGeneratePdf(card.id, card.part_no)
+                            }
+                            disabled={isGeneratingPdf === card.id}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            {isGeneratingPdf === card.id
+                              ? "Generating..."
+                              : "Generate PDF"}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

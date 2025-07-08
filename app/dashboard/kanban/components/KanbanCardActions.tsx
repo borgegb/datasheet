@@ -64,19 +64,56 @@ export default function KanbanCardActions({
   };
 
   const handleDownloadPdf = async () => {
-    if (!pdfStoragePath) return;
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading(`Getting PDF for "${partNo}"...`);
 
-    // TODO: Implement PDF download functionality
-    // This would need a signed URL endpoint or direct storage access
-    toast.info("Download functionality coming soon");
+    startTransition(async () => {
+      try {
+        // Call the same API - it will return the existing PDF
+        const res = await fetch("/api/generate-kanban-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanCardIds: [cardId] }),
+        });
+
+        const { url, error: apiError } = await res.json();
+
+        if (!res.ok) {
+          throw new Error(apiError || "Failed to get PDF");
+        }
+
+        if (apiError) {
+          throw new Error(apiError);
+        }
+
+        if (url) {
+          toast.success("Opening PDF", { id: toastId });
+          // Open PDF in new tab
+          window.open(url, "_blank");
+        } else {
+          throw new Error("PDF URL not found in response.");
+        }
+      } catch (error: any) {
+        console.error("Error getting kanban PDF:", error);
+        toast.error(`Failed to get PDF: ${error.message}`, {
+          id: toastId,
+        });
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+    });
   };
 
   return (
     <div className="flex items-center gap-2">
       {hasPdf ? (
-        <Button variant="outline" onClick={handleDownloadPdf}>
+        <Button
+          variant="outline"
+          onClick={handleDownloadPdf}
+          disabled={isGeneratingPdf}
+        >
           <Download className="mr-2 h-4 w-4" />
-          Download PDF
+          {isGeneratingPdf ? "Loading..." : "Download PDF"}
         </Button>
       ) : (
         <Button

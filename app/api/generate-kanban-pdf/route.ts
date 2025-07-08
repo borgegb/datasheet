@@ -86,6 +86,25 @@ export async function POST(req: Request) {
       );
     }
 
+    // Update kanban card records with PDF storage path
+    console.log(`Updating kanban cards with PDF path: ${filePath}`);
+    const { error: updateError } = await supabase
+      .from("kanban_cards")
+      .update({
+        pdf_storage_path: filePath,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", kanbanCardIds);
+
+    if (updateError) {
+      console.error("Error updating kanban cards with PDF path:", updateError);
+      // Don't fail the request, just log the error since PDF was generated successfully
+    } else {
+      console.log(
+        `Successfully updated ${kanbanCardIds.length} kanban cards with PDF path`
+      );
+    }
+
     // Return a signed URL
     const { data: signedUrlData, error: signedUrlError } =
       await supabase.storage

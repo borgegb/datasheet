@@ -42,6 +42,7 @@ export interface KanbanCard {
   lead_time: string;
   header_color: "red" | "orange" | "green";
   image_path?: string | null;
+  pdf_storage_path?: string | null; // Add PDF storage path field
   signedImageUrl?: string | null; // Add optional signed URL field
   created_at?: string;
   updated_at?: string;

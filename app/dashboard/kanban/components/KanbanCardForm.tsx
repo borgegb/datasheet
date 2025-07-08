@@ -65,7 +65,7 @@ export default function KanbanCardForm({
     initialData?.header_color || "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(
-    null
+    initialData?.image_path || null
   );
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
@@ -175,7 +175,13 @@ export default function KanbanCardForm({
     }
   }, [uploadProps.loading, uploadProps.successes, profile?.organization_id]);
 
-  // Note: Image handling simplified for now
+  // Extract filename from initial image path
+  useEffect(() => {
+    if (initialData?.image_path) {
+      const filename = initialData.image_path.split("/").pop();
+      setUploadedFileName(filename || null);
+    }
+  }, [initialData?.image_path]);
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     // Check if there are files added but not uploaded

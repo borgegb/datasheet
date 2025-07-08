@@ -86,8 +86,8 @@ export async function buildKanbanPdf(
     preferredSupplier: card.preferred_supplier || "",
     leadTime: card.lead_time || "",
     headerColor: card.header_color || "red",
-    // Use placeholder image for now - we can enhance this later to load actual images
-    productImage: DEFAULT_KANBAN_IMAGE_BASE64,
+    // TODO: Load actual images from storage paths - for now using placeholder
+    productImage: card.image_path ? DEFAULT_KANBAN_IMAGE_BASE64 : DEFAULT_KANBAN_IMAGE_BASE64,
   }));
 
   console.log(`Prepared ${inputs.length} inputs for PDF generation`);

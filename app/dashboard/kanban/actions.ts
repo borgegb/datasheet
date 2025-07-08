@@ -41,6 +41,7 @@ export interface KanbanCard {
   preferred_supplier: string;
   lead_time: string;
   header_color: "red" | "orange" | "green";
+  image_path?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -85,6 +86,7 @@ export async function saveKanbanCard(
     lead_time: formData.get("leadTime") as string,
     header_color: (formData.get("headerColor") as "red" | "orange" | "green") || "red",
     product_id: formData.get("productId") as string | null,
+    image_path: formData.get("imagePath") as string | null,
     organization_id: organizationId,
   };
 
@@ -245,13 +247,18 @@ export async function fetchKanbanCardById(cardId: string) {
   }
 }
 
-// --- Helper function to call PDF generation API ---
+// --- Helper function to call PDF generation API (CLIENT-SIDE ONLY) ---
 export async function generateKanbanCardsPdf(cardIds: string[]): Promise<{
   url?: string;
   error?: string;
 }> {
   try {
-    const response = await fetch("/api/generate-kanban-pdf", {
+    // Check if we're in a browser environment
+    if (typeof window === "undefined") {
+      throw new Error("This function can only be called from client-side");
+    }
+
+    const response = await fetch(`${window.location.origin}/api/generate-kanban-pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kanbanCardIds: cardIds }),

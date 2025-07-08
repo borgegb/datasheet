@@ -47,7 +47,6 @@
         "showHead": false,
         "head": ["Field", "Value"],
         "headWidthPercentages": [35, 65],
-        "content": "[[\"Part No:\",\"{partNumber}\"],[\"Description:\",\"{description}\"],[\"Location:\",\"{location}\"],[\"Order Qty:\",\"{orderQuantity}\"],[\"Preferred Supplier:\",\"{supplier}\"],[\"Lead Time:\",\"{leadTime}\"],[\"Signature:\",\"\"]]",
         "tableStyles": {
           "borderWidth": 1,
           "borderColor": "#000000"

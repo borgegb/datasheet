@@ -146,12 +146,15 @@ export async function buildKanbanPdf(
 
       return {
         productImage: productImageBase64, // Use loaded image or empty string
-        partNumber: card.part_no || "",
-        description: card.description || "",
-        location: card.location || "",
-        orderQuantity: card.order_quantity?.toString() || "",
-        supplier: card.preferred_supplier || "",
-        leadTime: card.lead_time || "",
+        productInfo: [
+          ["Part No:", card.part_no || ""],
+          ["Description:", card.description || ""],
+          ["Location:", card.location || ""],
+          ["Order Qty:", card.order_quantity?.toString() || ""],
+          ["Preferred Supplier:", card.preferred_supplier || ""],
+          ["Lead Time:", card.lead_time || ""],
+          ["Signature:", ""],
+        ],
       };
     })
   );

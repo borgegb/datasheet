@@ -52,6 +52,29 @@
           "borderWidth": 1,
           "borderColor": "#000000"
         },
+        "headStyles": {
+          "fontName": "Inter-Bold",
+          "fontSize": 9,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#000000",
+          "borderColor": "#000000",
+          "backgroundColor": "",
+          "borderWidth": {
+            "top": 0.5,
+            "right": 0.5,
+            "bottom": 0.5,
+            "left": 0.5
+          },
+          "padding": {
+            "top": 1.5,
+            "right": 2,
+            "bottom": 1.5,
+            "left": 2
+          }
+        },
         "bodyStyles": {
           "fontName": "Inter-Regular",
           "fontSize": 9,

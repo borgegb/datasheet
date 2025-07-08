@@ -31,7 +31,7 @@ import type { User } from "@supabase/supabase-js";
 import { Loader2, Save, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { createKanbanCard, updateKanbanCard } from "../actions";
+import { saveKanbanCard } from "../actions";
 import type { KanbanCard } from "../actions";
 import ColorSelector from "./ColorSelector";
 
@@ -65,7 +65,7 @@ export default function KanbanCardForm({
     initialData?.header_color || "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(
-    initialData?.image_path || null
+    null
   );
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
@@ -80,12 +80,12 @@ export default function KanbanCardForm({
   const [saveState, saveFormAction, isSavePending] = useActionState(
     async (prevState: any, formData: FormData) => {
       try {
-        let result;
+        // Add editingCardId to FormData if we're editing
         if (editingCardId) {
-          result = await updateKanbanCard(editingCardId, formData);
-        } else {
-          result = await createKanbanCard(formData);
+          formData.append("editingCardId", editingCardId);
         }
+
+        const result = await saveKanbanCard(null, formData);
 
         if (result.error) {
           toast.error(`Failed to save card: ${result.error.message}`);
@@ -175,13 +175,7 @@ export default function KanbanCardForm({
     }
   }, [uploadProps.loading, uploadProps.successes, profile?.organization_id]);
 
-  // Extract filename from initial image path
-  useEffect(() => {
-    if (initialData?.image_path) {
-      const filename = initialData.image_path.split("/").pop();
-      setUploadedFileName(filename || null);
-    }
-  }, [initialData?.image_path]);
+  // Note: Image handling simplified for now
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     // Check if there are files added but not uploaded

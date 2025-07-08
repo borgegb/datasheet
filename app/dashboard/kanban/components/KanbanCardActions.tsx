@@ -4,7 +4,7 @@ import React, { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { generateKanbanCardPdf } from "../actions";
+import { generateKanbanCardsPdf } from "../actions";
 
 interface KanbanCardActionsProps {
   cardId: string;
@@ -26,14 +26,14 @@ export default function KanbanCardActions({
     const toastId = toast.loading(`Generating PDF for "${partNo}"...`);
 
     startTransition(async () => {
-      const { data, error } = await generateKanbanCardPdf(cardId);
+      const { url, error } = await generateKanbanCardsPdf([cardId]);
 
       if (error) {
         toast.error(`Failed to generate PDF: ${error}`, { id: toastId });
-      } else if (data?.url) {
+      } else if (url) {
         toast.success("PDF generated successfully", { id: toastId });
         // Open PDF in new tab
-        window.open(data.url, "_blank");
+        window.open(url, "_blank");
         // Refresh the page to update the PDF status
         window.location.reload();
       }

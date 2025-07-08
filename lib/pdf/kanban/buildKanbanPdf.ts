@@ -1,36 +1,38 @@
 import { generate } from "@pdfme/generator";
-import { text, image, rectangle } from "@pdfme/schemas";
+import { text, image, line, rectangle } from "@pdfme/schemas";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font } from "@pdfme/common";
 
-// Default image for kanban cards when no image is provided
+// Default placeholder image
 const DEFAULT_KANBAN_IMAGE_BASE64 =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgNzBMMTMwIDEzMEg3MEwxMDAgNzBaIiBmaWxsPSIjQ0NEMkQzIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjc3NDhGIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K";
 
-interface BuildKanbanPdfInput {
-  partNumber: string;
-  description?: string;
+interface KanbanCard {
+  id: string;
+  part_no: string;
+  description: string;
   location: string;
-  orderQuantity?: number;
-  preferredSupplier?: string;
-  leadTime?: string;
-  headerColor: "red" | "orange" | "green";
-  productImageBase64?: string;
-  signatureImageBase64?: string;
+  order_quantity: number;
+  preferred_supplier: string;
+  lead_time: string;
+  header_color: "red" | "orange" | "green";
+  image_path?: string | null;
+  organization_id: string;
 }
 
 export async function buildKanbanPdf(
-  input: BuildKanbanPdfInput
+  kanbanCards: KanbanCard[]
 ): Promise<Uint8Array> {
-  // Load the appropriate template based on header color
-  const templateFileName = `template-${input.headerColor}.json`;
+  console.log(`Building PDF for ${kanbanCards.length} kanban cards`);
+
+  // Load template using dynamic import (following working pattern)
   const templateData = (
-    await import(`../../../pdf/template/kanban/${templateFileName}`)
+    await import("../../../pdf/template/kanban/kanban-card-template.json")
   ).default;
 
-  // Fix padding type for TypeScript
+  // Fix padding type
   const template: Template = {
     ...templateData,
     basePdf: {
@@ -51,55 +53,44 @@ export async function buildKanbanPdf(
   };
 
   try {
-    const poppinsBoldPath = path.join(fontDir, "Poppins-Bold.ttf");
     const interRegularPath = path.join(fontDir, "Inter-Regular.ttf");
     const interBoldPath = path.join(fontDir, "Inter-Bold.ttf");
 
-    const [poppinsBoldFontBytes, interRegularFontBytes, interBoldFontBytes] =
-      await Promise.all([
-        fs.readFile(poppinsBoldPath),
-        fs.readFile(interRegularPath),
-        fs.readFile(interBoldPath),
-      ]);
+    const [interRegularFontBytes, interBoldFontBytes] = await Promise.all([
+      fs.readFile(interRegularPath),
+      fs.readFile(interBoldPath),
+    ]);
 
     // Add our custom fonts to the font map
     fontMap = {
       ...fontMap,
-      "Poppins-Bold": { data: poppinsBoldFontBytes, subset: true },
       "Inter-Regular": {
         data: interRegularFontBytes,
         subset: true,
       },
       "Inter-Bold": { data: interBoldFontBytes, subset: true },
     };
-    console.log("Custom fonts loaded for kanban card");
+    console.log("Custom fonts loaded from:", fontDir);
+    console.log("Available fonts:", Object.keys(fontMap));
   } catch (loadError: any) {
-    console.error("Error loading fonts for kanban card PDFME:", loadError);
-    throw new Error(
-      `Failed to load kanban card PDF fonts: ${loadError.message}`
-    );
+    console.error("Error loading fonts for PDFME:", loadError);
+    throw new Error(`Failed to load PDF fonts: ${loadError.message}`);
   }
 
-  // Prepare inputs for the template
-  const inputs = [
-    {
-      partNumber: input.partNumber || "",
-      description: input.description || "",
-      location: input.location || "",
-      orderQuantity: input.orderQuantity ? input.orderQuantity.toString() : "",
-      supplier: input.preferredSupplier || "",
-      leadTime: input.leadTime || "",
-      productImage: input.productImageBase64 || DEFAULT_KANBAN_IMAGE_BASE64,
-    },
-  ];
+  // Prepare inputs for all kanban cards
+  const inputs = kanbanCards.map((card) => ({
+    partNumber: card.part_no || "",
+    description: card.description || "",
+    location: card.location || "",
+    orderQuantity: card.order_quantity?.toString() || "",
+    preferredSupplier: card.preferred_supplier || "",
+    leadTime: card.lead_time || "",
+    headerColor: card.header_color || "red",
+    // Use placeholder image for now - we can enhance this later to load actual images
+    productImage: DEFAULT_KANBAN_IMAGE_BASE64,
+  }));
 
-  console.log("Generating kanban card PDF with inputs:", {
-    partNumber: input.partNumber,
-    description: input.description?.substring(0, 50) + "...",
-    location: input.location,
-    headerColor: input.headerColor,
-    hasImage: !!input.productImageBase64,
-  });
+  console.log(`Prepared ${inputs.length} inputs for PDF generation`);
 
   // Generate PDF
   const pdfBytes = await generate({
@@ -109,9 +100,11 @@ export async function buildKanbanPdf(
     plugins: {
       text,
       image,
+      line,
       rectangle,
     },
   });
 
+  console.log(`PDF generated successfully, size: ${pdfBytes.length} bytes`);
   return pdfBytes;
 }

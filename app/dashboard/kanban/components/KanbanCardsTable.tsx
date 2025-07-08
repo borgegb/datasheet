@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { deleteKanbanCard, generateKanbanCardPdf } from "../actions";
+import { deleteKanbanCards, generateKanbanCardsPdf } from "../actions";
 import type { KanbanCard } from "../actions";
 
 interface KanbanCardsTableProps {
@@ -72,7 +72,7 @@ export default function KanbanCardsTable({
     const toastId = toast.loading(`Deleting card "${partNo}"...`);
 
     startTransition(async () => {
-      const { error } = await deleteKanbanCard(cardId);
+      const { error } = await deleteKanbanCards([cardId]);
 
       if (error) {
         toast.error(`Failed to delete card: ${error.message}`, { id: toastId });
@@ -90,22 +90,14 @@ export default function KanbanCardsTable({
     const toastId = toast.loading(`Generating PDF for "${partNo}"...`);
 
     startTransition(async () => {
-      const { data, error } = await generateKanbanCardPdf(cardId);
+      const { url, error } = await generateKanbanCardsPdf([cardId]);
 
       if (error) {
         toast.error(`Failed to generate PDF: ${error}`, { id: toastId });
-      } else if (data?.url) {
+      } else if (url) {
         toast.success("PDF generated successfully", { id: toastId });
-        // Update the card in state to reflect that PDF is now available
-        setCards((prev) =>
-          prev.map((card) =>
-            card.id === cardId
-              ? { ...card, pdf_storage_path: "generated" }
-              : card
-          )
-        );
         // Open PDF in new tab
-        window.open(data.url, "_blank");
+        window.open(url, "_blank");
       }
 
       setIsGeneratingPdf(null);
@@ -210,11 +202,7 @@ export default function KanbanCardsTable({
                     {getHeaderColorBadge(card.header_color)}
                   </TableCell>
                   <TableCell>
-                    {card.pdf_storage_path ? (
-                      <Badge variant="secondary">Available</Badge>
-                    ) : (
-                      <Badge variant="outline">Not Generated</Badge>
-                    )}
+                    <Badge variant="outline">Generate</Badge>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -238,20 +226,17 @@ export default function KanbanCardsTable({
                             Edit
                           </Link>
                         </DropdownMenuItem>
-                        {card.pdf_storage_path ? (
-                          <DropdownMenuItem>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => handleGeneratePdf(card.id, card.part_no)}
-                            disabled={isGeneratingPdf === card.id}
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
-                            {isGeneratingPdf === card.id ? "Generating..." : "Generate PDF"}
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleGeneratePdf(card.id, card.part_no)
+                          }
+                          disabled={isGeneratingPdf === card.id}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          {isGeneratingPdf === card.id
+                            ? "Generating..."
+                            : "Generate PDF"}
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

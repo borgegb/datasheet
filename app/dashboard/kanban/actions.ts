@@ -42,6 +42,7 @@ export interface KanbanCard {
   lead_time: string;
   header_color: "red" | "orange" | "green";
   image_path?: string | null;
+  signedImageUrl?: string | null; // Add optional signed URL field
   created_at?: string;
   updated_at?: string;
 }
@@ -164,7 +165,7 @@ export async function fetchKanbanCardsForOrg() {
     return { data: [], error: { message: "User organization not found." } };
   }
 
-  const { data, error } = await supabase
+  const { data: kanbanCardsData, error } = await supabase
     .from("kanban_cards")
     .select("*")
     .eq("organization_id", organizationId)
@@ -172,9 +173,37 @@ export async function fetchKanbanCardsForOrg() {
 
   if (error) {
     console.error("Server Action Error (fetchKanbanCardsForOrg):", error);
+    return { data: [], error };
   }
 
-  return { data: data || [], error };
+  // --- Generate Signed URLs ---
+  const processedData = await Promise.all(
+    (kanbanCardsData || []).map(async (card) => {
+      let signedUrl = null;
+      if (card.image_path) {
+        const { data: urlData, error: urlError } = await supabase.storage
+          .from("datasheet-assets") // Ensure this is your bucket name
+          .createSignedUrl(card.image_path, 60 * 5); // 5 minutes expiry
+
+        if (urlError) {
+          console.error(
+            `Error generating signed URL for ${card.image_path}:`,
+            urlError
+          );
+          // Log error and return null
+        } else {
+          signedUrl = urlData.signedUrl;
+        }
+      }
+      return {
+        ...card,
+        signedImageUrl: signedUrl, // Add the signed URL to the object
+      };
+    })
+  );
+  // --- End Generate Signed URLs ---
+
+  return { data: processedData, error: null };
 }
 
 // --- Action to Delete Kanban Cards ---
@@ -220,7 +249,7 @@ export async function fetchKanbanCardById(cardId: string) {
       return { data: null, error: { message: "User not authenticated" } };
     }
 
-    const { data, error } = await supabase
+    const { data: cardData, error } = await supabase
       .from("kanban_cards")
       .select("*")
       .eq("id", cardId)
@@ -237,8 +266,32 @@ export async function fetchKanbanCardById(cardId: string) {
       };
     }
 
+    // --- Generate Signed URL ---
+    let signedUrl = null;
+    if (cardData?.image_path) {
+      const { data: urlData, error: urlError } = await supabase.storage
+        .from("datasheet-assets") // Ensure this is your bucket name
+        .createSignedUrl(cardData.image_path, 60 * 5); // 5 minutes expiry
+
+      if (urlError) {
+        console.error(
+          `Error generating signed URL for ${cardData.image_path}:`,
+          urlError
+        );
+        // Log error and return null
+      } else {
+        signedUrl = urlData.signedUrl;
+      }
+    }
+
+    const processedCard = {
+      ...cardData,
+      signedImageUrl: signedUrl, // Add the signed URL to the object
+    };
+    // --- End Generate Signed URL ---
+
     console.log(`Fetched kanban card ${cardId} successfully.`);
-    return { data, error: null };
+    return { data: processedCard, error: null };
   } catch (e: any) {
     console.error("Unexpected error fetching kanban card:", e);
     return {

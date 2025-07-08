@@ -175,7 +175,7 @@ export default async function KanbanCardViewPage({
 
         {/* Image and PDF Status */}
         <div className="space-y-6">
-          {card.image_path && (
+          {card.signedImageUrl && (
             <Card>
               <CardHeader>
                 <CardTitle>Product Image</CardTitle>
@@ -183,11 +183,12 @@ export default async function KanbanCardViewPage({
               <CardContent>
                 <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
                   <Image
-                    src={`/api/storage/${card.image_path}`} // You'll need to create this endpoint
+                    src={card.signedImageUrl}
                     alt={card.part_no}
                     fill
                     className="object-cover"
                     sizes="(max-width: 768px) 100vw, 33vw"
+                    unoptimized
                   />
                 </div>
               </CardContent>

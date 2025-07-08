@@ -79,16 +79,82 @@ export async function buildKanbanPdf(
   }
 
   // Prepare inputs for all kanban cards (matching template field names)
-  const inputs = kanbanCards.map((card) => ({
-    partNumber: card.part_no || "",
-    description: card.description || "",
-    location: card.location || "",
-    orderQuantity: card.order_quantity?.toString() || "",
-    supplier: card.preferred_supplier || "", // template expects "supplier", not "preferredSupplier"
-    leadTime: card.lead_time || "",
-    // TODO: Load actual images from storage paths - for now using placeholder
-    productImage: card.image_path ? DEFAULT_KANBAN_IMAGE_BASE64 : DEFAULT_KANBAN_IMAGE_BASE64,
-  }));
+  const inputs = await Promise.all(
+    kanbanCards.map(async (card) => {
+      let productImageBase64 = ""; // Empty string instead of placeholder
+
+      // Load actual image from Supabase storage if available
+      if (card.image_path) {
+        try {
+          console.log(`Loading image for card ${card.id}: ${card.image_path}`);
+
+          // Create signed URL for the image
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabaseUrl = process.env.SUPABASE_URL!;
+          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+          const { data: urlData, error: urlError } = await supabase.storage
+            .from("datasheet-assets")
+            .createSignedUrl(card.image_path, 60 * 5); // 5 minutes
+
+          if (urlError) {
+            console.error(
+              `Error creating signed URL for ${card.image_path}:`,
+              urlError
+            );
+          } else if (urlData?.signedUrl) {
+            // Fetch the image data
+            const response = await fetch(urlData.signedUrl);
+            if (response.ok) {
+              const imageBuffer = await response.arrayBuffer();
+              const uint8Array = new Uint8Array(imageBuffer);
+
+              // Detect image format
+              const isPng =
+                uint8Array.length >= 8 &&
+                uint8Array[0] === 0x89 &&
+                uint8Array[1] === 0x50 &&
+                uint8Array[2] === 0x4e &&
+                uint8Array[3] === 0x47;
+
+              const isJpeg =
+                uint8Array.length >= 2 &&
+                uint8Array[0] === 0xff &&
+                uint8Array[1] === 0xd8;
+
+              if (isPng || isJpeg) {
+                const mimeType = isPng ? "image/png" : "image/jpeg";
+                const base64Data = Buffer.from(imageBuffer).toString("base64");
+                productImageBase64 = `data:${mimeType};base64,${base64Data}`;
+                console.log(
+                  `Successfully loaded ${mimeType} image for card ${card.id}`
+                );
+              } else {
+                console.warn(`Unsupported image format for ${card.image_path}`);
+              }
+            } else {
+              console.error(
+                `Failed to fetch image from signed URL: ${response.status}`
+              );
+            }
+          }
+        } catch (error) {
+          console.error(`Error loading image for card ${card.id}:`, error);
+        }
+      }
+
+      return {
+        partNumber: card.part_no || "",
+        description: card.description || "",
+        location: card.location || "",
+        orderQuantity: card.order_quantity?.toString() || "",
+        supplier: card.preferred_supplier || "", // template expects "supplier", not "preferredSupplier"
+        leadTime: card.lead_time || "",
+        productImage: productImageBase64, // Use loaded image or empty string
+      };
+    })
+  );
 
   console.log(`Prepared ${inputs.length} inputs for PDF generation`);
 

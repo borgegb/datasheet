@@ -84,7 +84,8 @@ export async function saveKanbanCard(
     order_quantity: parseInt(formData.get("orderQuantity") as string) || 0,
     preferred_supplier: formData.get("preferredSupplier") as string,
     lead_time: formData.get("leadTime") as string,
-    header_color: (formData.get("headerColor") as "red" | "orange" | "green") || "red",
+    header_color:
+      (formData.get("headerColor") as "red" | "orange" | "green") || "red",
     product_id: formData.get("productId") as string | null,
     image_path: formData.get("imagePath") as string | null,
     organization_id: organizationId,
@@ -244,35 +245,5 @@ export async function fetchKanbanCardById(cardId: string) {
       data: null,
       error: { message: `Unexpected error: ${e.message || e}` },
     };
-  }
-}
-
-// --- Helper function to call PDF generation API (CLIENT-SIDE ONLY) ---
-export async function generateKanbanCardsPdf(cardIds: string[]): Promise<{
-  url?: string;
-  error?: string;
-}> {
-  try {
-    // Check if we're in a browser environment
-    if (typeof window === "undefined") {
-      throw new Error("This function can only be called from client-side");
-    }
-
-    const response = await fetch(`${window.location.origin}/api/generate-kanban-pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kanbanCardIds: cardIds }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || "Failed to generate PDF");
-    }
-
-    return { url: result.url };
-  } catch (error: any) {
-    console.error("Error generating kanban cards PDF:", error);
-    return { error: error.message };
   }
 }

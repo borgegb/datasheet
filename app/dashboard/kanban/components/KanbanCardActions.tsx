@@ -4,7 +4,6 @@ import React, { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { generateKanbanCardsPdf } from "../actions";
 
 interface KanbanCardActionsProps {
   cardId: string;
@@ -26,19 +25,41 @@ export default function KanbanCardActions({
     const toastId = toast.loading(`Generating PDF for "${partNo}"...`);
 
     startTransition(async () => {
-      const { url, error } = await generateKanbanCardsPdf([cardId]);
+      try {
+        // Call API directly following datasheet pattern
+        const res = await fetch("/api/generate-kanban-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanCardIds: [cardId] }),
+        });
 
-      if (error) {
-        toast.error(`Failed to generate PDF: ${error}`, { id: toastId });
-      } else if (url) {
-        toast.success("PDF generated successfully", { id: toastId });
-        // Open PDF in new tab
-        window.open(url, "_blank");
-        // Refresh the page to update the PDF status
-        window.location.reload();
+        const { url, error: apiError } = await res.json();
+
+        if (!res.ok) {
+          throw new Error(apiError || "Failed to generate PDF");
+        }
+
+        if (apiError) {
+          throw new Error(apiError);
+        }
+
+        if (url) {
+          toast.success("PDF generated successfully", { id: toastId });
+          // Open PDF in new tab
+          window.open(url, "_blank");
+          // Refresh the page to update the PDF status
+          window.location.reload();
+        } else {
+          throw new Error("PDF URL not found in response.");
+        }
+      } catch (error: any) {
+        console.error("Error generating kanban PDF:", error);
+        toast.error(`Failed to generate PDF: ${error.message}`, {
+          id: toastId,
+        });
+      } finally {
+        setIsGeneratingPdf(false);
       }
-
-      setIsGeneratingPdf(false);
     });
   };
 

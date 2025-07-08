@@ -1,0 +1,42 @@
+Project Brief: Kanban Card Generation Template
+
+ 
+
+Objective:
+Develop a user-friendly template that allows quick and consistent creation of A6-sized Kanban cards, based on the design provided in the attached sample image.
+
+Design Style:
+
+Layout should match the provided Kanban card sample.
+Clean, grid-based layout with consistent spacing.
+Font: Aptos New (or closest equivalent for web compatibility).
+Header colour should be customizable (e.g., red, orange, green).
+Header text: Always “KANBAN” in bold, centred.
+Card Fields:
+Each card should include the following fields:
+
+Part No: (e.g., SP100041)
+Description: (e.g., 1/4" BSP M x 1/8" BSP M Adaptor)
+Location: (e.g., UA11-04-11)
+Order Qty: (e.g., 200)
+Preferred Supplier: (e.g., Beijing Dantec)
+Lead Time: (e.g., 3 Months)
+Signature: (blank but option to include signature as you would when signing a pdf)
+Image Integration:
+
+Ability to upload or insert a product image at the top section (below the header, above the grid).
+Auto-scale or centre image proportionally to fit the designated image area.
+Export Format:
+
+Printable PDF (A6 size – 148mm x 105mm).
+High resolution suitable for print.
+Possible Features:
+
+Dropdown colour selector for header (Red/Orange/Green).
+Batch generation option from spreadsheet data (CSV/Excel).
+Save as reusable template.
+Deliverables:
+
+Fully functional template or tool.
+User guide or instructions for adding data/images and exporting.
+ 

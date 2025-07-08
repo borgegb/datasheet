@@ -1,5 +1,5 @@
 import { generate } from "@pdfme/generator";
-import { text, image, line, rectangle } from "@pdfme/schemas";
+import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDefaultFont } from "@pdfme/common";
@@ -145,13 +145,13 @@ export async function buildKanbanPdf(
       }
 
       return {
+        productImage: productImageBase64, // Use loaded image or empty string
         partNumber: card.part_no || "",
         description: card.description || "",
         location: card.location || "",
         orderQuantity: card.order_quantity?.toString() || "",
-        supplier: card.preferred_supplier || "", // template expects "supplier", not "preferredSupplier"
+        supplier: card.preferred_supplier || "",
         leadTime: card.lead_time || "",
-        productImage: productImageBase64, // Use loaded image or empty string
       };
     })
   );
@@ -168,6 +168,7 @@ export async function buildKanbanPdf(
       image,
       line,
       rectangle,
+      table,
     },
   });
 

@@ -1,184 +1,27 @@
 {
   "basePdf": {
-    "width": 105,  
-    "height": 148,  
+    "width": 105,
+    "height": 148,
     "padding": [0, 0, 0, 0],
     "staticSchema": [
       {
         "type": "rectangle",
         "name": "headerBackground",
-        "position": { "x": 0, "y": 0 },
-        "width": 148,
-        "height": 25,
+        "position": { "x": 0.13, "y": 0 },
+        "width": 104.77,
+        "height": 16.14,
         "color": "#16A34A"
       },
       {
         "type": "text",
         "name": "kanbanTitle",
         "content": "KANBAN",
-        "position": { "x": 0, "y": 8 },
-        "width": 148,
-        "height": 10,
+        "position": { "x": 0.13, "y": 3.24 },
+        "width": 104.77,
+        "height": 10.05,
         "fontName": "Inter-Bold",
         "fontSize": 20,
         "fontColor": "#ffffff",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "rectangle",
-        "name": "tableBorder",
-        "position": { "x": 3, "y": 55 },
-        "width": 105,
-        "height": 47,
-        "color": "",
-        "borderColor": "#000000",
-        "borderWidth": 1
-      },
-      {
-        "type": "line",
-        "name": "partNoSeparator",
-        "position": { "x": 3, "y": 62 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "descSeparator",
-        "position": { "x": 3, "y": 75 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "locationSeparator",
-        "position": { "x": 3, "y": 82 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "qtySeparator",
-        "position": { "x": 3, "y": 89 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "supplierSeparator",
-        "position": { "x": 3, "y": 96 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "leadTimeSeparator",
-        "position": { "x": 3, "y": 103 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "verticalSeparator",
-        "position": { "x": 40, "y": 55 },
-        "width": 0,
-        "height": 47,
-        "color": "#000000"
-      },
-      {
-        "type": "text",
-        "name": "partNoLabel",
-        "content": "Part No:",
-        "position": { "x": 5, "y": 56 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "descriptionLabel",
-        "content": "Description:",
-        "position": { "x": 5, "y": 64 },
-        "width": 33,
-        "height": 10,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "locationLabel",
-        "content": "Location:",
-        "position": { "x": 5, "y": 77 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "orderQtyLabel",
-        "content": "Order Qty:",
-        "position": { "x": 5, "y": 84 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "supplierLabel",
-        "content": "1st Supplier:",
-        "position": { "x": 5, "y": 91 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "leadTimeLabel",
-        "content": "Lead Time:",
-        "position": { "x": 5, "y": 98 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "signatureLabel",
-        "content": "Signature",
-        "position": { "x": 110, "y": 95 },
-        "width": 35,
-        "height": 8,
-        "fontName": "Inter-Regular",
-        "fontSize": 8,
-        "fontColor": "#000000",
         "alignment": "center",
         "verticalAlignment": "middle"
       }
@@ -189,83 +32,64 @@
       {
         "type": "image",
         "name": "productImage",
-        "position": { "x": 40, "y": 27 },
-        "width": 68,
-        "height": 26,
-        "fit": "contain"
+        "position": { "x": 0, "y": 16.15 },
+        "width": 105,
+        "height": 36.78,
+        "fit": "contain",
+        "content": ""
       },
       {
-        "type": "text",
-        "name": "partNumber",
-        "position": { "x": 42, "y": 56 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "description",
-        "position": { "x": 42, "y": 64 },
-        "width": 64,
-        "height": 10,
-        "fontName": "Inter-Regular",
-        "fontSize": 9,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle",
-        "lineHeight": 1.1
-      },
-      {
-        "type": "text",
-        "name": "location",
-        "position": { "x": 42, "y": 77 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "orderQuantity",
-        "position": { "x": 42, "y": 84 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "supplier",
-        "position": { "x": 42, "y": 91 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "leadTime",
-        "position": { "x": 42, "y": 98 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
+        "type": "table",
+        "name": "productInfo",
+        "position": { "x": 2.5, "y": 55 },
+        "width": 100,
+        "height": 60,
+        "showHead": false,
+        "content": [
+          ["Part No:", "{partNumber}"],
+          ["Description:", "{description}"],
+          ["Location:", "{location}"],
+          ["Order Qty:", "{orderQuantity}"],
+          ["Preferred Supplier:", "{supplier}"],
+          ["Lead Time:", "{leadTime}"],
+          ["Signature:", ""]
+        ],
+        "tableStyles": {
+          "borderWidth": 1,
+          "borderColor": "#000000"
+        },
+        "bodyStyles": {
+          "fontName": "Inter-Regular",
+          "fontSize": 9,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "fontColor": "#000000",
+          "borderColor": "#000000",
+          "backgroundColor": "",
+          "borderWidth": {
+            "top": 0.5,
+            "right": 0.5,
+            "bottom": 0.5,
+            "left": 0.5
+          },
+          "padding": {
+            "top": 1.5,
+            "right": 2,
+            "bottom": 1.5,
+            "left": 2
+          }
+        },
+        "columnStyles": {
+          "0": {
+            "alignment": "left",
+            "fontName": "Inter-Bold",
+            "width": 35
+          },
+          "1": {
+            "alignment": "center",
+            "width": 65
+          }
+        }
       }
     ]
   ]

@@ -27,9 +27,10 @@ export async function buildKanbanPdf(
 ): Promise<Uint8Array> {
   console.log(`Building PDF for ${kanbanCards.length} kanban cards`);
 
-  // Load template using dynamic import (following working pattern)
+  // Load template based on header color (use first card's color, default to red)
+  const headerColor = kanbanCards[0]?.header_color || "red";
   const templateData = (
-    await import("../../../pdf/template/kanban/kanban-card-template.json")
+    await import(`../../../pdf/template/kanban/template-${headerColor}.json`)
   ).default;
 
   // Fix padding type
@@ -77,15 +78,14 @@ export async function buildKanbanPdf(
     throw new Error(`Failed to load PDF fonts: ${loadError.message}`);
   }
 
-  // Prepare inputs for all kanban cards
+  // Prepare inputs for all kanban cards (matching template field names)
   const inputs = kanbanCards.map((card) => ({
     partNumber: card.part_no || "",
     description: card.description || "",
     location: card.location || "",
     orderQuantity: card.order_quantity?.toString() || "",
-    preferredSupplier: card.preferred_supplier || "",
+    supplier: card.preferred_supplier || "", // template expects "supplier", not "preferredSupplier"
     leadTime: card.lead_time || "",
-    headerColor: card.header_color || "red",
     // TODO: Load actual images from storage paths - for now using placeholder
     productImage: card.image_path ? DEFAULT_KANBAN_IMAGE_BASE64 : DEFAULT_KANBAN_IMAGE_BASE64,
   }));

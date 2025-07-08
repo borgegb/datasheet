@@ -43,7 +43,6 @@
         "name": "productInfo",
         "position": { "x": 2.5, "y": 55 },
         "width": 100,
-        "height": 60,
         "showHead": false,
         "head": ["Field", "Value"],
         "headWidthPercentages": [35, 65],

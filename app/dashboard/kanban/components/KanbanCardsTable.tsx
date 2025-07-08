@@ -39,10 +39,11 @@ import {
   Eye,
   Search,
   Upload,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { deleteKanbanCard } from "../actions";
+import { deleteKanbanCard, generateKanbanCardPdf } from "../actions";
 import type { KanbanCard } from "../actions";
 
 interface KanbanCardsTableProps {
@@ -55,6 +56,7 @@ export default function KanbanCardsTable({
   const [cards, setCards] = useState<KanbanCard[]>(initialData);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<string | null>(null);
 
   // Filter cards based on search term
   const filteredCards = cards.filter(
@@ -80,6 +82,33 @@ export default function KanbanCardsTable({
       }
 
       setIsDeleting(null);
+    });
+  };
+
+  const handleGeneratePdf = async (cardId: string, partNo: string) => {
+    setIsGeneratingPdf(cardId);
+    const toastId = toast.loading(`Generating PDF for "${partNo}"...`);
+
+    startTransition(async () => {
+      const { data, error } = await generateKanbanCardPdf(cardId);
+
+      if (error) {
+        toast.error(`Failed to generate PDF: ${error}`, { id: toastId });
+      } else if (data?.url) {
+        toast.success("PDF generated successfully", { id: toastId });
+        // Update the card in state to reflect that PDF is now available
+        setCards((prev) =>
+          prev.map((card) =>
+            card.id === cardId
+              ? { ...card, pdf_storage_path: "generated" }
+              : card
+          )
+        );
+        // Open PDF in new tab
+        window.open(data.url, "_blank");
+      }
+
+      setIsGeneratingPdf(null);
     });
   };
 
@@ -209,10 +238,18 @@ export default function KanbanCardsTable({
                             Edit
                           </Link>
                         </DropdownMenuItem>
-                        {card.pdf_storage_path && (
+                        {card.pdf_storage_path ? (
                           <DropdownMenuItem>
                             <Download className="mr-2 h-4 w-4" />
                             Download PDF
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => handleGeneratePdf(card.id, card.part_no)}
+                            disabled={isGeneratingPdf === card.id}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            {isGeneratingPdf === card.id ? "Generating..." : "Generate PDF"}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />

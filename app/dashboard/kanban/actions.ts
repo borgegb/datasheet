@@ -361,3 +361,36 @@ export async function batchGenerateKanban(rows: any[]) {
     };
   }
 }
+
+// --- Generate Kanban Card PDF ---
+export async function generateKanbanCardPdf(cardId: string): Promise<{
+  data?: { url: string };
+  error?: string;
+}> {
+  try {
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000';
+      
+    const response = await fetch(`${baseUrl}/api/generate-kanban-pdf`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ kanbanCardId: cardId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { error: errorData.error || "Failed to generate PDF" };
+    }
+
+    const result = await response.json();
+    revalidatePath("/dashboard/kanban");
+    revalidatePath(`/dashboard/kanban/${cardId}`);
+    return { data: { url: result.url } };
+  } catch (error: any) {
+    console.error("Error generating kanban card PDF:", error);
+    return { error: error.message || "Failed to generate PDF" };
+  }
+}

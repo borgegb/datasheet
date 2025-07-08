@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Download, ArrowLeft } from "lucide-react";
+import { Edit, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { fetchKanbanCardById } from "../actions";
+import KanbanCardActions from "../components/KanbanCardActions";
 
 interface KanbanCardViewPageProps {
   params: {
@@ -66,12 +67,12 @@ export default async function KanbanCardViewPage({
         </div>
 
         <div className="flex items-center gap-2">
-          {card.pdf_storage_path && (
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
-          )}
+          <KanbanCardActions
+            cardId={card.id}
+            partNo={card.part_no}
+            hasPdf={!!card.pdf_storage_path}
+            pdfStoragePath={card.pdf_storage_path}
+          />
           <Button asChild>
             <Link href={`/dashboard/kanban/${card.id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
@@ -209,9 +210,14 @@ export default async function KanbanCardViewPage({
                 </div>
 
                 {!card.pdf_storage_path && (
-                  <Button variant="outline" size="sm" className="w-full">
-                    Generate PDF
-                  </Button>
+                  <div className="w-full">
+                    <KanbanCardActions
+                      cardId={card.id}
+                      partNo={card.part_no}
+                      hasPdf={false}
+                      pdfStoragePath={null}
+                    />
+                  </div>
                 )}
               </div>
             </CardContent>

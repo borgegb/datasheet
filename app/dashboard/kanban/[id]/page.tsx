@@ -1,13 +1,28 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  MoreHorizontal,
+  Download,
+  FileText,
+  Trash2,
+  Calendar,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import Image from "next/image";
 import { fetchKanbanCardById } from "../actions";
+import KanbanCardPreview from "../components/KanbanCardPreview";
 import KanbanCardActions from "../components/KanbanCardActions";
+import DeleteKanbanCardDialog from "../components/DeleteKanbanCardDialog";
 
 interface KanbanCardViewPageProps {
   params: {
@@ -31,222 +46,115 @@ export default async function KanbanCardViewPage({
     notFound();
   }
 
-  const getHeaderColorBadge = (color: string) => {
-    const colorMap = {
-      red: "bg-red-500 text-white",
-      orange: "bg-orange-500 text-white",
-      green: "bg-green-500 text-white",
-    };
-
-    return (
-      <Badge
-        className={
-          colorMap[color as keyof typeof colorMap] || "bg-gray-500 text-white"
-        }
-      >
-        {color.toUpperCase()}
-      </Badge>
-    );
-  };
-
   return (
-    <div className="flex flex-col flex-1 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/kanban">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Cards
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold">{card.part_no}</h1>
-            <p className="text-muted-foreground">Kanban Card Details</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Clean Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Back Button */}
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/kanban">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Cards
+              </Link>
+            </Button>
 
-        <div className="flex items-center gap-2">
-          <KanbanCardActions
-            cardId={card.id}
-            partNo={card.part_no}
-            hasPdf={!!card.pdf_storage_path}
-            pdfStoragePath={card.pdf_storage_path}
-          />
-          <Button asChild>
-            <Link href={`/dashboard/kanban/${card.id}/edit`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Card
-            </Link>
-          </Button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              {/* PDF Action - Primary */}
+              <KanbanCardActions
+                cardId={card.id}
+                partNo={card.part_no}
+                hasPdf={!!card.pdf_storage_path}
+                pdfStoragePath={card.pdf_storage_path}
+              />
+
+              {/* Edit Button */}
+              <Button variant="outline" asChild>
+                <Link href={`/dashboard/kanban/${card.id}/edit`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </Link>
+              </Button>
+
+              {/* More Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/dashboard/kanban/${card.id}/edit`}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Card
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DeleteKanbanCardDialog
+                    cardId={card.id}
+                    partNo={card.part_no}
+                  >
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Card
+                    </DropdownMenuItem>
+                  </DeleteKanbanCardDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Card Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Information */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Part Number
-                  </label>
-                  <p className="text-lg font-semibold">{card.part_no}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Location
-                  </label>
-                  <p className="text-lg font-semibold">{card.location}</p>
-                </div>
-              </div>
-
-              {card.description && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Description
-                  </label>
-                  <p className="mt-1">{card.description}</p>
-                </div>
+      {/* Hero Section - Card Preview */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col items-center space-y-6">
+          {/* Card Title & Status */}
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {card.part_no}
+            </h1>
+            <div className="flex items-center justify-center gap-2">
+              {card.pdf_storage_path ? (
+                <Badge
+                  variant="secondary"
+                  className="bg-green-100 text-green-800"
+                >
+                  <FileText className="mr-1 h-3 w-3" />
+                  PDF Ready
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="bg-orange-100 text-orange-800 border-orange-300"
+                >
+                  <Calendar className="mr-1 h-3 w-3" />
+                  Generate PDF
+                </Badge>
               )}
+            </div>
+          </div>
 
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Header Color
-                </label>
-                <div className="mt-1">
-                  {getHeaderColorBadge(card.header_color)}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Card Preview - Hero Element */}
+          <div className="flex justify-center w-full">
+            <div className="transform transition-transform hover:scale-105">
+              <KanbanCardPreview card={card} />
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Order Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Order Quantity
-                  </label>
-                  <p className="text-lg font-semibold">
-                    {card.order_quantity || (
-                      <span className="text-muted-foreground">
-                        Not specified
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Preferred Supplier
-                  </label>
-                  <p className="text-lg font-semibold">
-                    {card.preferred_supplier || (
-                      <span className="text-muted-foreground">
-                        Not specified
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Lead Time
-                  </label>
-                  <p className="text-lg font-semibold">
-                    {card.lead_time || (
-                      <span className="text-muted-foreground">
-                        Not specified
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Image and PDF Status */}
-        <div className="space-y-6">
-          {card.signedImageUrl && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Image</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-                  <Image
-                    src={card.signedImageUrl}
-                    alt={card.part_no}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    unoptimized
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>PDF Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">PDF Generated</span>
-                  {card.pdf_storage_path ? (
-                    <Badge variant="secondary">Available</Badge>
-                  ) : (
-                    <Badge variant="outline">Not Generated</Badge>
-                  )}
-                </div>
-
-                {!card.pdf_storage_path && (
-                  <div className="w-full">
-                    <KanbanCardActions
-                      cardId={card.id}
-                      partNo={card.part_no}
-                      hasPdf={false}
-                      pdfStoragePath={null}
-                    />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Metadata</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Created
-                </label>
-                <p className="text-sm">
-                  {new Date(card.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Last Updated
-                </label>
-                <p className="text-sm">
-                  {new Date(card.updated_at).toLocaleDateString()}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Minimal Metadata */}
+          <div className="text-center text-sm text-gray-500 space-y-1">
+            <p>Created {new Date(card.created_at!).toLocaleDateString()}</p>
+            {card.updated_at !== card.created_at && (
+              <p>Updated {new Date(card.updated_at!).toLocaleDateString()}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

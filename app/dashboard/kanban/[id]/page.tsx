@@ -2,28 +2,14 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Edit,
-  MoreHorizontal,
-  Download,
-  FileText,
-  Trash2,
-  Calendar,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Edit, FileText, Calendar } from "lucide-react";
 import Link from "next/link";
 import { fetchKanbanCardById } from "../actions";
 import KanbanCardPreview from "../components/KanbanCardPreview";
 import KanbanCardActions from "../components/KanbanCardActions";
-import DeleteKanbanCardDialog from "../components/DeleteKanbanCardDialog";
+import KanbanCardViewActions from "../components/KanbanCardViewActions";
 
+// Client component for dropdown actions
 interface KanbanCardViewPageProps {
   params: {
     id: string;
@@ -79,34 +65,7 @@ export default async function KanbanCardViewPage({
               </Button>
 
               {/* More Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/dashboard/kanban/${card.id}/edit`}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Card
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DeleteKanbanCardDialog
-                    cardId={card.id}
-                    partNo={card.part_no}
-                  >
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Card
-                    </DropdownMenuItem>
-                  </DeleteKanbanCardDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <KanbanCardViewActions cardId={card.id} partNo={card.part_no} />
             </div>
           </div>
         </div>

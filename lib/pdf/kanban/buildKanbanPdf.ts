@@ -66,6 +66,11 @@ export async function buildKanbanPdf(
     const defaultFontsObj = getDefaultFont();
     defaultFontsObj.Roboto.fallback = false;
 
+    // Reflect the fallback setting in the initial fontMap as well
+    if (fontMap.Roboto) {
+      fontMap.Roboto.fallback = false;
+    }
+
     // Add our custom fonts to the font map
     fontMap = {
       ...fontMap,

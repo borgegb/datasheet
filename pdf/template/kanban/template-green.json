@@ -39,6 +39,7 @@
           },
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
+        "columnStyles": {},
         "required": false,
         "readOnly": true
       },
@@ -71,6 +72,7 @@
           },
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
+        "columnStyles": {},
         "required": false,
         "readOnly": false
       }

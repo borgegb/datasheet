@@ -10,100 +10,122 @@ interface KanbanCardPreviewProps {
 }
 
 export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
-  // A6 dimensions: 148mm x 105mm (aspect ratio: 1.41)
-  // Increased size to show all content clearly
-  const maxCardWidth = 500; // pixels (increased from 400)
-
   const getHeaderColor = (color: string) => {
     const colorMap = {
-      red: "#DC2626",
-      orange: "#EA580C",
-      green: "#16A34A",
+      red: "bg-red-600",
+      orange: "bg-orange-600",
+      green: "bg-green-600",
     };
-    return colorMap[color as keyof typeof colorMap] || "#DC2626";
+    return colorMap[color as keyof typeof colorMap] || "bg-red-600";
   };
 
-  const tableData = [
-    ["Part No:", card.part_no],
-    ["Description:", card.description || ""],
-    ["Location:", card.location],
-    ["Order Qty:", card.order_quantity?.toString() || ""],
-    ["Preferred Supplier:", card.preferred_supplier || ""],
-    ["Lead Time:", card.lead_time || ""],
-    ["Signature:", ""],
-  ];
-
   return (
-    <Card
-      className="relative bg-white shadow-lg border border-gray-200 overflow-hidden w-full sm:w-96 md:w-[450px] lg:w-[500px]"
-      style={{
-        maxWidth: maxCardWidth,
-        aspectRatio: "148/105", // A6 aspect ratio
-        minHeight: "400px", // Ensure enough height for all content
-      }}
-    >
-      {/* Header Section */}
+    <div className="max-w-md mx-auto bg-white shadow-lg border border-gray-200 rounded-lg overflow-hidden">
+      {/* Header */}
       <div
-        className="w-full flex items-center justify-center text-white font-bold text-xl"
-        style={{
-          backgroundColor: getHeaderColor(card.header_color),
-          height: "14%", // Reduced to give more space to table
-        }}
+        className={`${getHeaderColor(
+          card.header_color
+        )} text-white text-center py-6`}
       >
-        KANBAN
+        <h1 className="text-4xl font-bold tracking-wider">KANBAN</h1>
       </div>
 
-      {/* Image Section */}
-      <div
-        className="w-full bg-gray-50 flex items-center justify-center overflow-hidden"
-        style={{ height: "32%" }} // Reduced to give more space to table
-      >
+      {/* Product Image Section */}
+      <div className="bg-gray-50 p-8 flex justify-center items-center min-h-[300px]">
         {card.signedImageUrl ? (
           <Image
             src={card.signedImageUrl}
             alt={card.part_no}
-            width={maxCardWidth}
-            height={Math.round(maxCardWidth * 1.41 * 0.32)}
-            className="object-contain w-full h-full"
+            width={300}
+            height={200}
+            className="max-w-full h-auto object-contain"
             unoptimized
           />
         ) : (
-          <div className="text-gray-400 text-sm text-center p-4">
-            No image available
+          <div className="text-gray-400 text-center">
+            <div className="w-24 h-24 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+            <p className="text-sm">No image available</p>
           </div>
         )}
       </div>
 
-      {/* Table Section */}
-      <div
-        className="w-full overflow-hidden"
-        style={{ height: "54%" }} // Increased to show all 7 rows
-      >
-        <table className="w-full h-full text-sm border-collapse">
-          <tbody>
-            {tableData.map((row, index) => (
-              <tr
-                key={index}
-                className="border-b border-gray-300"
-                style={{ height: `${100 / 7}%` }}
-              >
-                <td
-                  className="font-bold text-left px-3 py-2 border-r border-gray-300 bg-gray-50 align-middle"
-                  style={{ width: "35%" }}
-                >
-                  {row[0]}
-                </td>
-                <td
-                  className="text-center px-3 py-2 align-middle"
-                  style={{ width: "65%" }}
-                >
-                  {row[1]}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Specifications Table */}
+      <div className="border-collapse">
+        <div className="grid grid-cols-2 border border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Part No:
+          </div>
+          <div className="p-4 bg-white text-lg text-center">{card.part_no}</div>
+        </div>
+
+        <div className="grid grid-cols-2 border-l border-r border-b border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Description:
+          </div>
+          <div className="p-4 bg-white text-lg text-center">
+            {card.description || ""}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 border-l border-r border-b border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Location:
+          </div>
+          <div className="p-4 bg-white text-lg text-center">
+            {card.location}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 border-l border-r border-b border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Order Qty:
+          </div>
+          <div className="p-4 bg-white text-lg text-center">
+            {card.order_quantity || ""}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 border-l border-r border-b border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Preferred Supplier:
+          </div>
+          <div className="p-4 bg-white text-lg text-center">
+            {card.preferred_supplier || ""}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 border-l border-r border-b border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Lead Time:
+          </div>
+          <div className="p-4 bg-white text-lg text-center">
+            {card.lead_time || ""}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 border-l border-r border-b border-black">
+          <div className="border-r border-black p-4 bg-white font-semibold text-lg">
+            Signature:
+          </div>
+          <div className="p-4 bg-white text-lg text-center min-h-[60px]">
+            {/* Empty signature field */}
+          </div>
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }

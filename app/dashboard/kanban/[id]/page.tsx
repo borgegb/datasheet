@@ -143,9 +143,7 @@ export default async function KanbanCardViewPage({
 
           {/* Card Preview - Hero Element */}
           <div className="flex justify-center w-full">
-            <div className="transform transition-transform hover:scale-105">
-              <KanbanCardPreview card={card} />
-            </div>
+            <KanbanCardPreview card={card} />
           </div>
 
           {/* Minimal Metadata */}

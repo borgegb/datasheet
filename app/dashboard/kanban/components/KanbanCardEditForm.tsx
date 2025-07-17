@@ -24,7 +24,6 @@ import ColorSelector from "./ColorSelector";
 interface KanbanCardEditFormProps {
   initialData?: Partial<KanbanCard> | null;
   editingCardId?: string | null;
-  onCancel?: () => void;
 }
 
 interface Profile {
@@ -34,7 +33,6 @@ interface Profile {
 export default function KanbanCardEditForm({
   initialData = null,
   editingCardId = null,
-  onCancel,
 }: KanbanCardEditFormProps) {
   const router = useRouter();
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -358,7 +356,7 @@ export default function KanbanCardEditForm({
           <Button
             type="button"
             variant="outline"
-            onClick={onCancel || (() => router.back())}
+            onClick={() => router.push(`/dashboard/kanban/${editingCardId}`)}
             disabled={isSavePending}
           >
             <X className="mr-2 h-4 w-4" />

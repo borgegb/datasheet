@@ -75,11 +75,7 @@ export default async function EditKanbanCardPage({
 
           {/* Editable Card Form - Hero Element */}
           <div className="w-full max-w-2xl">
-            <KanbanCardEditForm
-              initialData={card}
-              editingCardId={id}
-              onCancel={() => window.history.back()}
-            />
+            <KanbanCardEditForm initialData={card} editingCardId={id} />
           </div>
 
           {/* Minimal Metadata */}

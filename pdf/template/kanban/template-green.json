@@ -1,4 +1,34 @@
 {
+  "basePdf": {
+    "width": 105,
+    "height": 148,
+    "padding": [0, 0, 0, 0],
+    "staticSchema": [
+      {
+        "type": "rectangle",
+        "name": "headerBackground",
+        "position": { "x": 0, "y": 0 },
+        "width": 105,
+        "height": 20,
+        "color": "#16A34A",
+        "content": ""
+      },
+      {
+        "type": "text",
+        "name": "kanbanTitle",
+        "content": "KANBAN",
+        "position": { "x": 0, "y": 5 },
+        "width": 105,
+        "height": 10,
+        "fontName": "Inter-Bold",
+        "fontSize": 29,
+        "fontColor": "#ffffff",
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "readOnly": false
+      }
+    ]
+  },
   "schemas": [
     [
       {
@@ -63,36 +93,5 @@
         "readOnly": false
       }
     ]
-  ],
-  "basePdf": {
-    "width": 105,
-    "height": 148,
-    "padding": [0, 0, 0, 0],
-    "staticSchema": [
-      {
-        "type": "rectangle",
-        "name": "headerBackground",
-        "position": { "x": 0, "y": 0 },
-        "width": 105,
-        "height": 20,
-        "color": "#16A34A",
-        "content": ""
-      },
-      {
-        "type": "text",
-        "name": "kanbanTitle",
-        "content": "KANBAN",
-        "position": { "x": 0, "y": 5 },
-        "width": 105,
-        "height": 10,
-        "fontName": "Inter-Bold",
-        "fontSize": 29,
-        "fontColor": "#ffffff",
-        "alignment": "center",
-        "verticalAlignment": "middle",
-        "readOnly": false
-      }
-    ]
-  },
-  "pdfmeVersion": "5.4.1"
+  ]
 }

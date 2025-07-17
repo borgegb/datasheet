@@ -6,14 +6,14 @@
         "name": "productImage",
         "position": { "x": 0, "y": 20 },
         "width": 105,
-        "height": 37,
+        "height": 45,
         "fit": "contain",
         "content": ""
       },
       {
         "name": "productInfo",
         "type": "table",
-        "position": { "x": 0, "y": 57 },
+        "position": { "x": 0, "y": 65 },
         "width": 105,
         "height": 81.51360000000001,
         "content": "",

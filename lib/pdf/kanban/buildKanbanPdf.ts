@@ -156,14 +156,14 @@ export async function buildKanbanPdf(
 
       return {
         productImage: productImageBase64, // Use loaded image or empty string
-        productInfo: [
-          ["Part No:", card.part_no || ""],
-          ["Description:", card.description || ""],
-          ["Location:", card.location || ""],
-          ["Order Qty:", card.order_quantity?.toString() || ""],
-          ["Preferred Supplier:", card.preferred_supplier || ""],
-          ["Lead Time:", card.lead_time || ""],
-          ["Signature:", ""],
+        productValues: [
+          [card.part_no || ""],
+          [card.description || ""],
+          [card.location || ""],
+          [card.order_quantity?.toString() || ""],
+          [card.preferred_supplier || ""],
+          [card.lead_time || ""],
+          [""],
         ],
       };
     })
@@ -171,10 +171,10 @@ export async function buildKanbanPdf(
 
   console.log(`Prepared ${inputs.length} inputs for PDF generation`);
 
-  if (inputs.length > 0 && inputs[0].productInfo) {
+  if (inputs.length > 0 && inputs[0].productValues) {
     console.log(
-      "PRODUCT INFO DUMP:",
-      JSON.stringify(inputs[0].productInfo, null, 2)
+      "PRODUCT VALUES DUMP:",
+      JSON.stringify(inputs[0].productValues, null, 2)
     );
   }
 

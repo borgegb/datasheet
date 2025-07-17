@@ -54,9 +54,16 @@
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
         "columnStyles": {
-          "fontName": { "0": "Inter-Bold", "1": "Inter-Regular" },
-          "alignment": { "0": "left", "1": "center" },
-          "fontSize": { "0": 16, "1": 16 }
+          "0": {
+            "fontName": "Inter-Bold",
+            "alignment": "left",
+            "fontSize": 16
+          },
+          "1": {
+            "fontName": "Inter-Regular",
+            "alignment": "center",
+            "fontSize": 16
+          }
         },
         "required": false,
         "readOnly": false

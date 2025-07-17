@@ -15,8 +15,8 @@
         "type": "table",
         "position": { "x": 0, "y": 57 },
         "width": 39,
-        "height": 81.6,
-        "content": "[[\"Part No:\"],[\"Description:\"],[\"Location:\"],[\"Order Qty:\"],[\"Preferred Supplier:\"],[\"Lead Time:\"],[\"Signature:\"]]",
+        "height": 72.59392,
+        "content": "[[\"Part No:\"],[\"Description:\"],[\"Location:\"],[\"Order Qty:\"],[\"1st supplier:\"],[\"Lead Time:\"],[\"Signature:\"]]",
         "showHead": false,
         "head": ["Label"],
         "headWidthPercentages": [100],
@@ -34,8 +34,8 @@
           "fontName": "Inter-Bold",
           "fontSize": 16,
           "alignment": "left",
-          "verticalAlignment": "middle",
-          "lineHeight": 1,
+          "verticalAlignment": "bottom",
+          "lineHeight": 0.1,
           "fontColor": "#000000",
           "borderColor": "#000000",
           "backgroundColor": "",
@@ -48,7 +48,7 @@
           },
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
-        "columnStyles": { "fontName": {} },
+        "columnStyles": { "alignment": { "0": "left" } },
         "required": false,
         "readOnly": true
       },
@@ -57,7 +57,7 @@
         "type": "table",
         "position": { "x": 39, "y": 57 },
         "width": 66,
-        "height": 81.6,
+        "height": 0,
         "content": "",
         "showHead": false,
         "head": ["Value"],
@@ -77,7 +77,7 @@
           "fontSize": 16,
           "alignment": "center",
           "verticalAlignment": "middle",
-          "lineHeight": 1,
+          "lineHeight": 0.1,
           "fontColor": "#000000",
           "borderColor": "#000000",
           "backgroundColor": "",
@@ -90,7 +90,7 @@
           },
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
-        "columnStyles": { "fontName": {} },
+        "columnStyles": { "alignment": { "0": "center" } },
         "required": false,
         "readOnly": false
       }

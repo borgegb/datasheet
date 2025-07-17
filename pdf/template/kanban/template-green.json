@@ -15,7 +15,7 @@
         "type": "table",
         "position": { "x": 0, "y": 57 },
         "width": 105,
-        "height": 0,
+        "height": 81.51360000000001,
         "content": "",
         "showHead": false,
         "head": ["Name", "City"],
@@ -53,7 +53,18 @@
           },
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
-        "columnStyles": { "alignment": { "1": "center" } },
+        "columnStyles": {
+          "0": {
+            "fontName": "Inter-Bold",
+            "alignment": "left",
+            "fontSize": 16
+          },
+          "1": {
+            "fontName": "Inter-Regular",
+            "alignment": "center",
+            "fontSize": 16
+          }
+        },
         "required": false,
         "readOnly": false
       }

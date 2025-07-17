@@ -20,7 +20,7 @@ export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white shadow-lg border border-gray-200 rounded-lg overflow-hidden">
+    <div className="max-w-md mx-auto bg-white shadow-lg border border-gray-200 overflow-hidden">
       {/* Header */}
       <div
         className={`${getHeaderColor(
@@ -31,18 +31,18 @@ export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
       </div>
 
       {/* Product Image Section */}
-      <div className="bg-gray-50 p-8 flex justify-center items-center min-h-[300px]">
+      <div className="bg-gray-50 flex justify-center items-center min-h-[300px] w-full">
         {card.signedImageUrl ? (
           <Image
             src={card.signedImageUrl}
             alt={card.part_no}
-            width={300}
-            height={200}
-            className="max-w-full h-auto object-contain"
+            width={400}
+            height={300}
+            className="w-full h-full object-cover"
             unoptimized
           />
         ) : (
-          <div className="text-gray-400 text-center">
+          <div className="text-gray-400 text-center p-8">
             <div className="w-24 h-24 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
               <svg
                 className="w-8 h-8 text-gray-400"

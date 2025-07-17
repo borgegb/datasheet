@@ -19,7 +19,7 @@
         "content": "",
         "showHead": false,
         "head": ["Name", "City"],
-        "headWidthPercentages": [32.36111111132056, 67.63888888867943],
+        "headWidthPercentages": [37, 63],
         "tableStyles": { "borderWidth": 0.3, "borderColor": "#000000" },
         "headStyles": {
           "fontName": "Roboto",
@@ -53,7 +53,10 @@
           },
           "padding": { "top": 3, "right": 3, "bottom": 3, "left": 3 }
         },
-        "columnStyles": { "alignment": { "1": "center" } },
+        "columnStyles": {
+          "0": { "fontName": "Inter-Bold", "alignment": "left" },
+          "1": { "fontName": "Inter-Regular", "alignment": "center" }
+        },
         "required": false,
         "readOnly": false
       }

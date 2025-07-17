@@ -171,7 +171,7 @@ export async function buildKanbanPdf(
       image,
       line,
       rectangle,
-      table,
+      Table: table,
     },
   });
 

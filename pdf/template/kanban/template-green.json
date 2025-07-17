@@ -21,6 +21,15 @@
         "head": ["Label"],
         "headWidthPercentages": [100],
         "tableStyles": { "borderWidth": 0.3, "borderColor": "#000000" },
+        "headStyles": {
+          "fontName": "Inter-Bold",
+          "fontSize": 16,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "fontColor": "#000000",
+          "lineHeight": 1,
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+        },
         "bodyStyles": {
           "fontName": "Inter-Bold",
           "fontSize": 16,
@@ -54,6 +63,15 @@
         "head": ["Value"],
         "headWidthPercentages": [100],
         "tableStyles": { "borderWidth": 0.3, "borderColor": "#000000" },
+        "headStyles": {
+          "fontName": "Inter-Regular",
+          "fontSize": 16,
+          "alignment": "center",
+          "verticalAlignment": "middle",
+          "fontColor": "#000000",
+          "lineHeight": 1,
+          "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+        },
         "bodyStyles": {
           "fontName": "Inter-Regular",
           "fontSize": 16,

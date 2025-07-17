@@ -68,6 +68,7 @@ export async function buildKanbanPdf(
       "Inter-Regular": {
         data: interRegularFontBytes,
         subset: true,
+        fallback: true,
       },
       "Inter-Bold": { data: interBoldFontBytes, subset: true },
     };

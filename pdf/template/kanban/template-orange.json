@@ -1,272 +1,93 @@
 {
+  "schemas": [
+    [
+      {
+        "type": "image",
+        "name": "productImage",
+        "position": { "x": 0, "y": 20 },
+        "width": 105,
+        "height": 37,
+        "fit": "contain",
+        "content": ""
+      },
+      {
+        "name": "productInfo",
+        "type": "table",
+        "position": { "x": 0, "y": 57 },
+        "width": 105,
+        "height": 0,
+        "content": "",
+        "showHead": false,
+        "head": ["Name", "City"],
+        "headWidthPercentages": [37, 63],
+        "tableStyles": { "borderWidth": 0.3, "borderColor": "#000000" },
+        "headStyles": {
+          "fontName": "Roboto",
+          "fontSize": 13,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#ffffff",
+          "borderColor": "",
+          "backgroundColor": "#2980ba",
+          "borderWidth": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+          "padding": { "top": 5, "right": 5, "bottom": 5, "left": 5 }
+        },
+        "bodyStyles": {
+          "fontName": "Inter-Regular",
+          "fontSize": 16,
+          "characterSpacing": 0,
+          "alignment": "left",
+          "verticalAlignment": "middle",
+          "lineHeight": 1,
+          "fontColor": "#000000",
+          "borderColor": "#000000",
+          "backgroundColor": "",
+          "alternateBackgroundColor": "#ffffff",
+          "borderWidth": {
+            "top": 0.2,
+            "right": 0.2,
+            "bottom": 0.2,
+            "left": 0.2
+          },
+          "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
+        },
+        "columnStyles": { "alignment": { "1": "center" } },
+        "required": false,
+        "readOnly": false
+      }
+    ]
+  ],
   "basePdf": {
-    "width": 105,  
-  "height": 148,  
+    "width": 105,
+    "height": 148,
     "padding": [0, 0, 0, 0],
     "staticSchema": [
       {
         "type": "rectangle",
         "name": "headerBackground",
         "position": { "x": 0, "y": 0 },
-        "width": 148,
-        "height": 25,
-        "color": "#EA580C"
+        "width": 105,
+        "height": 20,
+        "color": "#EA580C",
+        "content": ""
       },
       {
         "type": "text",
         "name": "kanbanTitle",
         "content": "KANBAN",
-        "position": { "x": 0, "y": 8 },
-        "width": 148,
+        "position": { "x": 0, "y": 5 },
+        "width": 105,
         "height": 10,
         "fontName": "Inter-Bold",
-        "fontSize": 20,
+        "fontSize": 29,
         "fontColor": "#ffffff",
         "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "rectangle",
-        "name": "tableBorder",
-        "position": { "x": 3, "y": 55 },
-        "width": 105,
-        "height": 47,
-        "color": "",
-        "borderColor": "#000000",
-        "borderWidth": 1
-      },
-      {
-        "type": "line",
-        "name": "partNoSeparator",
-        "position": { "x": 3, "y": 62 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "descSeparator",
-        "position": { "x": 3, "y": 75 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "locationSeparator",
-        "position": { "x": 3, "y": 82 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "qtySeparator",
-        "position": { "x": 3, "y": 89 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "supplierSeparator",
-        "position": { "x": 3, "y": 96 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "leadTimeSeparator",
-        "position": { "x": 3, "y": 103 },
-        "width": 105,
-        "height": 0,
-        "color": "#000000"
-      },
-      {
-        "type": "line",
-        "name": "verticalSeparator",
-        "position": { "x": 40, "y": 55 },
-        "width": 0,
-        "height": 47,
-        "color": "#000000"
-      },
-      {
-        "type": "text",
-        "name": "partNoLabel",
-        "content": "Part No:",
-        "position": { "x": 5, "y": 56 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "descriptionLabel",
-        "content": "Description:",
-        "position": { "x": 5, "y": 64 },
-        "width": 33,
-        "height": 10,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "locationLabel",
-        "content": "Location:",
-        "position": { "x": 5, "y": 77 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "orderQtyLabel",
-        "content": "Order Qty:",
-        "position": { "x": 5, "y": 84 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "supplierLabel",
-        "content": "1st Supplier:",
-        "position": { "x": 5, "y": 91 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "leadTimeLabel",
-        "content": "Lead Time:",
-        "position": { "x": 5, "y": 98 },
-        "width": 33,
-        "height": 6,
-        "fontName": "Inter-Bold",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "left",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "signatureLabel",
-        "content": "Signature",
-        "position": { "x": 110, "y": 95 },
-        "width": 35,
-        "height": 8,
-        "fontName": "Inter-Regular",
-        "fontSize": 8,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
+        "verticalAlignment": "middle",
+        "readOnly": false
       }
     ]
   },
-  "schemas": [
-    [
-      {
-        "type": "image",
-        "name": "productImage",
-        "position": { "x": 40, "y": 27 },
-        "width": 68,
-        "height": 26,
-        "fit": "contain"
-      },
-      {
-        "type": "text",
-        "name": "partNumber",
-        "position": { "x": 42, "y": 56 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "description",
-        "position": { "x": 42, "y": 64 },
-        "width": 64,
-        "height": 10,
-        "fontName": "Inter-Regular",
-        "fontSize": 9,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle",
-        "lineHeight": 1.1
-      },
-      {
-        "type": "text",
-        "name": "location",
-        "position": { "x": 42, "y": 77 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "orderQuantity",
-        "position": { "x": 42, "y": 84 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "supplier",
-        "position": { "x": 42, "y": 91 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      },
-      {
-        "type": "text",
-        "name": "leadTime",
-        "position": { "x": 42, "y": 98 },
-        "width": 64,
-        "height": 6,
-        "fontName": "Inter-Regular",
-        "fontSize": 10,
-        "fontColor": "#000000",
-        "alignment": "center",
-        "verticalAlignment": "middle"
-      }
-    ]
-  ]
+  "pdfmeVersion": "5.4.1"
 }

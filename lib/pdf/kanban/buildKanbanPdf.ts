@@ -62,9 +62,9 @@ export async function buildKanbanPdf(
       fs.readFile(interBoldPath),
     ]);
 
-    // Get default fonts but override Roboto's fallback
-    const defaultFonts = getDefaultFont();
-    defaultFonts.Roboto.fallback = false; // Remove fallback from Roboto
+    // Ensure only one font has fallback=true (leave Roboto as false, Inter-Regular as true)
+    const defaultFontsObj = getDefaultFont();
+    defaultFontsObj.Roboto.fallback = false;
 
     // Add our custom fonts to the font map
     fontMap = {

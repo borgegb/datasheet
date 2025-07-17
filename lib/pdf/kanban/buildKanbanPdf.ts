@@ -161,18 +161,28 @@ export async function buildKanbanPdf(
 
   console.log(`Prepared ${inputs.length} inputs for PDF generation`);
 
+  if (inputs.length > 0 && inputs[0].productInfo) {
+    console.log(
+      "PRODUCT INFO DUMP:",
+      JSON.stringify(inputs[0].productInfo, null, 2)
+    );
+  }
+
+  const plugins = {
+    text,
+    image,
+    line,
+    rectangle,
+    Table: table,
+  };
+  console.log("Kanban plug-ins:", Object.keys(plugins));
+
   // Generate PDF
   const pdfBytes = await generate({
     template,
     inputs,
     options: { font: fontMap },
-    plugins: {
-      text,
-      image,
-      line,
-      rectangle,
-      Table: table,
-    },
+    plugins,
   });
 
   console.log(`PDF generated successfully, size: ${pdfBytes.length} bytes`);

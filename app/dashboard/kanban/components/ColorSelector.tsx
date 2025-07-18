@@ -74,20 +74,6 @@ export default function ColorSelector({
           </div>
         ))}
       </RadioGroup>
-
-      {/* Preview */}
-      <div className="mt-4 p-3 border rounded-md bg-gray-50">
-        <div className="text-sm font-medium text-gray-700 mb-2">Preview:</div>
-        <div className="w-32 h-8 border rounded-md overflow-hidden">
-          <div
-            className={`h-full ${
-              colors.find((c) => c.value === value)?.bgColor
-            } flex items-center justify-center`}
-          >
-            <span className="text-white text-xs font-bold">KANBAN</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

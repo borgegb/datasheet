@@ -175,6 +175,7 @@ export default function KanbanCardEditForm({
       <form action={saveFormAction} onSubmit={handleFormSubmit}>
         {/* Hidden inputs */}
         <input type="hidden" name="imagePath" value={uploadedImagePath || ""} />
+        <input type="hidden" name="editingCardId" value={editingCardId || ""} />
 
         {/* Header Section */}
         <div className="space-y-4 p-6 bg-gray-50">

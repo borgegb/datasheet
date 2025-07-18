@@ -70,9 +70,11 @@ export default function KanbanCardEditForm({
   // Upload hook
   const uploadProps = useSupabaseUpload({
     bucketName: "datasheet-assets",
-    user,
-    profile,
-    disabled: !profile?.organization_id,
+    path: profile?.organization_id
+      ? `${profile.organization_id}/kanban/images/`
+      : undefined,
+    allowedMimeTypes: ["image/*"],
+    maxFiles: 1,
   });
 
   // Load user and profile
@@ -226,7 +228,9 @@ export default function KanbanCardEditForm({
               </Dropzone>
             ) : (
               <div className="flex items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg bg-muted">
-                <p className="text-sm text-muted-foreground">Loading...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading organization info...
+                </p>
               </div>
             )}
 

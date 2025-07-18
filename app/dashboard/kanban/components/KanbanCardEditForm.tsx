@@ -203,19 +203,14 @@ export default function KanbanCardEditForm({
           <div className="space-y-2">
             <Label htmlFor="product-image">Product Image</Label>
             {initialData?.signedImageUrl && !uploadProps.files.length ? (
-              <div className="relative">
-                <Image
-                  src={initialData.signedImageUrl}
-                  alt={partNo}
-                  width={400}
-                  height={300}
-                  className="w-full h-60 object-cover rounded"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded">
-                  <p className="text-white text-sm">Click to change image</p>
-                </div>
-              </div>
+              <Image
+                src={initialData.signedImageUrl}
+                alt={partNo}
+                width={400}
+                height={300}
+                className="w-full h-60 object-cover rounded"
+                unoptimized
+              />
             ) : null}
 
             {profile?.organization_id ? (

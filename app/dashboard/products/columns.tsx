@@ -271,20 +271,21 @@ export const columns: ColumnDef<Product>[] = [
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {/* Remove from Catalog - only show when handler is available and user is not viewer */}
-              {table.options.meta?.onRemoveFromCatalog && table.options.meta?.userRole !== "viewer" && (
-                <>
-                  <DropdownMenuItem
-                    className="text-orange-600 focus:text-orange-700 cursor-pointer"
-                    onSelect={() =>
-                      table.options.meta?.onRemoveFromCatalog?.(product.id)
-                    }
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" /> Remove from
-                    Catalog
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
+              {table.options.meta?.onRemoveFromCatalog &&
+                table.options.meta?.userRole !== "viewer" && (
+                  <>
+                    <DropdownMenuItem
+                      className="text-orange-600 focus:text-orange-700 cursor-pointer"
+                      onSelect={() =>
+                        table.options.meta?.onRemoveFromCatalog?.(product.id)
+                      }
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" /> Remove from
+                      Catalog
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
               {/* Only show Delete for owners and members, not viewers */}
               {table.options.meta?.userRole !== "viewer" && (
                 <DropdownMenuItem

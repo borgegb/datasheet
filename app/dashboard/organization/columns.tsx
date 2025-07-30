@@ -66,12 +66,19 @@ function RoleChangeModal({
       formData: FormData
     ) => {
       console.log("🔄 RoleChangeModal: useActionState function called");
-      console.log("📝 FormData entries:", Object.fromEntries(formData.entries()));
-      
+      console.log(
+        "📝 FormData entries:",
+        Object.fromEntries(formData.entries())
+      );
+
       const newRole = formData.get("newRole") as string;
       const userId = formData.get("userId") as string;
-      
-      console.log("🎯 Extracted values:", { newRole, userId, memberName: member.full_name || member.email });
+
+      console.log("🎯 Extracted values:", {
+        newRole,
+        userId,
+        memberName: member.full_name || member.email,
+      });
 
       if (!newRole || !userId) {
         console.error("❌ Missing required data:", { newRole, userId });

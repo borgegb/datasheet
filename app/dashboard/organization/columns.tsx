@@ -13,14 +13,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { updateUserRole } from "../actions";
+import { useState, useActionState } from "react";
 
 // Extend the TableMeta type for organization table
 declare module "@tanstack/react-table" {
@@ -37,6 +48,99 @@ export type OrgMember = {
   email: string | null;
   role: string | null;
 };
+
+// Component for role change modal
+function RoleChangeModal({ member, currentUserRole }: { member: OrgMember; currentUserRole?: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(member.role || "member");
+
+  const [state, submitAction, isPending] = useActionState(
+    async (previousState: { error: string | null } | null, formData: FormData) => {
+      const newRole = formData.get("newRole") as string;
+      const userId = formData.get("userId") as string;
+      
+      if (!newRole || !userId) {
+        return { error: "Missing required data." };
+      }
+
+      const result = await updateUserRole(userId, newRole);
+      
+      if (result.error) {
+        toast.error(`Failed to update role: ${result.error.message}`);
+        return { error: result.error.message };
+      } else {
+        toast.success(`Successfully updated ${member.full_name || member.email}'s role to ${newRole}`);
+        setIsOpen(false); // Close modal on success
+        return { error: null };
+      }
+    },
+    null
+  );
+
+  // Only show modal trigger for owners
+  if (currentUserRole !== "owner") {
+    return (
+      <Badge
+        variant={member.role === "owner" ? "default" : "secondary"}
+        className="capitalize"
+      >
+        {member.role || "member"}
+      </Badge>
+    );
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" className="h-auto p-0 justify-start">
+          <Badge
+            variant={member.role === "owner" ? "default" : "secondary"}
+            className="capitalize cursor-pointer hover:bg-primary/80"
+          >
+            {member.role || "member"}
+          </Badge>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Change User Role</DialogTitle>
+          <DialogDescription>
+            Update the role for {member.full_name || member.email}
+          </DialogDescription>
+        </DialogHeader>
+        <form action={submitAction}>
+          <input type="hidden" name="userId" value={member.id} />
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newRole">New Role</Label>
+              <Select name="newRole" value={selectedRole} onValueChange={setSelectedRole} disabled={isPending}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer (read-only)</SelectItem>
+                  <SelectItem value="member">Member (can edit)</SelectItem>
+                  <SelectItem value="owner">Owner (full access)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {state?.error && (
+              <p className="text-sm text-destructive">{state.error}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending || selectedRole === member.role}>
+              {isPending ? "Updating..." : "Update Role"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // TODO: Implement delete member functionality later if needed
 // declare module "@tanstack/table-core" {
@@ -65,55 +169,28 @@ export const columns: ColumnDef<OrgMember>[] = [
     accessorKey: "role",
     header: "Role",
     cell: ({ row, table }) => {
-      const role = row.getValue("role") as string;
       const member = row.original;
       const currentUserId = table.options.meta?.currentUserId;
       const currentUserRole = table.options.meta?.currentUserRole;
       const isCurrentUser = member.id === currentUserId;
       
-      // Only show role selector for owners and if it's not their own row
-      const canEditRole = currentUserRole === "owner" && !isCurrentUser;
-      
-      if (!canEditRole) {
+      // Don't allow users to edit their own role
+      if (isCurrentUser) {
         return (
           <Badge
-            variant={role === "owner" ? "default" : "secondary"}
+            variant={member.role === "owner" ? "default" : "secondary"}
             className="capitalize"
           >
-            {role || "member"}
+            {member.role || "member"} (You)
           </Badge>
         );
       }
 
-      const handleRoleChange = async (newRole: string) => {
-        if (newRole === role) return; // No change
-        
-        const toastId = toast.loading(`Updating ${member.full_name || member.email}'s role...`);
-        
-        try {
-          const result = await updateUserRole(member.id, newRole);
-          
-          if (result.error) {
-            toast.error(`Failed to update role: ${result.error.message}`, { id: toastId });
-          } else {
-            toast.success(`Successfully updated ${member.full_name || member.email}'s role to ${newRole}`, { id: toastId });
-          }
-        } catch (error: any) {
-          toast.error(`Failed to update role: ${error.message}`, { id: toastId });
-        }
-      };
-
       return (
-        <Select value={role || "member"} onValueChange={handleRoleChange}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="viewer">Viewer</SelectItem>
-            <SelectItem value="member">Member</SelectItem>
-            <SelectItem value="owner">Owner</SelectItem>
-          </SelectContent>
-        </Select>
+        <RoleChangeModal 
+          member={member} 
+          currentUserRole={currentUserRole} 
+        />
       );
     },
   },

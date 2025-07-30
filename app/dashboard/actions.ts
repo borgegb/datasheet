@@ -1118,6 +1118,120 @@ export async function inviteUserToOrg(
 }
 // --- End Invite User Action ---
 
+// --- Action to Update User Role ---
+type UpdateUserRoleResult = { error: { message: string } | null };
+
+export async function updateUserRole(
+  targetUserId: string,
+  newRole: string
+): Promise<UpdateUserRoleResult> {
+  "use server";
+
+  // Role validation
+  const allowedRoles = ["member", "viewer", "owner"];
+  if (!allowedRoles.includes(newRole)) {
+    return { error: { message: "Invalid role specified. Must be 'member', 'viewer', or 'owner'." } };
+  }
+
+  const supabase = await createServerActionClient();
+
+  try {
+    // 1. Get current user and their profile (including role and org id)
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      console.error("Update Role Error: User not authenticated.");
+      return { error: { message: "Authentication required." } };
+    }
+    const currentUserId = userData.user.id;
+
+    const { data: currentUserProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id, role")
+      .eq("id", currentUserId)
+      .single();
+
+    if (profileError || !currentUserProfile) {
+      console.error(
+        `Update Role Error: Profile not found for user ${currentUserId}.`,
+        profileError
+      );
+      return { error: { message: "User profile not found." } };
+    }
+
+    // 2. Check if the current user is an owner
+    if (currentUserProfile.role !== "owner") {
+      console.warn(`Update Role Attempt Denied: User ${currentUserId} is not an owner.`);
+      return {
+        error: { message: "Only organization owners can update user roles." },
+      };
+    }
+
+    if (!currentUserProfile.organization_id) {
+      console.error(
+        `Update Role Error: Owner ${currentUserId} does not have an organization_id.`
+      );
+      return { error: { message: "Organization information missing." } };
+    }
+
+    // 3. Get target user profile to verify they're in the same organization
+    const { data: targetUserProfile, error: targetProfileError } = await supabase
+      .from("profiles")
+      .select("organization_id, role")
+      .eq("id", targetUserId)
+      .single();
+
+    if (targetProfileError || !targetUserProfile) {
+      console.error(
+        `Update Role Error: Target user profile not found for ${targetUserId}.`,
+        targetProfileError
+      );
+      return { error: { message: "Target user not found." } };
+    }
+
+    // 4. Verify target user is in the same organization
+    if (targetUserProfile.organization_id !== currentUserProfile.organization_id) {
+      console.warn(
+        `Update Role Attempt Denied: Target user ${targetUserId} is not in the same organization.`
+      );
+      return { error: { message: "Cannot update users from other organizations." } };
+    }
+
+    // 5. Prevent owners from demoting themselves (would lock out organization)
+    if (targetUserId === currentUserId && targetUserProfile.role === "owner" && newRole !== "owner") {
+      console.warn(
+        `Update Role Attempt Denied: Owner ${currentUserId} trying to demote themselves.`
+      );
+      return { error: { message: "You cannot demote yourself from owner role." } };
+    }
+
+    // 6. Update the user's role
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ role: newRole })
+      .eq("id", targetUserId);
+
+    if (updateError) {
+      console.error(`Update Role Error for ${targetUserId}:`, updateError);
+      return {
+        error: { message: `Failed to update user role: ${updateError.message}` },
+      };
+    }
+
+    console.log(`Successfully updated user ${targetUserId} role to '${newRole}'.`);
+    
+    // Revalidate the organization page to refresh the members list
+    revalidatePath("/dashboard/organization");
+    
+    return { error: null }; // Success
+  } catch (e: any) {
+    console.error("Unexpected error updating user role:", e);
+    return {
+      error: { message: `An unexpected error occurred: ${e.message || e}` },
+    };
+  }
+}
+// --- End Update User Role Action ---
+
 // --- Action to Fetch Organization Members ---
 // Define a type for the member data we want to return
 type OrgMember = {

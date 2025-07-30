@@ -107,6 +107,20 @@ interface Category {
   name: string;
 }
 
+// Extend the TableMeta type to include our custom properties
+declare module "@tanstack/react-table" {
+  interface TableMeta<TData extends unknown> {
+    onDeleteRow?: (productId: string) => void;
+    onRemoveFromCatalog?: (productId: string) => void;
+    onRemoveSelectedFromCatalog?: (selectedRows: Row<TData>[]) => void;
+    onDownload?: (storagePath: string, filename: string) => void;
+    onPrint?: (storagePath: string, filename: string) => void;
+    onViewPdf?: (storagePath: string, filename: string) => void;
+    availableCategories?: Category[];
+    userRole?: string;
+  }
+}
+
 // Custom filter function for categories (checks if ANY selected category ID is present)
 const categoriesFilterFn: FilterFn<any> = (
   row,

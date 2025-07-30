@@ -112,6 +112,7 @@ interface ProductsDataTableProps<TData, TValue> {
   isLoading?: boolean;
   hideCatalogFilter?: boolean;
   hideAddButton?: boolean;
+  meta?: any; // Meta data to pass to table
 }
 
 export default function ProductsDataTable<TData, TValue>({
@@ -128,6 +129,7 @@ export default function ProductsDataTable<TData, TValue>({
   isLoading = false,
   hideCatalogFilter = false,
   hideAddButton = false,
+  meta,
 }: ProductsDataTableProps<TData, TValue>) {
   const id = useId();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -168,6 +170,7 @@ export default function ProductsDataTable<TData, TValue>({
       onDownload,
       onPrint,
       onViewPdf,
+      ...meta, // Merge any additional meta passed as prop
     },
   });
 

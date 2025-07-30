@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useActionState } from "react";
+import React, { useState, useActionState, useEffect } from "react";
 import { OrgMember, columns } from "./columns";
 import ProductsDataTable from "@/components/ProductsDataTable";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 // Define Category type if not already imported
 interface Category {
@@ -69,6 +71,24 @@ export default function OrganizationClient({
   const [inviteRole, setInviteRole] = useState("member"); // State for selected role
   const [newCategoryName, setNewCategoryName] = useState(""); // State for new category name
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  
+  // State for current user info
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        setCurrentUser(userData.user);
+      }
+      setIsLoadingUser(false);
+    };
+    
+    fetchCurrentUser();
+  }, []);
 
   // --- State for Edit Category Dialog ---
   const [isCategoryEditDialogOpen, setIsCategoryEditDialogOpen] =
@@ -235,12 +255,13 @@ export default function OrganizationClient({
                   onChange={(e) => setInviteEmail(e.target.value)}
                   required
                   disabled={isInvitePending}
+                  className="h-10" // Ensure consistent height
                 />
               </div>
               <div className="space-y-1.5 md:w-48">
                 <Label htmlFor="invite-role">Role</Label>
                 <Select name="role" value={inviteRole} onValueChange={setInviteRole} disabled={isInvitePending}>
-                  <SelectTrigger id="invite-role">
+                  <SelectTrigger id="invite-role" className="h-10"> {/* Match input height */}
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -249,7 +270,7 @@ export default function OrganizationClient({
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" disabled={isInvitePending} className="md:w-auto">
+              <Button type="submit" disabled={isInvitePending} className="h-10 md:w-auto"> {/* Match height */}
                 {isInvitePending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -282,6 +303,10 @@ export default function OrganizationClient({
             searchColumnId="email" // Allow searching by email
             hideCatalogFilter={true} // Keep hiding catalog filter
             hideAddButton={true} // <-- Add prop to hide Add button
+            meta={{
+              currentUserId: currentUser?.id,
+              currentUserRole: userRole,
+            }}
             // Optional: Add other props like onDeleteRow if needed later
           />
         </CardContent>

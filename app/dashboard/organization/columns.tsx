@@ -65,19 +65,29 @@ function RoleChangeModal({
       previousState: { error: string | null } | null,
       formData: FormData
     ) => {
+      console.log("🔄 RoleChangeModal: useActionState function called");
+      console.log("📝 FormData entries:", Object.fromEntries(formData.entries()));
+      
       const newRole = formData.get("newRole") as string;
       const userId = formData.get("userId") as string;
+      
+      console.log("🎯 Extracted values:", { newRole, userId, memberName: member.full_name || member.email });
 
       if (!newRole || !userId) {
+        console.error("❌ Missing required data:", { newRole, userId });
         return { error: "Missing required data." };
       }
 
+      console.log("🚀 Calling updateUserRole...");
       const result = await updateUserRole(userId, newRole);
+      console.log("📨 updateUserRole result:", result);
 
       if (result.error) {
+        console.error("❌ Server action failed:", result.error);
         toast.error(`Failed to update role: ${result.error.message}`);
         return { error: result.error.message };
       } else {
+        console.log("✅ Role update successful!");
         toast.success(
           `Successfully updated ${
             member.full_name || member.email

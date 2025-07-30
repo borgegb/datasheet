@@ -1127,23 +1127,33 @@ export async function updateUserRole(
 ): Promise<UpdateUserRoleResult> {
   "use server";
 
+  console.log("🔥 SERVER ACTION: updateUserRole called");
+  console.log("📥 Parameters:", { targetUserId, newRole });
+
   // Role validation
   const allowedRoles = ["member", "viewer", "owner"];
   if (!allowedRoles.includes(newRole)) {
+    console.error("❌ Invalid role:", newRole);
     return { error: { message: "Invalid role specified. Must be 'member', 'viewer', or 'owner'." } };
   }
 
+  console.log("✅ Role validation passed");
+
   const supabase = await createServerActionClient();
+  console.log("🔗 Supabase client created");
 
   try {
     // 1. Get current user and their profile (including role and org id)
+    console.log("👤 Getting current user...");
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
-      console.error("Update Role Error: User not authenticated.");
+      console.error("❌ Update Role Error: User not authenticated.", userError);
       return { error: { message: "Authentication required." } };
     }
     const currentUserId = userData.user.id;
+    console.log("✅ Current user:", { currentUserId, email: userData.user.email });
 
+    console.log("📋 Getting current user profile...");
     const { data: currentUserProfile, error: profileError } = await supabase
       .from("profiles")
       .select("organization_id, role")
@@ -1152,11 +1162,12 @@ export async function updateUserRole(
 
     if (profileError || !currentUserProfile) {
       console.error(
-        `Update Role Error: Profile not found for user ${currentUserId}.`,
+        `❌ Update Role Error: Profile not found for user ${currentUserId}.`,
         profileError
       );
       return { error: { message: "User profile not found." } };
     }
+    console.log("✅ Current user profile:", currentUserProfile);
 
     // 2. Check if the current user is an owner
     if (currentUserProfile.role !== "owner") {
@@ -1174,6 +1185,7 @@ export async function updateUserRole(
     }
 
     // 3. Get target user profile to verify they're in the same organization
+    console.log("🎯 Getting target user profile...", { targetUserId });
     const { data: targetUserProfile, error: targetProfileError } = await supabase
       .from("profiles")
       .select("organization_id, role")
@@ -1182,11 +1194,12 @@ export async function updateUserRole(
 
     if (targetProfileError || !targetUserProfile) {
       console.error(
-        `Update Role Error: Target user profile not found for ${targetUserId}.`,
+        `❌ Update Role Error: Target user profile not found for ${targetUserId}.`,
         targetProfileError
       );
       return { error: { message: "Target user not found." } };
     }
+    console.log("✅ Target user profile:", targetUserProfile);
 
     // 4. Verify target user is in the same organization
     if (targetUserProfile.organization_id !== currentUserProfile.organization_id) {
@@ -1205,21 +1218,34 @@ export async function updateUserRole(
     }
 
     // 6. Update the user's role
-    const { error: updateError } = await supabase
+    console.log("💾 Updating user role in database...");
+    console.log("📝 Update query:", { 
+      table: "profiles", 
+      update: { role: newRole }, 
+      where: { id: targetUserId },
+      currentRole: targetUserProfile.role 
+    });
+    
+    const { data: updateData, error: updateError } = await supabase
       .from("profiles")
       .update({ role: newRole })
-      .eq("id", targetUserId);
+      .eq("id", targetUserId)
+      .select(); // Add select to see what was updated
+
+    console.log("🔄 Database update response:", { updateData, updateError });
 
     if (updateError) {
-      console.error(`Update Role Error for ${targetUserId}:`, updateError);
+      console.error(`❌ Update Role Error for ${targetUserId}:`, updateError);
       return {
         error: { message: `Failed to update user role: ${updateError.message}` },
       };
     }
 
-    console.log(`Successfully updated user ${targetUserId} role to '${newRole}'.`);
+    console.log(`✅ Successfully updated user ${targetUserId} role to '${newRole}'.`);
+    console.log("📊 Updated record:", updateData);
     
     // Revalidate the organization page to refresh the members list
+    console.log("🔄 Revalidating /dashboard/organization...");
     revalidatePath("/dashboard/organization");
     
     return { error: null }; // Success

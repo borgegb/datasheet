@@ -50,26 +50,39 @@ export type OrgMember = {
 };
 
 // Component for role change modal
-function RoleChangeModal({ member, currentUserRole }: { member: OrgMember; currentUserRole?: string }) {
+function RoleChangeModal({
+  member,
+  currentUserRole,
+}: {
+  member: OrgMember;
+  currentUserRole?: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState(member.role || "member");
 
   const [state, submitAction, isPending] = useActionState(
-    async (previousState: { error: string | null } | null, formData: FormData) => {
+    async (
+      previousState: { error: string | null } | null,
+      formData: FormData
+    ) => {
       const newRole = formData.get("newRole") as string;
       const userId = formData.get("userId") as string;
-      
+
       if (!newRole || !userId) {
         return { error: "Missing required data." };
       }
 
       const result = await updateUserRole(userId, newRole);
-      
+
       if (result.error) {
         toast.error(`Failed to update role: ${result.error.message}`);
         return { error: result.error.message };
       } else {
-        toast.success(`Successfully updated ${member.full_name || member.email}'s role to ${newRole}`);
+        toast.success(
+          `Successfully updated ${
+            member.full_name || member.email
+          }'s role to ${newRole}`
+        );
         setIsOpen(false); // Close modal on success
         return { error: null };
       }
@@ -113,7 +126,12 @@ function RoleChangeModal({ member, currentUserRole }: { member: OrgMember; curre
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="newRole">New Role</Label>
-              <Select name="newRole" value={selectedRole} onValueChange={setSelectedRole} disabled={isPending}>
+              <Select
+                name="newRole"
+                value={selectedRole}
+                onValueChange={setSelectedRole}
+                disabled={isPending}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -129,10 +147,18 @@ function RoleChangeModal({ member, currentUserRole }: { member: OrgMember; curre
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={isPending}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending || selectedRole === member.role}>
+            <Button
+              type="submit"
+              disabled={isPending || selectedRole === member.role}
+            >
               {isPending ? "Updating..." : "Update Role"}
             </Button>
           </DialogFooter>
@@ -173,7 +199,7 @@ export const columns: ColumnDef<OrgMember>[] = [
       const currentUserId = table.options.meta?.currentUserId;
       const currentUserRole = table.options.meta?.currentUserRole;
       const isCurrentUser = member.id === currentUserId;
-      
+
       // Don't allow users to edit their own role
       if (isCurrentUser) {
         return (
@@ -187,10 +213,7 @@ export const columns: ColumnDef<OrgMember>[] = [
       }
 
       return (
-        <RoleChangeModal 
-          member={member} 
-          currentUserRole={currentUserRole} 
-        />
+        <RoleChangeModal member={member} currentUserRole={currentUserRole} />
       );
     },
   },

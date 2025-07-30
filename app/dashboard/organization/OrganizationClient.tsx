@@ -6,6 +6,7 @@ import ProductsDataTable from "@/components/ProductsDataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -65,6 +66,7 @@ export default function OrganizationClient({
   categoriesErrorMsg, // Destructure new prop
 }: OrganizationClientProps) {
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member"); // State for selected role
   const [newCategoryName, setNewCategoryName] = useState(""); // State for new category name
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
 
@@ -82,16 +84,21 @@ export default function OrganizationClient({
       formData: FormData
     ) => {
       const email = formData.get("email") as string;
+      const role = formData.get("role") as string;
       if (!email) {
         return { error: "Email is required." };
       }
-      const result = await inviteUserToOrg(email);
+      if (!role || !["member", "viewer"].includes(role)) {
+        return { error: "Valid role is required." };
+      }
+      const result = await inviteUserToOrg(email, role);
       if (result.error) {
         toast.error(`Invite failed: ${result.error.message}`);
         return { error: result.error.message };
       } else {
-        toast.success(`Invitation sent successfully to ${email}!`);
+        toast.success(`Invitation sent successfully to ${email} as ${role}!`);
         setInviteEmail(""); // Clear input on success
+        setInviteRole("member"); // Reset role to default
         // Potentially re-fetch members or rely on page refresh/revalidation if invite changes member list immediately
         return { error: null };
       }
@@ -216,7 +223,7 @@ export default function OrganizationClient({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={submitInvite} className="flex items-end gap-4">
+            <form action={submitInvite} className="flex flex-col gap-4 md:flex-row md:items-end">
               <div className="flex-grow space-y-1.5">
                 <Label htmlFor="invite-email">Email Address</Label>
                 <Input
@@ -230,7 +237,19 @@ export default function OrganizationClient({
                   disabled={isInvitePending}
                 />
               </div>
-              <Button type="submit" disabled={isInvitePending}>
+              <div className="space-y-1.5 md:w-48">
+                <Label htmlFor="invite-role">Role</Label>
+                <Select name="role" value={inviteRole} onValueChange={setInviteRole} disabled={isInvitePending}>
+                  <SelectTrigger id="invite-role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member (can edit)</SelectItem>
+                    <SelectItem value="viewer">Viewer (read-only)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" disabled={isInvitePending} className="md:w-auto">
                 {isInvitePending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

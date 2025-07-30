@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import type { Row } from "@tanstack/react-table";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 // Catalog type definition
 interface Catalog {
@@ -59,6 +60,8 @@ export default function ProductsPageClient({
   );
   // Set initial loading state based on whether initialProducts were provided
   const [isLoading, setIsLoading] = useState(!initialProducts); // If initial data exists, not loading initially
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>("viewer");
   // --------------------------------------------------
 
   const router = useRouter();
@@ -66,6 +69,26 @@ export default function ProductsPageClient({
   const searchParams = useSearchParams(); // Use hook here
 
   const currentCatalogFilter = searchParams.get("catalog");
+
+  // Fetch user and role on component mount
+  useEffect(() => {
+    const supabase = createClient();
+    const fetchUserAndRole = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        setUser(userData.user);
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userData.user.id)
+          .single();
+        if (profileData && !profileError) {
+          setUserRole(profileData.role || "viewer");
+        }
+      }
+    };
+    fetchUserAndRole();
+  }, []);
 
   // Function to load products, now accepting catalog filter
   const loadProducts = useCallback((catalogIdFilter: string | null) => {
@@ -311,6 +334,7 @@ export default function ProductsPageClient({
         hideCatalogFilter={hideCatalogFilter}
         hideAddButton={hideAddButton}
         availableCategories={availableCategories}
+        userRole={userRole}
       />
     </>
   );

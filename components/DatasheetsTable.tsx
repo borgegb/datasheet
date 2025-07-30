@@ -138,6 +138,7 @@ interface DatasheetsTableProps<TData, TValue> {
   isLoading?: boolean;
   hideCatalogFilter?: boolean;
   hideAddButton?: boolean;
+  userRole?: string; // Add userRole prop
 }
 
 export default function DatasheetsTable<TData, TValue>({
@@ -157,6 +158,7 @@ export default function DatasheetsTable<TData, TValue>({
   isLoading = false,
   hideCatalogFilter = false,
   hideAddButton = false,
+  userRole,
 }: DatasheetsTableProps<TData, TValue>) {
   const id = useId();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -204,6 +206,7 @@ export default function DatasheetsTable<TData, TValue>({
       onViewPdf,
       // Pass availableCategories to meta for use in column definition cell renderers
       availableCategories: availableCategories,
+      userRole, // Pass userRole for role-based UI
     },
   });
 

@@ -222,14 +222,17 @@ export const columns: ColumnDef<Product>[] = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/dashboard/generator/${product.id}`}
-                  className="cursor-pointer"
-                >
-                  <Edit className="mr-2 h-4 w-4" /> Edit
-                </Link>
-              </DropdownMenuItem>
+              {/* Only show Edit for owners and members, not viewers */}
+              {table.options.meta?.userRole !== "viewer" && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={`/dashboard/generator/${product.id}`}
+                    className="cursor-pointer"
+                  >
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 disabled={!product.pdf_storage_path}
                 onSelect={() =>

@@ -22,6 +22,8 @@ import {
   fetchRecentProductsForOrg,
 } from "./actions"; // Corrected import path
 import { RecentProductList } from "@/components/RecentProductList"; // Import the new component
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 // Type for recent product data
 interface RecentProduct {
@@ -32,6 +34,25 @@ interface RecentProduct {
 }
 
 export default async function Page() {
+  // Get user role for conditional UI
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    redirect("/auth/login");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const userRole = profile?.role || "viewer"; // Default to viewer if no role found
+
   // Fetch data server-side
   const productCountPromise = fetchProductCountForOrg();
   const catalogCountPromise = fetchCatalogCountForOrg();
@@ -103,11 +124,14 @@ export default async function Page() {
       <div>
         <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Button asChild variant="outline">
-            <Link href="/dashboard/generator">
-              <PlusIcon className="mr-2 h-4 w-4" /> Create New Datasheet
-            </Link>
-          </Button>
+          {/* Only show Create New Datasheet for owners and members */}
+          {userRole !== "viewer" && (
+            <Button asChild variant="outline">
+              <Link href="/dashboard/generator">
+                <PlusIcon className="mr-2 h-4 w-4" /> Create New Datasheet
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline">
             <Link href="/dashboard/products">
               <DatabaseIcon className="mr-2 h-4 w-4" /> View All Datasheets
@@ -115,14 +139,17 @@ export default async function Page() {
           </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard/catalogs">
-              <PackageIcon className="mr-2 h-4 w-4" /> Manage Catalogs
+              <PackageIcon className="mr-2 h-4 w-4" /> {userRole === "viewer" ? "View" : "Manage"} Catalogs
             </Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/dashboard/organization">
-              <UsersIcon className="mr-2 h-4 w-4" /> Manage Organization
-            </Link>
-          </Button>
+          {/* Only show Manage Organization for owners */}
+          {userRole === "owner" && (
+            <Button asChild variant="outline">
+              <Link href="/dashboard/organization">
+                <UsersIcon className="mr-2 h-4 w-4" /> Manage Organization
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

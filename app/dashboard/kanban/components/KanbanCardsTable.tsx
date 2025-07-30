@@ -45,6 +45,9 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { deleteKanbanCards } from "../actions";
 import type { KanbanCard } from "../actions";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
+import { useEffect } from "react";
 
 interface KanbanCardsTableProps {
   initialData: KanbanCard[];
@@ -57,6 +60,28 @@ export default function KanbanCardsTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>("viewer");
+
+  // Fetch user and role on component mount
+  useEffect(() => {
+    const supabase = createClient();
+    const fetchUserAndRole = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        setUser(userData.user);
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userData.user.id)
+          .single();
+        if (profileData && !profileError) {
+          setUserRole(profileData.role || "viewer");
+        }
+      }
+    };
+    fetchUserAndRole();
+  }, []);
 
   // Filter cards based on search term
   const filteredCards = cards.filter(
@@ -267,12 +292,15 @@ export default function KanbanCardsTable({
                             View
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/kanban/${card.id}/edit`}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
+                        {/* Only show Edit for owners and members, not viewers */}
+                        {userRole !== "viewer" && (
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/kanban/${card.id}/edit`}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() =>

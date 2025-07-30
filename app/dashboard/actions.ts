@@ -1003,7 +1003,8 @@ export async function fetchProductById(productId: string) {
 type InviteUserResult = { error: { message: string } | null };
 
 export async function inviteUserToOrg(
-  emailToInvite: string
+  emailToInvite: string,
+  roleToInvite: string = "member"
 ): Promise<InviteUserResult> {
   "use server";
 
@@ -1013,6 +1014,12 @@ export async function inviteUserToOrg(
     !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(emailToInvite)
   ) {
     return { error: { message: "Invalid email format." } };
+  }
+
+  // Role validation
+  const allowedRoles = ["member", "viewer"];
+  if (!allowedRoles.includes(roleToInvite)) {
+    return { error: { message: "Invalid role specified. Must be 'member' or 'viewer'." } };
   }
 
   const supabase = await createServerActionClient();
@@ -1074,7 +1081,7 @@ export async function inviteUserToOrg(
         {
           data: {
             initial_organization_id: ownerOrgId,
-            initial_role: "member", // Invite new users as 'member' by default
+            initial_role: roleToInvite, // Use the provided role
           },
           redirectTo: "/dashboard", // Where user lands after confirming invite
         }
@@ -1098,7 +1105,7 @@ export async function inviteUserToOrg(
     }
 
     console.log(
-      `Invitation sent successfully to ${emailToInvite}. Data:`,
+      `Invitation sent successfully to ${emailToInvite} with role '${roleToInvite}'. Data:`,
       inviteData
     );
     return { error: null }; // Success

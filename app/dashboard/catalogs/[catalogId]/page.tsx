@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import CatalogProductsClient from "./CatalogProductsClient"; // Use new client component
 import {
   fetchProductsForOrg,
@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PlusIcon } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 
 // Define props type including params
 interface CatalogProductsPageProps {
@@ -28,6 +29,25 @@ export default async function CatalogProductsPage({
   params,
 }: CatalogProductsPageProps) {
   const { catalogId } = params;
+
+  // Get user role for conditional UI
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect("/auth/login");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const userRole = profile?.role || "viewer"; // Default to viewer if no role found
 
   if (!catalogId) {
     notFound(); // Handle missing ID
@@ -79,12 +99,15 @@ export default async function CatalogProductsPage({
         <h1 className="text-2xl font-semibold">
           Datasheets in Catalog: {catalogName}
         </h1>
-        <Button asChild size="sm">
-          <Link href={`/dashboard/generator?catalogId=${catalogId}`}>
-            <PlusIcon className="mr-1.5 h-4 w-4" />
-            Add Datasheet to Catalog
-          </Link>
-        </Button>
+        {/* Only show Add Datasheet button for owners and members */}
+        {userRole !== "viewer" && (
+          <Button asChild size="sm">
+            <Link href={`/dashboard/generator?catalogId=${catalogId}`}>
+              <PlusIcon className="mr-1.5 h-4 w-4" />
+              Add Datasheet to Catalog
+            </Link>
+          </Button>
+        )}
       </div>
       {/* -------------------------------------------- */}
 
@@ -94,6 +117,7 @@ export default async function CatalogProductsPage({
           initialProducts={products}
           availableCategories={availableCategories}
           catalogName={catalogName} // Pass name if needed by client
+          userRole={userRole} // Pass user role for permission checks
         />
       </Suspense>
     </div>

@@ -27,12 +27,14 @@ interface CatalogProductsClientProps {
   initialProducts: Product[];
   availableCategories: Category[];
   catalogName: string; // Keep track of the catalog name
+  userRole?: string; // Add user role for permission checks
 }
 
 export default function CatalogProductsClient({
   initialProducts,
   availableCategories,
   catalogName,
+  userRole,
 }: CatalogProductsClientProps) {
   // State for products (if needed for client-side updates like delete)
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -303,6 +305,7 @@ export default function CatalogProductsClient({
       hideCatalogFilter={true} // Hide catalog filter on this specific page
       hideAddButton={true} // Hide the generic Add button from the table
       isLoading={isLoading} // Pass loading state if needed by table
+      userRole={userRole} // Pass user role for permission checks
     />
   );
 }

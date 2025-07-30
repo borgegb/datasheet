@@ -443,32 +443,36 @@ export default function DatasheetsTable<TData, TValue>({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {table.getSelectedRowModel().rows.length > 0 && onDeleteRows && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
-                  <TrashIcon className="mr-1.5 h-3.5 w-3.5 opacity-70" />
-                  Delete ({table.getSelectedRowModel().rows.length})
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete{" "}
-                    {table.getSelectedRowModel().rows.length} selected
-                    datasheet(s).
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteRows}>
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+          {table.getSelectedRowModel().rows.length > 0 &&
+            onDeleteRows &&
+            userRole !== "viewer" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8">
+                    <TrashIcon className="mr-1.5 h-3.5 w-3.5 opacity-70" />
+                    Delete ({table.getSelectedRowModel().rows.length})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Are you absolutely sure?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete{" "}
+                      {table.getSelectedRowModel().rows.length} selected
+                      datasheet(s).
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteRows}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
 
           {/* Remove Selected from Catalog Button */}
           {table.getSelectedRowModel().rows.length > 0 &&
@@ -507,7 +511,7 @@ export default function DatasheetsTable<TData, TValue>({
               </AlertDialog>
             )}
 
-          {!hideAddButton && (
+          {!hideAddButton && userRole !== "viewer" && (
             <Button asChild size="sm" className="h-8">
               <Link href="/dashboard/generator">
                 <PlusIcon className="mr-1.5 h-3.5 w-3.5" />

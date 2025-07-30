@@ -52,21 +52,33 @@ const mainNavItems = [
   },
 ];
 
-export function NavMain() {
+interface NavMainProps {
+  userRole?: string;
+}
+
+export function NavMain({ userRole }: NavMainProps = {}) {
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-1">
         <SidebarMenu>
-          {mainNavItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title} asChild>
-                <Link href={item.href}>
-                  {item.icon && <item.icon className="h-4 w-4" />}
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {mainNavItems
+            .filter((item) => {
+              // Hide Organization tab for non-owners
+              if (item.href === "/dashboard/organization") {
+                return userRole === "owner";
+              }
+              return true;
+            })
+            .map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton tooltip={item.title} asChild>
+                  <Link href={item.href}>
+                    {item.icon && <item.icon className="h-4 w-4" />}
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

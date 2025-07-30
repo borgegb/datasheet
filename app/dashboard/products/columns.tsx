@@ -285,12 +285,15 @@ export const columns: ColumnDef<Product>[] = [
                   <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive cursor-pointer"
-                onSelect={() => table.options.meta?.onDeleteRow?.(product.id)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
+              {/* Only show Delete for owners and members, not viewers */}
+              {table.options.meta?.userRole !== "viewer" && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                  onSelect={() => table.options.meta?.onDeleteRow?.(product.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

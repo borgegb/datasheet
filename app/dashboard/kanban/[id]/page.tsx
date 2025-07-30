@@ -1,5 +1,5 @@
 import React from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit, FileText, Calendar } from "lucide-react";
@@ -8,6 +8,7 @@ import { fetchKanbanCardById } from "../actions";
 import KanbanCardPreview from "../components/KanbanCardPreview";
 import KanbanCardActions from "../components/KanbanCardActions";
 import KanbanCardViewActions from "../components/KanbanCardViewActions";
+import { createClient } from "@/lib/supabase/server";
 
 // Client component for dropdown actions
 interface KanbanCardViewPageProps {
@@ -24,6 +25,25 @@ export default async function KanbanCardViewPage({
   if (!id) {
     notFound();
   }
+
+  // Get user role for conditional UI
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect("/auth/login");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const userRole = profile?.role || "viewer"; // Default to viewer if no role found
 
   const { data: card, error } = await fetchKanbanCardById(id);
 
@@ -56,16 +76,22 @@ export default async function KanbanCardViewPage({
                 pdfStoragePath={card.pdf_storage_path}
               />
 
-              {/* Edit Button */}
-              <Button variant="outline" asChild>
-                <Link href={`/dashboard/kanban/${card.id}/edit`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </Link>
-              </Button>
+              {/* Edit Button - Only for owners and members */}
+              {userRole !== "viewer" && (
+                <Button variant="outline" asChild>
+                  <Link href={`/dashboard/kanban/${card.id}/edit`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Link>
+                </Button>
+              )}
 
               {/* More Menu */}
-              <KanbanCardViewActions cardId={card.id} partNo={card.part_no} />
+              <KanbanCardViewActions
+                cardId={card.id}
+                partNo={card.part_no}
+                userRole={userRole}
+              />
             </div>
           </div>
         </div>

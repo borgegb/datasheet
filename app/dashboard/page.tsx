@@ -40,7 +40,7 @@ export default async function Page() {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
-  
+
   if (userError || !user) {
     redirect("/auth/login");
   }
@@ -139,7 +139,8 @@ export default async function Page() {
           </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard/catalogs">
-              <PackageIcon className="mr-2 h-4 w-4" /> {userRole === "viewer" ? "View" : "Manage"} Catalogs
+              <PackageIcon className="mr-2 h-4 w-4" />{" "}
+              {userRole === "viewer" ? "View" : "Manage"} Catalogs
             </Link>
           </Button>
           {/* Only show Manage Organization for owners */}
@@ -172,7 +173,7 @@ export default async function Page() {
               </p>
             )}
             {!recentProductsError && (
-              <RecentProductList items={recentProducts} />
+              <RecentProductList items={recentProducts} userRole={userRole} />
             )}
           </CardContent>
         </Card>

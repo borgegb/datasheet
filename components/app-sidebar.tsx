@@ -27,6 +27,7 @@ interface Profile {
   organization_id: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  role: string | null;
 }
 
 interface Organization {
@@ -59,7 +60,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("organization_id, full_name, avatar_url")
+        .select("organization_id, full_name, avatar_url, role")
         .eq("id", userData.user.id)
         .single();
 
@@ -139,7 +140,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarGroupContent>
           </SidebarGroup>
         ) : null}
-        <NavMain />
+        <NavMain userRole={profile?.role || undefined} />
       </SidebarContent>
       <SidebarFooter>
         {isLoading ? (

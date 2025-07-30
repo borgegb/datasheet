@@ -32,6 +32,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { deleteProducts } from "@/app/dashboard/actions"; // Assuming this path is correct relative to components dir
 import { toast } from "sonner";
+import type { User } from "@supabase/supabase-js";
 
 interface RecentProduct {
   id: string;
@@ -43,9 +44,10 @@ interface RecentProduct {
 
 interface RecentProductListProps {
   items: RecentProduct[];
+  userRole?: string; // Add user role for permission checks
 }
 
-export function RecentProductList({ items }: RecentProductListProps) {
+export function RecentProductList({ items, userRole }: RecentProductListProps) {
   const [isDeleting, setIsDeleting] = React.useState<string | null>(null); // Store ID being deleted
 
   const getSafeFilename = (
@@ -174,14 +176,17 @@ export function RecentProductList({ items }: RecentProductListProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={`/dashboard/generator/${product.id}`}
-                    className="cursor-pointer"
-                  >
-                    <EditIcon className="mr-2 h-4 w-4" /> Edit
-                  </Link>
-                </DropdownMenuItem>
+                {/* Only show Edit for owners and members, not viewers */}
+                {userRole !== "viewer" && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={`/dashboard/generator/${product.id}`}
+                      className="cursor-pointer"
+                    >
+                      <EditIcon className="mr-2 h-4 w-4" /> Edit
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   disabled={!product.pdf_storage_path}
                   onSelect={() =>
@@ -202,42 +207,50 @@ export function RecentProductList({ items }: RecentProductListProps) {
                 >
                   <Download className="mr-2 h-4 w-4" /> Download PDF
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    {/* This item triggers the AlertDialog */}
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                      onSelect={(e) => e.preventDefault()} // Prevent closing dropdown when triggering dialog
-                    >
-                      <TrashIcon className="mr-2 h-4 w-4" /> Delete
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently
-                        delete the datasheet "
-                        <strong>
-                          {product.product_title || "Untitled Datasheet"}
-                        </strong>
-                        ".
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() =>
-                          handleDeleteProduct(product.id, product.product_title)
-                        }
-                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                      >
-                        Yes, delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                {/* Only show Delete for owners and members, not viewers */}
+                {userRole !== "viewer" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        {/* This item triggers the AlertDialog */}
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                          onSelect={(e) => e.preventDefault()} // Prevent closing dropdown when triggering dialog
+                        >
+                          <TrashIcon className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently
+                            delete the datasheet "
+                            <strong>
+                              {product.product_title || "Untitled Datasheet"}
+                            </strong>
+                            ".
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() =>
+                              handleDeleteProduct(
+                                product.id,
+                                product.product_title
+                              )
+                            }
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                          >
+                            Yes, delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </li>

@@ -29,11 +29,13 @@ import { deleteKanbanCards } from "../actions";
 interface KanbanCardViewActionsProps {
   cardId: string;
   partNo: string;
+  userRole?: string;
 }
 
 export default function KanbanCardViewActions({
   cardId,
   partNo,
+  userRole,
 }: KanbanCardViewActionsProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
@@ -64,6 +66,11 @@ export default function KanbanCardViewActions({
       }
     });
   };
+
+  // If user is viewer, don't show the dropdown at all since all actions require edit permissions
+  if (userRole === "viewer") {
+    return null;
+  }
 
   return (
     <DropdownMenu>

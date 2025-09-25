@@ -2,13 +2,13 @@
 
 /**
  * Image Library Server Actions
- * 
+ *
  * Note: There's a legacy issue with product image paths:
  * - Old products store images with user ID: {user_id}/images/{filename}
  * - New products should use organization ID: {organization_id}/images/{filename}
  * - Kanban uses: {organization_id}/kanban/images/{filename}
  * - Catalogs use: organizations/{organization_id}/catalog_images/{filename}
- * 
+ *
  * The generateSignedUrl function handles these different path structures.
  */
 
@@ -17,16 +17,18 @@ import { ImageItem, ImageLibraryData } from "./types";
 
 async function getUserOrgId() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return null;
-  
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organization_id")
     .eq("id", user.id)
     .single();
-    
+
   return profile?.organization_id || null;
 }
 
@@ -34,11 +36,11 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
   try {
     const supabase = await createClient();
     const organizationId = await getUserOrgId();
-    
+
     if (!organizationId) {
       return { images: [], totalCount: 0, error: "Organization not found" };
     }
-    
+
     // Fetch images from all sources in parallel
     const [productsResult, kanbanResult, catalogsResult] = await Promise.all([
       // Products images
@@ -47,23 +49,25 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
         .select("id, product_title, image_path, created_at")
         .eq("organization_id", organizationId)
         .not("image_path", "is", null),
-        
+
       // Kanban cards images (both main image and signature)
       supabase
         .from("kanban_cards")
-        .select("id, part_no, description, image_path, signature_path, created_at")
+        .select(
+          "id, part_no, description, image_path, signature_path, created_at"
+        )
         .eq("organization_id", organizationId),
-        
+
       // Catalogs images
       supabase
         .from("catalogs")
         .select("id, name, image_path, created_at")
         .eq("organization_id", organizationId)
-        .not("image_path", "is", null)
+        .not("image_path", "is", null),
     ]);
-    
+
     const images: ImageItem[] = [];
-    
+
     // Process product images
     if (productsResult.data) {
       for (const product of productsResult.data) {
@@ -71,16 +75,16 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
           images.push({
             id: `product-${product.id}`,
             path: product.image_path,
-            source: 'products',
+            source: "products",
             sourceId: product.id,
-            sourceName: product.product_title || 'Untitled Product',
+            sourceName: product.product_title || "Untitled Product",
             uploadedAt: product.created_at,
-            organizationId
+            organizationId,
           });
         }
       }
     }
-    
+
     // Process kanban images
     if (kanbanResult.data) {
       for (const card of kanbanResult.data) {
@@ -88,28 +92,30 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
           images.push({
             id: `kanban-${card.id}-main`,
             path: card.image_path,
-            source: 'kanban_cards',
+            source: "kanban_cards",
             sourceId: card.id,
-            sourceName: `${card.part_no} - ${card.description || 'Kanban Card'}`,
+            sourceName: `${card.part_no} - ${
+              card.description || "Kanban Card"
+            }`,
             uploadedAt: card.created_at,
-            organizationId
+            organizationId,
           });
         }
-        
+
         if (card.signature_path) {
           images.push({
             id: `kanban-${card.id}-signature`,
             path: card.signature_path,
-            source: 'kanban_cards',
+            source: "kanban_cards",
             sourceId: card.id,
             sourceName: `${card.part_no} - Signature`,
             uploadedAt: card.created_at,
-            organizationId
+            organizationId,
           });
         }
       }
     }
-    
+
     // Process catalog images
     if (catalogsResult.data) {
       for (const catalog of catalogsResult.data) {
@@ -117,102 +123,108 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
           images.push({
             id: `catalog-${catalog.id}`,
             path: catalog.image_path,
-            source: 'catalogs',
+            source: "catalogs",
             sourceId: catalog.id,
             sourceName: `${catalog.name} (Catalog)`,
             uploadedAt: catalog.created_at,
-            organizationId
+            organizationId,
           });
         }
       }
     }
-    
+
     // Sort by upload date (newest first)
-    images.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
-    
+    images.sort(
+      (a, b) =>
+        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+    );
+
     // Generate signed URLs for first batch of images (e.g., first 20)
     const imagesWithUrls = await Promise.all(
       images.slice(0, 20).map(async (image) => {
         const url = await generateSignedUrl(image.path);
         return {
           ...image,
-          url: url || undefined
+          url: url || undefined,
         };
       })
     );
-    
+
     // Combine images with URLs and those without
-    const finalImages = [
-      ...imagesWithUrls,
-      ...images.slice(20)
-    ];
-    
+    const finalImages = [...imagesWithUrls, ...images.slice(20)];
+
     return {
       images: finalImages,
       totalCount: images.length,
-      error: undefined
+      error: undefined,
     };
-    
   } catch (error) {
     console.error("Error fetching images:", error);
     return {
       images: [],
       totalCount: 0,
-      error: error instanceof Error ? error.message : "Failed to fetch images"
+      error: error instanceof Error ? error.message : "Failed to fetch images",
     };
   }
 }
 
-export async function generateSignedUrl(imagePath: string): Promise<string | null> {
+export async function generateSignedUrl(
+  imagePath: string
+): Promise<string | null> {
   try {
     const supabase = await createClient();
-    
+
     // Try the original path first
     const { data, error } = await supabase.storage
       .from("datasheet-assets")
       .createSignedUrl(imagePath, 60 * 60); // 1 hour expiry
-      
+
     if (error) {
       console.error("Error generating signed URL for path:", imagePath, error);
-      
+
       // If it's a product image path (starts with a UUID), try alternative paths
-      if (error.message === "Object not found" && imagePath.includes('/images/')) {
+      if (
+        error.message === "Object not found" &&
+        imagePath.includes("/images/")
+      ) {
         console.log("Trying alternative paths for product image...");
-        
+
         // Get organization ID
         const organizationId = await getUserOrgId();
         if (!organizationId) return null;
-        
+
         // Extract filename from path
-        const filename = imagePath.split('/').pop();
+        const filename = imagePath.split("/").pop();
         if (!filename) return null;
-        
+
         // Try organization-based path
         const orgPath = `${organizationId}/images/${filename}`;
         const { data: orgData, error: orgError } = await supabase.storage
           .from("datasheet-assets")
           .createSignedUrl(orgPath, 60 * 60);
-          
+
         if (!orgError && orgData?.signedUrl) {
-          console.log(`Found image at organization path: ${orgPath} (original was: ${imagePath})`);
+          console.log(
+            `Found image at organization path: ${orgPath} (original was: ${imagePath})`
+          );
           return orgData.signedUrl;
         }
-        
+
         // Try without any prefix (legacy path)
         const legacyPath = `images/${filename}`;
         const { data: legacyData, error: legacyError } = await supabase.storage
           .from("datasheet-assets")
           .createSignedUrl(legacyPath, 60 * 60);
-          
+
         if (!legacyError && legacyData?.signedUrl) {
           console.log("Found image at legacy path:", legacyPath);
           return legacyData.signedUrl;
         }
       }
-      
+
       return null;
     }
-    
+
     return data?.signedUrl || null;
   } catch (error) {
     console.error("Error in generateSignedUrl:", error);

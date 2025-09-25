@@ -197,11 +197,13 @@ export async function generateSignedUrl(
         // Extract filename from path
         const filename = imagePath.split("/").pop();
         if (!filename) return null;
-        
+
         // Extract the first part of the path (might be user ID or org ID)
         const pathParts = imagePath.split("/");
         const firstPart = pathParts[0];
-        console.log(`Path analysis - First part: ${firstPart}, Filename: ${filename}`);
+        console.log(
+          `Path analysis - First part: ${firstPart}, Filename: ${filename}`
+        );
 
         // Try organization-based path (only if the first part isn't already the org ID)
         if (firstPart !== organizationId) {
@@ -234,18 +236,21 @@ export async function generateSignedUrl(
         } else if (legacyError) {
           console.log(`Legacy path failed: ${legacyError.message}`);
         }
-        
+
         // Try listing files to see what's actually in storage
         console.log(`All paths failed. Attempting to list files in bucket...`);
         const { data: listData, error: listError } = await supabase.storage
           .from("datasheet-assets")
           .list(organizationId, {
             limit: 100,
-            search: filename
+            search: filename,
           });
-          
+
         if (!listError && listData) {
-          console.log(`Files found in ${organizationId}:`, listData.map(f => f.name).join(", "));
+          console.log(
+            `Files found in ${organizationId}:`,
+            listData.map((f) => f.name).join(", ")
+          );
         }
       }
 

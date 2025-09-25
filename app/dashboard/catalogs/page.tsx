@@ -69,9 +69,7 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  useSortable,
-} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 // --------------------------------
@@ -98,9 +96,17 @@ interface SortableCatalogCardProps {
   onEdit: (catalog: Catalog) => void;
   onDeleteSuccess: () => void;
   isDragging?: boolean;
+  isSavingOrder?: boolean;
 }
 
-function SortableCatalogCard({ catalog, isOwner, onEdit, onDeleteSuccess, isDragging }: SortableCatalogCardProps) {
+function SortableCatalogCard({
+  catalog,
+  isOwner,
+  onEdit,
+  onDeleteSuccess,
+  isDragging,
+  isSavingOrder,
+}: SortableCatalogCardProps) {
   const {
     attributes,
     listeners,
@@ -110,19 +116,21 @@ function SortableCatalogCard({ catalog, isOwner, onEdit, onDeleteSuccess, isDrag
     isDragging: isSortableDragging,
   } = useSortable({ id: catalog.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging || isSortableDragging ? 0.5 : 1,
-    cursor: isOwner ? 'grab' : 'pointer',
-  };
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging || isSortableDragging ? 0.5 : 1,
+      cursor: isOwner && !isSavingOrder 
+        ? (isDragging || isSortableDragging ? "grabbing" : "grab") 
+        : "pointer",
+    };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
+    <div
+      ref={setNodeRef}
+      style={style}
       className="relative group"
-      {...(isOwner ? { ...attributes, ...listeners } : {})}
+      {...(isOwner && !isSavingOrder ? { ...attributes, ...listeners } : {})}
     >
       <Link
         href={`/dashboard/catalogs/${catalog.id}`}
@@ -400,6 +408,11 @@ export default function CatalogsPage() {
       return;
     }
 
+    // Prevent concurrent saves
+    if (isSavingOrder) {
+      return;
+    }
+
     // Only allow owners to reorder
     if (profile?.role !== "owner") {
       toast.error("Only organization owners can reorder catalogs.");
@@ -411,10 +424,10 @@ export default function CatalogsPage() {
       const oldIndex = items.findIndex((item) => item.id === active.id);
       const newIndex = items.findIndex((item) => item.id === over.id);
       const newOrder = arrayMove(items, oldIndex, newIndex);
-      
+
       // Save the new order to the server
       saveNewOrder(newOrder);
-      
+
       return newOrder;
     });
   };
@@ -667,7 +680,15 @@ export default function CatalogsPage() {
 
       {/* Display Catalogs as Cards */}
       <div className="mt-6">
-        <h2 className="text-lg font-medium mb-4">Existing Catalogs</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium">Existing Catalogs</h2>
+          {isSavingOrder && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving order...
+            </div>
+          )}
+        </div>
         {isLoadingCatalogs || isLoadingProfile ? (
           <div className="flex justify-center items-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -681,8 +702,8 @@ export default function CatalogsPage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext 
-              items={catalogs.map(c => c.id)} 
+            <SortableContext
+              items={catalogs.map((c) => c.id)}
               strategy={rectSortingStrategy}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -701,6 +722,7 @@ export default function CatalogsPage() {
                     }}
                     onDeleteSuccess={loadCatalogs}
                     isDragging={activeId === catalog.id}
+                    isSavingOrder={isSavingOrder}
                   />
                 ))}
               </div>
@@ -709,7 +731,7 @@ export default function CatalogsPage() {
               {activeId ? (
                 <div className="cursor-grabbing opacity-80">
                   {(() => {
-                    const catalog = catalogs.find(c => c.id === activeId);
+                    const catalog = catalogs.find((c) => c.id === activeId);
                     if (!catalog) return null;
                     return (
                       <Card className="shadow-2xl h-full flex flex-col overflow-hidden border">

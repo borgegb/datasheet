@@ -68,8 +68,9 @@ export default function ImageCard({ image, onClick, onLoadImage }: ImageCardProp
         {isLoading ? (
           <Skeleton className="w-full h-full" />
         ) : hasError ? (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            <ImageIcon className="h-12 w-12" />
+          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4">
+            <ImageIcon className="h-12 w-12 mb-2" />
+            <p className="text-xs text-center">Image unavailable</p>
           </div>
         ) : imageUrl ? (
           <Image

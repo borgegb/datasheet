@@ -1,5 +1,17 @@
 "use server";
 
+/**
+ * Image Library Server Actions
+ * 
+ * Note: There's a legacy issue with product image paths:
+ * - Old products store images with user ID: {user_id}/images/{filename}
+ * - New products should use organization ID: {organization_id}/images/{filename}
+ * - Kanban uses: {organization_id}/kanban/images/{filename}
+ * - Catalogs use: organizations/{organization_id}/catalog_images/{filename}
+ * 
+ * The generateSignedUrl function handles these different path structures.
+ */
+
 import { createClient } from "@/lib/supabase/server";
 import { ImageItem, ImageLibraryData } from "./types";
 
@@ -121,13 +133,10 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
     // Generate signed URLs for first batch of images (e.g., first 20)
     const imagesWithUrls = await Promise.all(
       images.slice(0, 20).map(async (image) => {
-        const { data: urlData } = await supabase.storage
-          .from("datasheet-assets")
-          .createSignedUrl(image.path, 60 * 60); // 1 hour expiry
-          
+        const url = await generateSignedUrl(image.path);
         return {
           ...image,
-          url: urlData?.signedUrl || undefined
+          url: url || undefined
         };
       })
     );
@@ -157,12 +166,50 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
 export async function generateSignedUrl(imagePath: string): Promise<string | null> {
   try {
     const supabase = await createClient();
+    
+    // Try the original path first
     const { data, error } = await supabase.storage
       .from("datasheet-assets")
       .createSignedUrl(imagePath, 60 * 60); // 1 hour expiry
       
     if (error) {
-      console.error("Error generating signed URL:", error);
+      console.error("Error generating signed URL for path:", imagePath, error);
+      
+      // If it's a product image path (starts with a UUID), try alternative paths
+      if (error.message === "Object not found" && imagePath.includes('/images/')) {
+        console.log("Trying alternative paths for product image...");
+        
+        // Get organization ID
+        const organizationId = await getUserOrgId();
+        if (!organizationId) return null;
+        
+        // Extract filename from path
+        const filename = imagePath.split('/').pop();
+        if (!filename) return null;
+        
+        // Try organization-based path
+        const orgPath = `${organizationId}/images/${filename}`;
+        const { data: orgData, error: orgError } = await supabase.storage
+          .from("datasheet-assets")
+          .createSignedUrl(orgPath, 60 * 60);
+          
+        if (!orgError && orgData?.signedUrl) {
+          console.log(`Found image at organization path: ${orgPath} (original was: ${imagePath})`);
+          return orgData.signedUrl;
+        }
+        
+        // Try without any prefix (legacy path)
+        const legacyPath = `images/${filename}`;
+        const { data: legacyData, error: legacyError } = await supabase.storage
+          .from("datasheet-assets")
+          .createSignedUrl(legacyPath, 60 * 60);
+          
+        if (!legacyError && legacyData?.signedUrl) {
+          console.log("Found image at legacy path:", legacyPath);
+          return legacyData.signedUrl;
+        }
+      }
+      
       return null;
     }
     

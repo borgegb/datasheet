@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { ImageItem } from "../types";
-import ImageCard from "./ImageCard";
+
 import { Loader2 } from "lucide-react";
+import ImageCard from "./ImageCard";
 
 interface ImageGridProps {
   images: ImageItem[];

@@ -191,27 +191,39 @@ export async function generateSignedUrl(
 
         // Get organization ID
         const organizationId = await getUserOrgId();
+        console.log(`Current organization ID: ${organizationId}`);
         if (!organizationId) return null;
 
         // Extract filename from path
         const filename = imagePath.split("/").pop();
         if (!filename) return null;
+        
+        // Extract the first part of the path (might be user ID or org ID)
+        const pathParts = imagePath.split("/");
+        const firstPart = pathParts[0];
+        console.log(`Path analysis - First part: ${firstPart}, Filename: ${filename}`);
 
-        // Try organization-based path
-        const orgPath = `${organizationId}/images/${filename}`;
-        const { data: orgData, error: orgError } = await supabase.storage
-          .from("datasheet-assets")
-          .createSignedUrl(orgPath, 60 * 60);
+        // Try organization-based path (only if the first part isn't already the org ID)
+        if (firstPart !== organizationId) {
+          const orgPath = `${organizationId}/images/${filename}`;
+          console.log(`Trying organization path: ${orgPath}`);
+          const { data: orgData, error: orgError } = await supabase.storage
+            .from("datasheet-assets")
+            .createSignedUrl(orgPath, 60 * 60);
 
-        if (!orgError && orgData?.signedUrl) {
-          console.log(
-            `Found image at organization path: ${orgPath} (original was: ${imagePath})`
-          );
-          return orgData.signedUrl;
+          if (!orgError && orgData?.signedUrl) {
+            console.log(
+              `Found image at organization path: ${orgPath} (original was: ${imagePath})`
+            );
+            return orgData.signedUrl;
+          } else if (orgError) {
+            console.log(`Organization path failed: ${orgError.message}`);
+          }
         }
 
         // Try without any prefix (legacy path)
         const legacyPath = `images/${filename}`;
+        console.log(`Trying legacy path: ${legacyPath}`);
         const { data: legacyData, error: legacyError } = await supabase.storage
           .from("datasheet-assets")
           .createSignedUrl(legacyPath, 60 * 60);
@@ -219,6 +231,21 @@ export async function generateSignedUrl(
         if (!legacyError && legacyData?.signedUrl) {
           console.log("Found image at legacy path:", legacyPath);
           return legacyData.signedUrl;
+        } else if (legacyError) {
+          console.log(`Legacy path failed: ${legacyError.message}`);
+        }
+        
+        // Try listing files to see what's actually in storage
+        console.log(`All paths failed. Attempting to list files in bucket...`);
+        const { data: listData, error: listError } = await supabase.storage
+          .from("datasheet-assets")
+          .list(organizationId, {
+            limit: 100,
+            search: filename
+          });
+          
+        if (!listError && listData) {
+          console.log(`Files found in ${organizationId}:`, listData.map(f => f.name).join(", "));
         }
       }
 

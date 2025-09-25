@@ -183,10 +183,14 @@ export async function generateSignedUrl(
       console.error("Error generating signed URL for path:", imagePath, error);
 
       // If it's a product image path (starts with a UUID), try alternative paths
-      if (
-        error.message === "Object not found" &&
-        imagePath.includes("/images/")
-      ) {
+      if (error.message === "Object not found" || error.message === "The resource was not found") {
+        console.log(`Storage error for ${imagePath}: ${error.message}`);
+        
+        // Only try alternatives for product images
+        if (!imagePath.includes("/images/")) {
+          return null;
+        }
+        
         console.log("Trying alternative paths for product image...");
 
         // Get organization ID
@@ -239,18 +243,67 @@ export async function generateSignedUrl(
 
         // Try listing files to see what's actually in storage
         console.log(`All paths failed. Attempting to list files in bucket...`);
-        const { data: listData, error: listError } = await supabase.storage
+        
+        // Check if we can access the bucket at all
+        const { data: rootList, error: rootError } = await supabase.storage
           .from("datasheet-assets")
-          .list(organizationId, {
-            limit: 100,
-            search: filename,
+          .list("", { limit: 5 });
+          
+        if (rootError) {
+          console.error(`Cannot access storage bucket: ${rootError.message}`);
+          return null;
+        } else {
+          console.log(`Root folders in bucket:`, rootList?.map(f => f.name).join(", ") || "none");
+        }
+        
+        // First, try listing in the organization folder
+        const { data: orgListData, error: orgListError } = await supabase.storage
+          .from("datasheet-assets")
+          .list(`${organizationId}/images`, {
+            limit: 10,
           });
 
-        if (!listError && listData) {
+        if (!orgListError && orgListData && orgListData.length > 0) {
           console.log(
-            `Files found in ${organizationId}:`,
-            listData.map((f) => f.name).join(", ")
+            `Files found in ${organizationId}/images:`,
+            orgListData.map((f) => f.name).slice(0, 5).join(", ")
           );
+        } else {
+          console.log(`No files found in ${organizationId}/images`);
+        }
+        
+        // If the first part looks like a UUID and is different from org ID, try listing there
+        if (firstPart && firstPart !== organizationId && firstPart.match(/^[a-f0-9-]{36}$/)) {
+          console.log(`Checking if files exist in original path: ${firstPart}/images`);
+          const { data: userListData, error: userListError } = await supabase.storage
+            .from("datasheet-assets")
+            .list(`${firstPart}/images`, {
+              limit: 10,
+            });
+            
+          if (!userListError && userListData && userListData.length > 0) {
+            console.log(
+              `Files found in ${firstPart}/images:`,
+              userListData.map((f) => f.name).slice(0, 5).join(", ")
+            );
+            
+            // The files exist in the original location, so just return the original path
+            console.log(`Files exist at original location. Using original path: ${imagePath}`);
+            
+            // Try to create signed URL with the original path
+            const { data: originalData, error: originalError } = await supabase.storage
+              .from("datasheet-assets")
+              .createSignedUrl(imagePath, 60 * 60);
+              
+            if (!originalError && originalData?.signedUrl) {
+              console.log(`Success! Generated signed URL for original path: ${imagePath}`);
+              return originalData.signedUrl;
+            } else {
+              console.error(`Failed to generate signed URL for confirmed path: ${originalError?.message}`);
+            }
+          } else {
+            console.log(`No files found in ${firstPart}/images`);
+          }
         }
       }
 

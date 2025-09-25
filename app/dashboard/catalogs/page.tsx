@@ -116,14 +116,17 @@ function SortableCatalogCard({
     isDragging: isSortableDragging,
   } = useSortable({ id: catalog.id });
 
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging || isSortableDragging ? 0.5 : 1,
-      cursor: isOwner && !isSavingOrder 
-        ? (isDragging || isSortableDragging ? "grabbing" : "grab") 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging || isSortableDragging ? 0.5 : 1,
+    cursor:
+      isOwner && !isSavingOrder
+        ? isDragging || isSortableDragging
+          ? "grabbing"
+          : "grab"
         : "pointer",
-    };
+  };
 
   return (
     <div

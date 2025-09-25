@@ -10,6 +10,20 @@
  * - Catalogs use: organizations/{organization_id}/catalog_images/{filename}
  *
  * The generateSignedUrl function handles these different path structures.
+ * 
+ * IMPORTANT: Product images stored under user IDs require a storage policy update.
+ * Add this policy in Supabase Dashboard → Storage → Policies:
+ * 
+ * Name: Allow org members to read legacy product images
+ * Operation: SELECT
+ * Target roles: authenticated
+ * Policy:
+ * ((bucket_id = 'datasheet-assets'::text) AND EXISTS (
+ *   SELECT 1 FROM products p
+ *   JOIN profiles prof ON prof.organization_id = p.organization_id
+ *   WHERE prof.id = auth.uid()
+ *   AND p.image_path = name
+ * ))
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -307,27 +321,16 @@ export async function generateSignedUrl(
                 .join(", ")
             );
 
-            // The files exist in the original location, so just return the original path
+            // The files exist in the original location
             console.log(
-              `Files exist at original location. Using original path: ${imagePath}`
+              `Files confirmed at: ${firstPart}/images/ but access is blocked by storage policies`
             );
-
-            // Try to create signed URL with the original path
-            const { data: originalData, error: originalError } =
-              await supabase.storage
-                .from("datasheet-assets")
-                .createSignedUrl(imagePath, 60 * 60);
-
-            if (!originalError && originalData?.signedUrl) {
-              console.log(
-                `Success! Generated signed URL for original path: ${imagePath}`
-              );
-              return originalData.signedUrl;
-            } else {
-              console.error(
-                `Failed to generate signed URL for confirmed path: ${originalError?.message}`
-              );
-            }
+            console.log(
+              `Storage Policy Fix Required: Add a policy to allow organization members to read product images from user folders`
+            );
+            
+            // We know the files exist but can't access them due to RLS policies
+            // Return null for now until policies are updated
           } else {
             console.log(`No files found in ${firstPart}/images`);
           }

@@ -79,6 +79,7 @@ interface CatalogInfo {
   name: string;
   image_path: string | null;
   signedImageUrl?: string | null; // Add optional signed URL field
+  display_order?: number | null; // Add display order for drag and drop
 }
 
 export async function fetchCatalogsForOrg(): Promise<{
@@ -98,11 +99,13 @@ export async function fetchCatalogsForOrg(): Promise<{
       `
       id,
       name,
-      image_path 
+      image_path,
+      display_order
     `
     )
     .eq("organization_id", organizationId)
-    .order("name", { ascending: true });
+    .order("display_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true }); // Fallback for null display_order
 
   if (fetchError) {
     console.error("Server Action Error (fetchCatalogsForOrg):", fetchError);
@@ -623,6 +626,72 @@ export async function deleteCatalog(catalogId: string) {
   revalidatePath("/dashboard/generator"); // Dropdown might need update
 
   console.log(`Catalog ID '${catalogId}' deleted successfully.`);
+  return { error: null };
+}
+// ---                         ---
+
+// --- ADD updateCatalogOrder action ---
+export async function updateCatalogOrder(catalogOrders: { id: string; display_order: number }[]) {
+  "use server";
+  const supabase = await createServerActionClient();
+  
+  // 1. Verify user is owner or admin
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+  
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id")
+    .eq("id", userId)
+    .single();
+    
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+  
+  // Only owners can reorder catalogs (you can adjust this to include 'member' if needed)
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can reorder catalogs." },
+    };
+  }
+  
+  if (!profile.organization_id) {
+    return { error: { message: "User organization context missing." } };
+  }
+  
+  // 2. Update each catalog's display_order
+  const errors = [];
+  
+  for (const { id, display_order } of catalogOrders) {
+    const { error: updateError } = await supabase
+      .from("catalogs")
+      .update({ display_order })
+      .eq("id", id)
+      .eq("organization_id", profile.organization_id); // Security: only update own org's catalogs
+      
+    if (updateError) {
+      errors.push({ id, error: updateError.message });
+      console.error(`Error updating catalog ${id} order:`, updateError);
+    }
+  }
+  
+  if (errors.length > 0) {
+    return {
+      error: {
+        message: `Failed to update ${errors.length} catalog(s) order.`,
+        details: errors,
+      },
+    };
+  }
+  
+  // 3. Revalidate paths
+  revalidatePath("/dashboard/catalogs");
+  
+  console.log(`Updated order for ${catalogOrders.length} catalogs.`);
   return { error: null };
 }
 // ---                         ---

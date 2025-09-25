@@ -10,10 +10,10 @@
  * - Catalogs use: organizations/{organization_id}/catalog_images/{filename}
  *
  * The generateSignedUrl function handles these different path structures.
- * 
+ *
  * IMPORTANT: Product images stored under user IDs require a storage policy update.
  * Add this policy in Supabase Dashboard → Storage → Policies:
- * 
+ *
  * Name: Allow org members to read legacy product images
  * Operation: SELECT
  * Target roles: authenticated
@@ -328,7 +328,7 @@ export async function generateSignedUrl(
             console.log(
               `Storage Policy Fix Required: Add a policy to allow organization members to read product images from user folders`
             );
-            
+
             // We know the files exist but can't access them due to RLS policies
             // Return null for now until policies are updated
           } else {

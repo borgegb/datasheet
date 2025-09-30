@@ -182,69 +182,6 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
   }
 }
 
-export async function generateBatchSignedUrls(
-  imagePaths: string[]
-): Promise<Map<string, string>> {
-  "use server";
-
-  const startTime = Date.now();
-  console.log(
-    `[generateBatchSignedUrls] Generating URLs for ${imagePaths.length} images`
-  );
-
-  try {
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      console.error("[generateBatchSignedUrls] Unauthorized");
-      return new Map();
-    }
-
-    // Process all URLs in parallel
-    const urlPromises = imagePaths.map(async (path) => {
-      try {
-        const { data, error } = await supabase.storage
-          .from("datasheet-assets")
-          .createSignedUrl(path, 60 * 60); // 1 hour expiry
-
-        if (error || !data?.signedUrl) {
-          console.error(`Failed to generate URL for ${path}:`, error);
-          return { path, url: null };
-        }
-
-        return { path, url: data.signedUrl };
-      } catch (err) {
-        console.error(`Exception generating URL for ${path}:`, err);
-        return { path, url: null };
-      }
-    });
-
-    const results = await Promise.all(urlPromises);
-    const urlMap = new Map<string, string>();
-
-    results.forEach((result) => {
-      if (result.url) {
-        urlMap.set(result.path, result.url);
-      }
-    });
-
-    const totalTime = Date.now() - startTime;
-    console.log(
-      `[generateBatchSignedUrls] Generated ${urlMap.size}/${imagePaths.length} URLs in ${totalTime}ms`
-    );
-
-    return urlMap;
-  } catch (error) {
-    console.error("[generateBatchSignedUrls] Exception:", error);
-    return new Map();
-  }
-}
-
 export async function generateSignedUrl(
   imagePath: string
 ): Promise<string | null> {

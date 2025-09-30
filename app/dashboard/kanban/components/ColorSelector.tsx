@@ -5,8 +5,38 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 interface ColorSelectorProps {
-  value: "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver";
-  onChange: (value: "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver") => void;
+  value:
+    | "red"
+    | "orange"
+    | "green"
+    | "yellow"
+    | "blue"
+    | "purple"
+    | "brown"
+    | "pink"
+    | "teal"
+    | "cyan"
+    | "gray"
+    | "magenta"
+    | "lime"
+    | "silver";
+  onChange: (
+    value:
+      | "red"
+      | "orange"
+      | "green"
+      | "yellow"
+      | "blue"
+      | "purple"
+      | "brown"
+      | "pink"
+      | "teal"
+      | "cyan"
+      | "gray"
+      | "magenta"
+      | "lime"
+      | "silver"
+  ) => void;
   name: string;
 }
 

@@ -43,7 +43,6 @@ export default function ImageDetails({
     // Request full-resolution URL for detail view
     const url = await onLoadImage(image, true);
     setImageUrl(url);
-    setIsLoading(false);
   };
 
   const handleDownload = async () => {
@@ -121,6 +120,8 @@ export default function ImageDetails({
                 fill
                 className="object-contain"
                 sizes="(max-width: 640px) 100vw, 576px"
+                onLoadingComplete={() => setIsLoading(false)}
+                onError={() => setIsLoading(false)}
               />
             ) : (
               <Skeleton className="w-full h-full" />

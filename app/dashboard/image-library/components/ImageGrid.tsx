@@ -26,6 +26,7 @@ export default function ImageGrid({
   
   // Reset when images change (due to filtering)
   useEffect(() => {
+    console.log('[ImageGrid] Images changed, resetting. Total images:', images.length);
     setVisibleImages(images.slice(0, imagesPerPage));
     setPage(1);
   }, [images]);
@@ -33,13 +34,21 @@ export default function ImageGrid({
   // Load more images when scrolling
   useEffect(() => {
     const handleScroll = () => {
-      if (loadingMore || visibleImages.length >= images.length) return;
+      if (loadingMore || visibleImages.length >= images.length) {
+        console.log('[ImageGrid] Scroll ignored - loadingMore:', loadingMore, 'all loaded:', visibleImages.length >= images.length);
+        return;
+      }
       
       const scrollHeight = document.documentElement.scrollHeight;
       const scrollTop = document.documentElement.scrollTop;
       const clientHeight = document.documentElement.clientHeight;
+      const scrollPosition = scrollTop + clientHeight;
+      const triggerPoint = scrollHeight - 500;
       
-      if (scrollTop + clientHeight >= scrollHeight - 500) {
+      console.log('[ImageGrid] Scroll event - position:', scrollPosition, 'trigger:', triggerPoint, 'will load:', scrollPosition >= triggerPoint);
+      
+      if (scrollPosition >= triggerPoint) {
+        console.log('[ImageGrid] Triggering loadMoreImages');
         loadMoreImages();
       }
     };
@@ -49,20 +58,37 @@ export default function ImageGrid({
   }, [visibleImages, images, loadingMore]);
   
   const loadMoreImages = async () => {
+    console.log('[ImageGrid] loadMoreImages started - current page:', page, 'visible:', visibleImages.length);
+    const startTime = Date.now();
+    
     setLoadingMore(true);
     const nextPage = page + 1;
     const startIndex = page * imagesPerPage;
     const endIndex = nextPage * imagesPerPage;
     const newImages = images.slice(startIndex, endIndex);
     
-    // Load URLs for new batch
-    await Promise.all(
-      newImages.map(img => onLoadImage(img))
-    );
+    console.log('[ImageGrid] Loading batch - startIndex:', startIndex, 'endIndex:', endIndex, 'batch size:', newImages.length);
     
-    setVisibleImages(prev => [...prev, ...newImages]);
+    // Load URLs for new batch
+    const loadStartTime = Date.now();
+    await Promise.all(
+      newImages.map((img, idx) => {
+        console.log(`[ImageGrid] Loading URL for image ${idx + 1}/${newImages.length}:`, img.path);
+        return onLoadImage(img);
+      })
+    );
+    const loadEndTime = Date.now();
+    console.log('[ImageGrid] URL loading completed in', loadEndTime - loadStartTime, 'ms');
+    
+    setVisibleImages(prev => {
+      console.log('[ImageGrid] Updating visible images - previous:', prev.length, 'adding:', newImages.length);
+      return [...prev, ...newImages];
+    });
     setPage(nextPage);
     setLoadingMore(false);
+    
+    const totalTime = Date.now() - startTime;
+    console.log('[ImageGrid] loadMoreImages completed in', totalTime, 'ms');
   };
   
   if (isLoading && visibleImages.length === 0) {

@@ -22,13 +22,21 @@ export default function ImageCard({ image, onClick, onLoadImage }: ImageCardProp
   
   useEffect(() => {
     if (!imageUrl && !hasError) {
+      console.log('[ImageCard] Triggering load for:', image.path, 'has URL:', !!image.url);
       loadImage();
     }
   }, []);
   
   const loadImage = async () => {
+    console.log('[ImageCard] Loading image started:', image.path);
+    const startTime = Date.now();
+    
     setIsLoading(true);
     const url = await onLoadImage(image);
+    
+    const loadTime = Date.now() - startTime;
+    console.log('[ImageCard] Image load completed:', image.path, 'success:', !!url, 'time:', loadTime, 'ms');
+    
     if (url) {
       setImageUrl(url);
     } else {

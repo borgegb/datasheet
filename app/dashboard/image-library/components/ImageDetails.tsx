@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Download, ExternalLink, Copy } from "lucide-react";
+import { Download, ExternalLink, Copy, Loader2 } from "lucide-react";
 import { ImageItem } from "../types";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ export default function ImageDetails({
 }: ImageDetailsProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const descriptionId = "image-details-description";
 
   useEffect(() => {
     if (image) {
@@ -96,19 +97,24 @@ export default function ImageDetails({
 
   return (
     <Sheet open={!!image} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl p-6">
+      <SheetContent
+        className="w-full sm:max-w-xl p-6"
+        aria-describedby={descriptionId}
+      >
         <SheetHeader className="mb-6">
           <SheetTitle className="text-lg font-semibold">
             {image.sourceName}
           </SheetTitle>
         </SheetHeader>
 
+        <p id={descriptionId} className="sr-only">
+          Large image preview with source, upload date, file path, and actions.
+        </p>
+
         <div className="space-y-6">
           {/* Image Preview */}
           <div className="relative aspect-square w-full bg-muted rounded-lg overflow-hidden">
-            {isLoading ? (
-              <Skeleton className="w-full h-full" />
-            ) : imageUrl ? (
+            {imageUrl ? (
               <Image
                 src={imageUrl}
                 alt={image.sourceName}
@@ -117,8 +123,11 @@ export default function ImageDetails({
                 sizes="(max-width: 640px) 100vw, 576px"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                Failed to load image
+              <Skeleton className="w-full h-full" />
+            )}
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             )}
           </div>

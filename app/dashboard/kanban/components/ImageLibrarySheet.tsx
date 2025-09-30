@@ -28,7 +28,7 @@ interface ImageItem {
   id: string;
   path: string;
   url?: string;
-  source: 'products' | 'kanban_cards' | 'catalogs';
+  source: "products" | "kanban_cards" | "catalogs";
   sourceName: string;
   uploadedAt: string;
 }
@@ -53,7 +53,9 @@ export default function ImageLibrarySheet({
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
   const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [sortOrder, setSortOrder] = useState<"newest" | "alphabetical">("newest");
+  const [sortOrder, setSortOrder] = useState<"newest" | "alphabetical">(
+    "newest"
+  );
 
   // Fetch images when sheet opens
   useEffect(() => {
@@ -65,21 +67,21 @@ export default function ImageLibrarySheet({
   const fetchImages = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/image-library', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/image-library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ organizationId }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch images');
+        throw new Error("Failed to fetch images");
       }
 
       const data = await response.json();
       setImages(data.images || []);
       setFilteredImages(data.images || []);
     } catch (error) {
-      console.error('Error fetching images:', error);
+      console.error("Error fetching images:", error);
       setImages([]);
       setFilteredImages([]);
     } finally {
@@ -93,15 +95,16 @@ export default function ImageLibrarySheet({
 
     // Apply source filter
     if (sourceFilter !== "all") {
-      filtered = filtered.filter(img => img.source === sourceFilter);
+      filtered = filtered.filter((img) => img.source === sourceFilter);
     }
 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(img => 
-        img.sourceName.toLowerCase().includes(query) ||
-        img.path.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (img) =>
+          img.sourceName.toLowerCase().includes(query) ||
+          img.path.toLowerCase().includes(query)
       );
     }
 
@@ -110,8 +113,9 @@ export default function ImageLibrarySheet({
       filtered.sort((a, b) => a.sourceName.localeCompare(b.sourceName));
     } else {
       // newest first (default)
-      filtered.sort((a, b) => 
-        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+      filtered.sort(
+        (a, b) =>
+          new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
       );
     }
 
@@ -119,49 +123,56 @@ export default function ImageLibrarySheet({
   }, [searchQuery, images, sourceFilter, sortOrder]);
 
   // Load image URL on demand
-  const loadImageUrl = async (image: ImageItem): Promise<string | null> => {
+  const loadImageUrl = async (
+    image: ImageItem,
+    full?: boolean
+  ): Promise<string | null> => {
     if (image.url) return image.url;
 
-    setLoadingImages(prev => new Set(prev).add(image.id));
-    
+    setLoadingImages((prev) => new Set(prev).add(image.id));
+
     try {
-      const response = await fetch('/api/image-library/signed-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagePath: image.path }),
+      const response = await fetch("/api/image-library/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagePath: image.path, thumb: !full }),
       });
 
       const data = await response.json();
-      
+
       // Check if it's a policy issue (product images)
       if (response.status === 403 && data.requiresPolicyUpdate) {
-        console.log('Product image requires policy update:', data.originalPath);
+        console.log("Product image requires policy update:", data.originalPath);
         // Return null to show the "Image unavailable" state
         return null;
       }
 
       if (!response.ok) {
-        throw new Error('Failed to get signed URL');
+        throw new Error("Failed to get signed URL");
       }
-      
+
       if (data.url) {
         // Update the image with the URL
-        setImages(prev => prev.map(img => 
-          img.id === image.id ? { ...img, url: data.url } : img
-        ));
-        setFilteredImages(prev => prev.map(img => 
-          img.id === image.id ? { ...img, url: data.url } : img
-        ));
-        
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id ? { ...img, url: data.url } : img
+          )
+        );
+        setFilteredImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id ? { ...img, url: data.url } : img
+          )
+        );
+
         return data.url;
       }
-      
+
       return null;
     } catch (error) {
-      console.error('Error loading image URL:', error);
+      console.error("Error loading image URL:", error);
       return null;
     } finally {
-      setLoadingImages(prev => {
+      setLoadingImages((prev) => {
         const newSet = new Set(prev);
         newSet.delete(image.id);
         return newSet;
@@ -171,10 +182,10 @@ export default function ImageLibrarySheet({
 
   const handleSelectImage = (image: ImageItem) => {
     // Extract filename from path
-    const fileName = image.path.split('/').pop() || 'image';
+    const fileName = image.path.split("/").pop() || "image";
     onSelectImage(image.path, fileName);
     setSelectedImage(image.id);
-    
+
     // Close sheet after a brief delay to show selection
     setTimeout(() => {
       onOpenChange(false);
@@ -187,14 +198,14 @@ export default function ImageLibrarySheet({
 
   const getSourceColor = (source: string) => {
     switch (source) {
-      case 'products':
-        return 'bg-blue-500/10 text-blue-600';
-      case 'kanban_cards':
-        return 'bg-green-500/10 text-green-600';
-      case 'catalogs':
-        return 'bg-purple-500/10 text-purple-600';
+      case "products":
+        return "bg-blue-500/10 text-blue-600";
+      case "kanban_cards":
+        return "bg-green-500/10 text-green-600";
+      case "catalogs":
+        return "bg-purple-500/10 text-purple-600";
       default:
-        return 'bg-gray-500/10 text-gray-600';
+        return "bg-gray-500/10 text-gray-600";
     }
   };
 
@@ -219,7 +230,7 @@ export default function ImageLibrarySheet({
               className="pl-9"
             />
           </div>
-          
+
           <div className="flex gap-2">
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
               <SelectTrigger className="w-[140px]">
@@ -232,8 +243,13 @@ export default function ImageLibrarySheet({
                 <SelectItem value="catalogs">Catalogs</SelectItem>
               </SelectContent>
             </Select>
-            
-            <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as "newest" | "alphabetical")}>
+
+            <Select
+              value={sortOrder}
+              onValueChange={(value) =>
+                setSortOrder(value as "newest" | "alphabetical")
+              }
+            >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -261,7 +277,9 @@ export default function ImageLibrarySheet({
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                {searchQuery ? 'No images found matching your search' : 'No images available'}
+                {searchQuery
+                  ? "No images found matching your search"
+                  : "No images available"}
               </p>
             </div>
           ) : (
@@ -273,7 +291,7 @@ export default function ImageLibrarySheet({
                   isSelected={selectedImage === image.id}
                   isLoading={loadingImages.has(image.id)}
                   onSelect={() => handleSelectImage(image)}
-                  onLoadImage={loadImageUrl}
+                  onLoadImage={(img) => loadImageUrl(img, false)}
                   getSourceColor={getSourceColor}
                 />
               ))}
@@ -295,13 +313,13 @@ interface ImageCardProps {
   getSourceColor: (source: string) => string;
 }
 
-function ImageCard({ 
-  image, 
-  isSelected, 
+function ImageCard({
+  image,
+  isSelected,
   isLoading,
-  onSelect, 
+  onSelect,
   onLoadImage,
-  getSourceColor 
+  getSourceColor,
 }: ImageCardProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(image.url || null);
   const [hasError, setHasError] = useState(false);
@@ -328,8 +346,8 @@ function ImageCard({
     <div
       className={cn(
         "relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all",
-        isSelected 
-          ? "border-primary ring-2 ring-primary ring-offset-2" 
+        isSelected
+          ? "border-primary ring-2 ring-primary ring-offset-2"
           : "border-transparent hover:border-muted-foreground/30"
       )}
       onClick={onSelect}
@@ -343,7 +361,9 @@ function ImageCard({
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4">
             <ImageIcon className="h-8 w-8 mb-2" />
             <p className="text-xs text-center">
-              {image.source === 'products' ? 'Product image (policy update needed)' : 'Image unavailable'}
+              {image.source === "products"
+                ? "Product image (policy update needed)"
+                : "Image unavailable"}
             </p>
           </div>
         ) : imageUrl ? (
@@ -356,7 +376,7 @@ function ImageCard({
             unoptimized
           />
         ) : null}
-        
+
         {/* Selection overlay */}
         {isSelected && (
           <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
@@ -366,17 +386,17 @@ function ImageCard({
           </div>
         )}
       </div>
-      
+
       <div className="p-3 space-y-1 bg-background">
         <p className="text-sm font-medium truncate" title={image.sourceName}>
           {image.sourceName}
         </p>
         <div className="flex items-center justify-between">
-          <Badge 
-            variant="secondary" 
+          <Badge
+            variant="secondary"
             className={cn("text-xs capitalize", getSourceColor(image.source))}
           >
-            {image.source.replace('_', ' ')}
+            {image.source.replace("_", " ")}
           </Badge>
           <p className="text-xs text-muted-foreground">
             {new Date(image.uploadedAt).toLocaleDateString()}

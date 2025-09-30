@@ -34,6 +34,7 @@ import {
   createCatalog,
   updateCatalog,
   deleteCatalog,
+  updateCatalogOrder,
 } from "../actions";
 
 // --- Add Card and Link imports ---
@@ -50,6 +51,27 @@ import {
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { DeleteCatalogDialog } from "@/components/delete-catalog"; // Import the new component
 
+// Import drag and drop components
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 // --------------------------------
 
 // --- Define Catalog interface locally ---
@@ -58,12 +80,132 @@ interface Catalog {
   name: string;
   image_path: string | null; // Keep original path if needed elsewhere, though maybe not
   signedImageUrl?: string | null; // Expect signed URL from action
+  display_order?: number | null; // Add display order for drag and drop
 }
 
 // Add Profile type for state
 interface Profile {
   role: string | null;
   organization_id: string | null;
+}
+
+// --- Sortable Catalog Card Component ---
+interface SortableCatalogCardProps {
+  catalog: Catalog;
+  isOwner: boolean;
+  onEdit: (catalog: Catalog) => void;
+  onDeleteSuccess: () => void;
+  isDragging?: boolean;
+  isSavingOrder?: boolean;
+}
+
+function SortableCatalogCard({
+  catalog,
+  isOwner,
+  onEdit,
+  onDeleteSuccess,
+  isDragging,
+  isSavingOrder,
+}: SortableCatalogCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: catalog.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging || isSortableDragging ? 0.5 : 1,
+    cursor:
+      isOwner && !isSavingOrder
+        ? isDragging || isSortableDragging
+          ? "grabbing"
+          : "grab"
+        : "pointer",
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative group"
+      {...(isOwner && !isSavingOrder ? { ...attributes, ...listeners } : {})}
+    >
+      <Link
+        href={`/dashboard/catalogs/${catalog.id}`}
+        passHref
+        className="block h-full"
+        onClick={(e) => {
+          // Prevent navigation while dragging
+          if (isDragging || isSortableDragging) {
+            e.preventDefault();
+          }
+        }}
+      >
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col overflow-hidden border group-hover:border-primary">
+          <div className="aspect-[16/10] w-full bg-muted relative overflow-hidden">
+            {catalog.signedImageUrl ? (
+              <Image
+                src={catalog.signedImageUrl}
+                alt={catalog.name}
+                layout="fill"
+                objectFit="cover"
+                className="transition-transform duration-300 group-hover:scale-105"
+                unoptimized
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground/50">
+                <PackageIcon className="h-16 w-16" />
+              </div>
+            )}
+          </div>
+          <CardHeader className="p-4">
+            <CardTitle className="text-md font-medium truncate group-hover:text-primary">
+              {catalog.name}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </Link>
+      {/* --- Add Edit/Delete Buttons for Owners --- */}
+      {isOwner && (
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-7 w-7 rounded-full shadow-md bg-background/80 backdrop-blur-sm hover:bg-background"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(catalog);
+            }}
+            title="Edit Catalog"
+          >
+            <EditIcon className="h-3.5 w-3.5" />
+          </Button>
+          <DeleteCatalogDialog
+            catalogId={catalog.id}
+            catalogName={catalog.name}
+            onDeleteSuccess={onDeleteSuccess}
+            triggerButton={
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 rounded-full shadow-md bg-background/80 backdrop-blur-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
+                title="Delete Catalog"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+              </Button>
+            }
+          />
+        </div>
+      )}
+      {/* --- End Edit/Delete Buttons --- */}
+    </div>
+  );
 }
 // --------------------------------------
 
@@ -80,6 +222,8 @@ export default function CatalogsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null); // State for profile
   const [isLoadingProfile, setIsLoadingProfile] = useState(true); // For profile loading state
+  const [activeId, setActiveId] = useState<string | null>(null); // For drag overlay
+  const [isSavingOrder, setIsSavingOrder] = useState(false); // For saving order state
 
   // --- State for Edit Catalog Dialog ---
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -93,6 +237,19 @@ export default function CatalogsPage() {
   >(null);
   const [isUpdating, setIsUpdating] = useState(false); // Separate state for update pending
   // ------------------------------------
+
+  // --- Drag and Drop Sensors ---
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Prevents accidental drags
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  // -----------------------------
 
   // Fetch user and their profile on component mount
   useEffect(() => {
@@ -240,6 +397,64 @@ export default function CatalogsPage() {
   useEffect(() => {
     loadCatalogs();
   }, [loadCatalogs]);
+
+  // --- Drag and Drop Event Handlers ---
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // Prevent concurrent saves
+    if (isSavingOrder) {
+      return;
+    }
+
+    // Only allow owners to reorder
+    if (profile?.role !== "owner") {
+      toast.error("Only organization owners can reorder catalogs.");
+      return;
+    }
+
+    // Reorder catalogs locally first for immediate feedback
+    setCatalogs((items) => {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      const newOrder = arrayMove(items, oldIndex, newIndex);
+
+      // Save the new order to the server
+      saveNewOrder(newOrder);
+
+      return newOrder;
+    });
+  };
+
+  const saveNewOrder = async (orderedCatalogs: Catalog[]) => {
+    setIsSavingOrder(true);
+    const catalogOrders = orderedCatalogs.map((catalog, index) => ({
+      id: catalog.id,
+      display_order: index + 1,
+    }));
+
+    startTransition(async () => {
+      const { error } = await updateCatalogOrder(catalogOrders);
+      if (error) {
+        toast.error(`Failed to save catalog order: ${error.message}`);
+        // Reload catalogs to restore original order
+        loadCatalogs();
+      } else {
+        toast.success("Catalog order updated successfully!");
+      }
+      setIsSavingOrder(false);
+    });
+  };
+  // ------------------------------------
 
   const handleCreateCatalog = async () => {
     if (!newCatalogName.trim()) {
@@ -468,87 +683,88 @@ export default function CatalogsPage() {
 
       {/* Display Catalogs as Cards */}
       <div className="mt-6">
-        <h2 className="text-lg font-medium mb-4">Existing Catalogs</h2>
-        {isLoadingCatalogs || isLoadingProfile ? (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium">Existing Catalogs</h2>
+          {isSavingOrder && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving order...
+            </div>
+          )}
+        </div>
+          {isLoadingCatalogs || isLoadingProfile ? (
           <div className="flex justify-center items-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : catalogs.length === 0 ? (
           <p className="text-muted-foreground">No catalogs created yet.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {catalogs.map((catalog) => (
-              <div key={catalog.id} className="relative group">
-                {" "}
-                {/* Use div wrapper for buttons */}
-                <Link
-                  href={`/dashboard/catalogs/${catalog.id}`}
-                  passHref
-                  className="block h-full"
-                >
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col overflow-hidden border group-hover:border-primary">
-                    <div className="aspect-[16/10] w-full bg-muted relative overflow-hidden">
-                      {catalog.signedImageUrl ? (
-                        <Image
-                          src={catalog.signedImageUrl}
-                          alt={catalog.name}
-                          fill
-                          className="object-cover transition-transform duration-300 group-hover:scale-105"
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground/50">
-                          <PackageIcon className="h-16 w-16" />
-                        </div>
-                      )}
-                    </div>
-                    <CardHeader className="p-4">
-                      <CardTitle className="text-md font-medium truncate group-hover:text-primary">
-                        {catalog.name}
-                      </CardTitle>
-                    </CardHeader>
-                  </Card>
-                </Link>
-                {/* --- Add Edit/Delete Buttons for Owners --- */}
-                {!isLoadingProfile && profile?.role === "owner" && (
-                  <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7 rounded-full shadow-md bg-background/80 backdrop-blur-sm hover:bg-background"
-                      onClick={() => {
-                        setEditingCatalog(catalog);
-                        setEditCatalogName(catalog.name);
-                        setEditUploadedImagePath(null);
-                        setEditUploadedFileName(null);
-                        editUploadProps.setFiles([]);
-                        setIsEditDialogOpen(true);
-                      }}
-                      title="Edit Catalog"
-                    >
-                      <EditIcon className="h-3.5 w-3.5" />
-                    </Button>
-                    <DeleteCatalogDialog
-                      catalogId={catalog.id}
-                      catalogName={catalog.name}
-                      onDeleteSuccess={loadCatalogs}
-                      triggerButton={
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="h-7 w-7 rounded-full shadow-md bg-background/80 backdrop-blur-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          title="Delete Catalog"
-                        >
-                          <TrashIcon className="h-3.5 w-3.5" />
-                        </Button>
-                      }
-                    />
-                  </div>
-                )}
-                {/* --- End Edit/Delete Buttons --- */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={catalogs.map((c) => c.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {catalogs.map((catalog) => (
+                  <SortableCatalogCard
+                    key={catalog.id}
+                    catalog={catalog}
+                    isOwner={!isLoadingProfile && profile?.role === "owner"}
+                    onEdit={(catalog) => {
+                      setEditingCatalog(catalog);
+                      setEditCatalogName(catalog.name);
+                      setEditUploadedImagePath(null);
+                      setEditUploadedFileName(null);
+                      editUploadProps.setFiles([]);
+                      setIsEditDialogOpen(true);
+                    }}
+                    onDeleteSuccess={loadCatalogs}
+                    isDragging={activeId === catalog.id}
+                    isSavingOrder={isSavingOrder}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+            <DragOverlay>
+              {activeId ? (
+                <div className="cursor-grabbing opacity-80">
+                  {(() => {
+                    const catalog = catalogs.find((c) => c.id === activeId);
+                    if (!catalog) return null;
+                    return (
+                      <Card className="shadow-2xl h-full flex flex-col overflow-hidden border">
+                        <div className="aspect-[16/10] w-full bg-muted relative overflow-hidden">
+                          {catalog.signedImageUrl ? (
+                            <Image
+                              src={catalog.signedImageUrl}
+                              alt={catalog.name}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground/50">
+                              <PackageIcon className="h-16 w-16" />
+                            </div>
+                          )}
+                        </div>
+                        <CardHeader className="p-4">
+                          <CardTitle className="text-md font-medium truncate">
+                            {catalog.name}
+                          </CardTitle>
+                        </CardHeader>
+                      </Card>
+                    );
+                  })()}
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 

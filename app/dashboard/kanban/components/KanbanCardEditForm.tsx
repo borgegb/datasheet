@@ -55,8 +55,11 @@ export default function KanbanCardEditForm({
     initialData?.preferred_supplier || ""
   );
   const [leadTime, setLeadTime] = useState(initialData?.lead_time || "");
-  const [headerColor, setHeaderColor] = useState<"red" | "orange" | "green" | "yellow">(
-    (initialData?.header_color as "red" | "orange" | "green" | "yellow") || "red"
+  const [headerColor, setHeaderColor] = useState<
+    "red" | "orange" | "green" | "yellow"
+  >(
+    (initialData?.header_color as "red" | "orange" | "green" | "yellow") ||
+      "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState(
     initialData?.image_path || ""
@@ -185,243 +188,251 @@ export default function KanbanCardEditForm({
 
   return (
     <>
-    <div className="max-w-md mx-auto bg-white shadow-lg border border-gray-200 overflow-hidden">
-      <form action={saveFormAction} onSubmit={handleFormSubmit}>
-        {/* Hidden inputs */}
-        <input type="hidden" name="imagePath" value={uploadedImagePath || ""} />
-        <input type="hidden" name="editingCardId" value={editingCardId || ""} />
+      <div className="max-w-md mx-auto bg-white shadow-lg border border-gray-200 overflow-hidden">
+        <form action={saveFormAction} onSubmit={handleFormSubmit}>
+          {/* Hidden inputs */}
+          <input
+            type="hidden"
+            name="imagePath"
+            value={uploadedImagePath || ""}
+          />
+          <input
+            type="hidden"
+            name="editingCardId"
+            value={editingCardId || ""}
+          />
 
-        {/* Header Section */}
-        <div className="space-y-4 p-6 bg-gray-50">
-          <div
-            className={`${getHeaderColor(
-              headerColor
-            )} text-white text-center py-6 rounded`}
-          >
-            <h1 className="text-4xl font-bold tracking-wider">KANBAN</h1>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="header-color">Header Color</Label>
-            <ColorSelector
-              value={headerColor}
-              onChange={setHeaderColor}
-              name="headerColor"
-            />
-          </div>
-        </div>
-
-        {/* Image Section */}
-        <div className="p-6 bg-gray-50 border-b">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="product-image">Product Image</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsLibraryOpen(true)}
-                disabled={!profile?.organization_id}
-              >
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Library
-              </Button>
+          {/* Header Section */}
+          <div className="space-y-4 p-6 bg-gray-50">
+            <div
+              className={`${getHeaderColor(
+                headerColor
+              )} text-white text-center py-6 rounded`}
+            >
+              <h1 className="text-4xl font-bold tracking-wider">KANBAN</h1>
             </div>
-            {initialData?.signedImageUrl && !uploadProps.files.length ? (
-              <Image
-                src={initialData.signedImageUrl}
-                alt={partNo}
-                width={400}
-                height={300}
-                className="w-full h-60 object-cover rounded"
-                unoptimized
+            <div className="space-y-2">
+              <Label htmlFor="header-color">Header Color</Label>
+              <ColorSelector
+                value={headerColor}
+                onChange={setHeaderColor}
+                name="headerColor"
               />
-            ) : null}
+            </div>
+          </div>
 
-            {profile?.organization_id ? (
-              <Dropzone
-                {...uploadProps}
-                className="border-dashed border-gray-300 min-h-[200px]"
-              >
-                <DropzoneEmptyState />
-                <DropzoneContent />
-              </Dropzone>
-            ) : (
-              <div className="flex items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg bg-muted">
-                <p className="text-sm text-muted-foreground">
-                  Loading organization info...
-                </p>
+          {/* Image Section */}
+          <div className="p-6 bg-gray-50 border-b">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="product-image">Product Image</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsLibraryOpen(true)}
+                  disabled={!profile?.organization_id}
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Library
+                </Button>
               </div>
-            )}
+              {initialData?.signedImageUrl && !uploadProps.files.length ? (
+                <Image
+                  src={initialData.signedImageUrl}
+                  alt={partNo}
+                  width={400}
+                  height={300}
+                  className="w-full h-60 object-cover rounded"
+                  unoptimized
+                />
+              ) : null}
 
-            {uploadedFileName && (
-              <div className="text-sm text-green-600">
-                Image "{uploadedFileName}" ready.
+              {profile?.organization_id ? (
+                <Dropzone
+                  {...uploadProps}
+                  className="border-dashed border-gray-300 min-h-[200px]"
+                >
+                  <DropzoneEmptyState />
+                  <DropzoneContent />
+                </Dropzone>
+              ) : (
+                <div className="flex items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg bg-muted">
+                  <p className="text-sm text-muted-foreground">
+                    Loading organization info...
+                  </p>
+                </div>
+              )}
+
+              {uploadedFileName && (
+                <div className="text-sm text-green-600">
+                  Image "{uploadedFileName}" ready.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Form Fields Table Style */}
+          <div className="border-collapse">
+            {/* Part No */}
+            <div className="grid grid-cols-2 border border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Part No: <span className="text-red-500">*</span>
               </div>
-            )}
-          </div>
-        </div>
+              <div className="p-2">
+                <Input
+                  name="partNo"
+                  value={partNo}
+                  onChange={(e) => setPartNo(e.target.value)}
+                  placeholder="e.g., SP100041"
+                  className="border-0 text-lg text-center font-medium"
+                  required
+                />
+              </div>
+            </div>
 
-        {/* Form Fields Table Style */}
-        <div className="border-collapse">
-          {/* Part No */}
-          <div className="grid grid-cols-2 border border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Part No: <span className="text-red-500">*</span>
+            {/* Description */}
+            <div className="grid grid-cols-2 border-l border-r border-b border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Description:
+              </div>
+              <div className="p-2">
+                <Textarea
+                  name="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Product description"
+                  className="border-0 text-lg text-center resize-none"
+                  rows={2}
+                />
+              </div>
             </div>
-            <div className="p-2">
-              <Input
-                name="partNo"
-                value={partNo}
-                onChange={(e) => setPartNo(e.target.value)}
-                placeholder="e.g., SP100041"
-                className="border-0 text-lg text-center font-medium"
-                required
-              />
-            </div>
-          </div>
 
-          {/* Description */}
-          <div className="grid grid-cols-2 border-l border-r border-b border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Description:
+            {/* Location */}
+            <div className="grid grid-cols-2 border-l border-r border-b border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Location: <span className="text-red-500">*</span>
+              </div>
+              <div className="p-2">
+                <Input
+                  name="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g., UA11-04-11"
+                  className="border-0 text-lg text-center"
+                  required
+                />
+              </div>
             </div>
-            <div className="p-2">
-              <Textarea
-                name="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Product description"
-                className="border-0 text-lg text-center resize-none"
-                rows={2}
-              />
-            </div>
-          </div>
 
-          {/* Location */}
-          <div className="grid grid-cols-2 border-l border-r border-b border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Location: <span className="text-red-500">*</span>
+            {/* Order Qty */}
+            <div className="grid grid-cols-2 border-l border-r border-b border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Order Qty:
+              </div>
+              <div className="p-2">
+                <Input
+                  name="orderQuantity"
+                  type="number"
+                  value={orderQuantity}
+                  onChange={(e) => setOrderQuantity(e.target.value)}
+                  placeholder="200"
+                  className="border-0 text-lg text-center"
+                />
+              </div>
             </div>
-            <div className="p-2">
-              <Input
-                name="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g., UA11-04-11"
-                className="border-0 text-lg text-center"
-                required
-              />
-            </div>
-          </div>
 
-          {/* Order Qty */}
-          <div className="grid grid-cols-2 border-l border-r border-b border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Order Qty:
+            {/* Preferred Supplier */}
+            <div className="grid grid-cols-2 border-l border-r border-b border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Preferred Supplier:
+              </div>
+              <div className="p-2">
+                <Input
+                  name="preferredSupplier"
+                  value={preferredSupplier}
+                  onChange={(e) => setPreferredSupplier(e.target.value)}
+                  placeholder="Supplier name"
+                  className="border-0 text-lg text-center"
+                />
+              </div>
             </div>
-            <div className="p-2">
-              <Input
-                name="orderQuantity"
-                type="number"
-                value={orderQuantity}
-                onChange={(e) => setOrderQuantity(e.target.value)}
-                placeholder="200"
-                className="border-0 text-lg text-center"
-              />
-            </div>
-          </div>
 
-          {/* Preferred Supplier */}
-          <div className="grid grid-cols-2 border-l border-r border-b border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Preferred Supplier:
+            {/* Lead Time */}
+            <div className="grid grid-cols-2 border-l border-r border-b border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Lead Time:
+              </div>
+              <div className="p-2">
+                <Input
+                  name="leadTime"
+                  value={leadTime}
+                  onChange={(e) => setLeadTime(e.target.value)}
+                  placeholder="3 Months"
+                  className="border-0 text-lg text-center"
+                />
+              </div>
             </div>
-            <div className="p-2">
-              <Input
-                name="preferredSupplier"
-                value={preferredSupplier}
-                onChange={(e) => setPreferredSupplier(e.target.value)}
-                placeholder="Supplier name"
-                className="border-0 text-lg text-center"
-              />
-            </div>
-          </div>
 
-          {/* Lead Time */}
-          <div className="grid grid-cols-2 border-l border-r border-b border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Lead Time:
-            </div>
-            <div className="p-2">
-              <Input
-                name="leadTime"
-                value={leadTime}
-                onChange={(e) => setLeadTime(e.target.value)}
-                placeholder="3 Months"
-                className="border-0 text-lg text-center"
-              />
-            </div>
-          </div>
-
-          {/* Signature */}
-          <div className="grid grid-cols-2 border-l border-r border-b border-black">
-            <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
-              Signature:
-            </div>
-            <div className="p-4 text-lg text-center min-h-[60px] text-gray-400">
-              {/* Empty signature field */}
-              Available after printing
+            {/* Signature */}
+            <div className="grid grid-cols-2 border-l border-r border-b border-black">
+              <div className="border-r border-black p-4 bg-gray-50 font-semibold text-lg">
+                Signature:
+              </div>
+              <div className="p-4 text-lg text-center min-h-[60px] text-gray-400">
+                {/* Empty signature field */}
+                Available after printing
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="p-6 bg-gray-50 flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(`/dashboard/kanban/${editingCardId}`)}
-            disabled={isSavePending}
-          >
-            <X className="mr-2 h-4 w-4" />
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={
-              isSavePending ||
-              uploadProps.loading ||
-              (uploadProps.files.length > 0 &&
-                uploadProps.successes.length === 0 &&
-                !uploadProps.loading)
-            }
-          >
-            {isSavePending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            {isSavePending
-              ? "Saving..."
-              : uploadProps.files.length > 0 &&
-                uploadProps.successes.length === 0 &&
-                !uploadProps.loading
-              ? "Upload Image First"
-              : "Save Changes"}
-          </Button>
-        </div>
-      </form>
-    </div>
+          {/* Action Buttons */}
+          <div className="p-6 bg-gray-50 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/dashboard/kanban/${editingCardId}`)}
+              disabled={isSavePending}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                isSavePending ||
+                uploadProps.loading ||
+                (uploadProps.files.length > 0 &&
+                  uploadProps.successes.length === 0 &&
+                  !uploadProps.loading)
+              }
+            >
+              {isSavePending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {isSavePending
+                ? "Saving..."
+                : uploadProps.files.length > 0 &&
+                  uploadProps.successes.length === 0 &&
+                  !uploadProps.loading
+                ? "Upload Image First"
+                : "Save Changes"}
+            </Button>
+          </div>
+        </form>
+      </div>
 
-    {/* Image Library Sheet */}
-    {profile?.organization_id && (
-      <ImageLibrarySheet
-        open={isLibraryOpen}
-        onOpenChange={setIsLibraryOpen}
-        onSelectImage={handleImageSelection}
-        organizationId={profile.organization_id}
-      />
-    )}
+      {/* Image Library Sheet */}
+      {profile?.organization_id && (
+        <ImageLibrarySheet
+          open={isLibraryOpen}
+          onOpenChange={setIsLibraryOpen}
+          onSelectImage={handleImageSelection}
+          organizationId={profile.organization_id}
+        />
+      )}
     </>
   );
 }

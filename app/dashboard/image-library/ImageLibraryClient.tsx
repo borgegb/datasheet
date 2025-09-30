@@ -5,7 +5,7 @@ import { ImageLibraryData, ImageFilters, ImageItem } from "./types";
 import ImageGrid from "./components/ImageGrid";
 import ImageFiltersComponent from "./components/ImageFilters";
 import ImageDetails from "./components/ImageDetails";
-import { generateSignedUrl } from "./actions";
+import { generateSignedUrl, generateSignedUrlsBatch } from "./actions";
 
 interface ImageLibraryClientProps {
   initialData: ImageLibraryData;
@@ -127,6 +127,37 @@ export default function ImageLibraryClient({
     return url;
   };
 
+  // Prefetch a batch of image URLs and populate the local URL cache
+  const prefetchImageUrls = async (
+    imagesToPrefetch: ImageItem[]
+  ): Promise<void> => {
+    if (!imagesToPrefetch || imagesToPrefetch.length === 0) return;
+
+    // Filter out those already cached or already having a URL
+    const missing = imagesToPrefetch.filter((img) => {
+      if (img.url) return false;
+      return !imageUrls.get(img.id);
+    });
+
+    if (missing.length === 0) return;
+
+    const paths = missing.map((i) => i.path);
+    const result = await generateSignedUrlsBatch(paths);
+
+    if (result && Object.keys(result).length > 0) {
+      setImageUrls((prev) => {
+        const next = new Map(prev);
+        for (const img of missing) {
+          const url = result[img.path];
+          if (url) {
+            next.set(img.id, url);
+          }
+        }
+        return next;
+      });
+    }
+  };
+
   if (initialData.error) {
     return (
       <div className="text-center py-8">
@@ -150,6 +181,7 @@ export default function ImageLibraryClient({
         images={filteredImages}
         onImageClick={setSelectedImage}
         onLoadImage={loadImageUrl}
+        onPrefetchImages={prefetchImageUrls}
         isLoading={isLoading}
       />
 

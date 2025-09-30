@@ -29,6 +29,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { ImageItem, ImageLibraryData } from "./types";
 
+// Lightweight in-memory cache for this server instance
+// Maps storage path -> signed URL (with naive TTL handling)
+const signedUrlCache: Map<string, { url: string; expiresAt: number }> =
+  new Map();
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
 async function getUserOrgId() {
   const supabase = await createClient();
   const {
@@ -153,18 +159,17 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
         new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     );
 
-    // Generate signed URLs for first batch of images (e.g., first 20)
-    const imagesWithUrls = await Promise.all(
-      images.slice(0, 20).map(async (image) => {
-        const url = await generateSignedUrl(image.path);
-        return {
-          ...image,
-          url: url || undefined,
-        };
-      })
+    // Generate signed URLs for first batch of images using batch resolver
+    const firstPage = images.slice(0, 20);
+    const firstPageUrls = await generateSignedUrlsBatch(
+      firstPage.map((i) => i.path)
     );
+    const imagesWithUrls = firstPage.map((img) => ({
+      ...img,
+      url: firstPageUrls[img.path] || undefined,
+    }));
 
-    // Combine images with URLs and those without
+    // Combine images with URLs and those without (remaining pages resolved lazily)
     const finalImages = [...imagesWithUrls, ...images.slice(20)];
 
     return {
@@ -373,4 +378,79 @@ export async function generateSignedUrl(
     );
     return null;
   }
+}
+
+/**
+ * Batch generation of signed URLs with minimal fallbacks and memoization.
+ * - Uses per-path cache to avoid repeated work within TTL
+ * - Applies cheap legacy path rewrites without directory listings
+ * - Avoids expensive storage.list calls entirely
+ */
+export async function generateSignedUrlsBatch(
+  imagePaths: string[]
+): Promise<Record<string, string>> {
+  const supabase = await createClient();
+  const now = Date.now();
+  const results: Record<string, string> = {};
+
+  // Prepare candidates for each path (original + cheap fallbacks)
+  // We keep evaluation order deterministic and minimal
+  const pathToCandidates = new Map<string, string[]>();
+
+  // Fetch org once for fallback building
+  const organizationId = await getUserOrgId();
+
+  for (const path of imagePaths) {
+    // Cache hit
+    const cached = signedUrlCache.get(path);
+    if (cached && cached.expiresAt > now + 5 * 60 * 1000) {
+      // keep a safety margin
+      results[path] = cached.url;
+      continue;
+    }
+
+    const candidates: string[] = [path];
+    const filename = path.split("/").pop();
+    const firstPart = path.split("/")[0];
+    const isLikelyProduct = path.includes("/images/") && !!filename;
+
+    // For product images with legacy user-id prefix, try org path and bare legacy path
+    if (isLikelyProduct && organizationId) {
+      if (firstPart && firstPart !== organizationId) {
+        candidates.push(`${organizationId}/images/${filename}`);
+      }
+      candidates.push(`images/${filename}`);
+    }
+
+    pathToCandidates.set(path, candidates);
+  }
+
+  // For each original path, try candidates in order until one succeeds
+  for (const [originalPath, candidates] of pathToCandidates.entries()) {
+    // If already satisfied by cache above
+    if (results[originalPath]) continue;
+
+    let resolvedUrl: string | null = null;
+    for (const candidate of candidates) {
+      const { data, error } = await supabase.storage
+        .from("datasheet-assets")
+        .createSignedUrl(candidate, 60 * 60);
+      if (!error && data?.signedUrl) {
+        resolvedUrl = data.signedUrl;
+        // Cache under the original requested path for future lookups
+        signedUrlCache.set(originalPath, {
+          url: resolvedUrl,
+          expiresAt: now + ONE_HOUR_MS,
+        });
+        break;
+      }
+      // On error, just try next candidate; avoid lists/logging for speed
+    }
+
+    if (resolvedUrl) {
+      results[originalPath] = resolvedUrl;
+    }
+  }
+
+  return results;
 }

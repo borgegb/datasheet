@@ -10,6 +10,7 @@ interface ImageGridProps {
   images: ImageItem[];
   onImageClick: (image: ImageItem) => void;
   onLoadImage: (image: ImageItem) => Promise<string | null>;
+  onPrefetchImages?: (imagesToPrefetch: ImageItem[]) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -17,6 +18,7 @@ export default function ImageGrid({
   images,
   onImageClick,
   onLoadImage,
+  onPrefetchImages,
   isLoading,
 }: ImageGridProps) {
   const [visibleImages, setVisibleImages] = useState<ImageItem[]>([]);
@@ -30,7 +32,12 @@ export default function ImageGrid({
       "[ImageGrid] Images array length changed, resetting. Total images:",
       images.length
     );
-    setVisibleImages(images.slice(0, imagesPerPage));
+    const firstPage = images.slice(0, imagesPerPage);
+    setVisibleImages(firstPage);
+    // Proactively prefetch first page URLs
+    if (onPrefetchImages) {
+      onPrefetchImages(firstPage).catch(() => {});
+    }
     setPage(1);
   }, [images.length]); // Only reset when the length changes, not when URLs are added
 
@@ -68,7 +75,14 @@ export default function ImageGrid({
       return;
     }
 
-    // Load URLs for new batch - with staggered loading to avoid overwhelming the server
+    // Prefetch URLs server-side for the batch (fast path)
+    if (onPrefetchImages) {
+      try {
+        await onPrefetchImages(newImages);
+      } catch {}
+    }
+
+    // Fallback: Load any remaining URLs with staggered client calls
     const loadStartTime = Date.now();
     const loadPromises = newImages.map((img, idx) => {
       // Add a small delay between each request to avoid overwhelming the server

@@ -71,31 +71,50 @@ export default function ImageLibraryClient({
 
   // Handle filter changes
   const handleFilterChange = (newFilters: ImageFilters) => {
-    console.log('[ImageLibraryClient] Filter change:', newFilters);
+    console.log("[ImageLibraryClient] Filter change:", newFilters);
     setFilters(newFilters);
     const filtered = applyFilters(images, newFilters);
-    console.log('[ImageLibraryClient] Filtered results - before:', filteredImages.length, 'after:', filtered.length);
+    console.log(
+      "[ImageLibraryClient] Filtered results - before:",
+      filteredImages.length,
+      "after:",
+      filtered.length
+    );
     setFilteredImages(filtered);
   };
 
   // Load signed URL for image when needed
   const loadImageUrl = async (image: ImageItem): Promise<string | null> => {
     if (image.url) {
-      console.log('[ImageLibraryClient] Image already has URL, returning cached:', image.path);
+      console.log(
+        "[ImageLibraryClient] Image already has URL, returning cached:",
+        image.path
+      );
       return image.url;
     }
 
-    console.log('[ImageLibraryClient] Generating signed URL for:', image.path);
+    console.log("[ImageLibraryClient] Generating signed URL for:", image.path);
     const startTime = Date.now();
-    
+
     const url = await generateSignedUrl(image.path);
-    
+
     const genTime = Date.now() - startTime;
-    console.log('[ImageLibraryClient] Signed URL generation completed:', image.path, 'success:', !!url, 'time:', genTime, 'ms');
-    
+    console.log(
+      "[ImageLibraryClient] Signed URL generation completed:",
+      image.path,
+      "success:",
+      !!url,
+      "time:",
+      genTime,
+      "ms"
+    );
+
     if (url) {
       // Update the image with the URL
-      console.log('[ImageLibraryClient] Updating state with new URL for:', image.path);
+      console.log(
+        "[ImageLibraryClient] Updating state with new URL for:",
+        image.path
+      );
       setImages((prev) =>
         prev.map((img) => (img.id === image.id ? { ...img, url } : img))
       );

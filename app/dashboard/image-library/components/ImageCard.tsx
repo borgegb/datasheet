@@ -15,28 +15,45 @@ interface ImageCardProps {
   onLoadImage: (image: ImageItem) => Promise<string | null>;
 }
 
-export default function ImageCard({ image, onClick, onLoadImage }: ImageCardProps) {
+export default function ImageCard({
+  image,
+  onClick,
+  onLoadImage,
+}: ImageCardProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(image.url || null);
   const [isLoading, setIsLoading] = useState(!image.url);
   const [hasError, setHasError] = useState(false);
-  
+
   useEffect(() => {
     if (!imageUrl && !hasError) {
-      console.log('[ImageCard] Triggering load for:', image.path, 'has URL:', !!image.url);
+      console.log(
+        "[ImageCard] Triggering load for:",
+        image.path,
+        "has URL:",
+        !!image.url
+      );
       loadImage();
     }
   }, []);
-  
+
   const loadImage = async () => {
-    console.log('[ImageCard] Loading image started:', image.path);
+    console.log("[ImageCard] Loading image started:", image.path);
     const startTime = Date.now();
-    
+
     setIsLoading(true);
     const url = await onLoadImage(image);
-    
+
     const loadTime = Date.now() - startTime;
-    console.log('[ImageCard] Image load completed:', image.path, 'success:', !!url, 'time:', loadTime, 'ms');
-    
+    console.log(
+      "[ImageCard] Image load completed:",
+      image.path,
+      "success:",
+      !!url,
+      "time:",
+      loadTime,
+      "ms"
+    );
+
     if (url) {
       setImageUrl(url);
     } else {
@@ -44,31 +61,31 @@ export default function ImageCard({ image, onClick, onLoadImage }: ImageCardProp
     }
     setIsLoading(false);
   };
-  
+
   const getSourceIcon = () => {
     switch (image.source) {
-      case 'products':
+      case "products":
         return <Package className="h-3 w-3" />;
-      case 'kanban_cards':
+      case "kanban_cards":
         return <FileImage className="h-3 w-3" />;
-      case 'catalogs':
+      case "catalogs":
         return <ImageIcon className="h-3 w-3" />;
     }
   };
-  
+
   const getSourceColor = () => {
     switch (image.source) {
-      case 'products':
-        return 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20';
-      case 'kanban_cards':
-        return 'bg-green-500/10 text-green-600 hover:bg-green-500/20';
-      case 'catalogs':
-        return 'bg-purple-500/10 text-purple-600 hover:bg-purple-500/20';
+      case "products":
+        return "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20";
+      case "kanban_cards":
+        return "bg-green-500/10 text-green-600 hover:bg-green-500/20";
+      case "catalogs":
+        return "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20";
     }
   };
-  
+
   return (
-    <Card 
+    <Card
       className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow group"
       onClick={onClick}
     >
@@ -91,21 +108,21 @@ export default function ImageCard({ image, onClick, onLoadImage }: ImageCardProp
           />
         ) : null}
       </div>
-      
+
       <div className="p-3 space-y-2">
         <p className="text-sm font-medium truncate" title={image.sourceName}>
           {image.sourceName}
         </p>
-        
+
         <div className="flex items-center justify-between">
-          <Badge 
-            variant="secondary" 
+          <Badge
+            variant="secondary"
             className={cn("text-xs capitalize", getSourceColor())}
           >
             <span className="mr-1">{getSourceIcon()}</span>
-            {image.source.replace('_', ' ')}
+            {image.source.replace("_", " ")}
           </Badge>
-          
+
           <p className="text-xs text-muted-foreground">
             {new Date(image.uploadedAt).toLocaleDateString()}
           </p>

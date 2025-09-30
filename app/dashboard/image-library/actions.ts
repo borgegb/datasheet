@@ -187,7 +187,7 @@ export async function generateSignedUrl(
 ): Promise<string | null> {
   console.log("[generateSignedUrl] Starting URL generation for:", imagePath);
   const startTime = Date.now();
-  
+
   try {
     const supabase = await createClient();
 
@@ -198,7 +198,11 @@ export async function generateSignedUrl(
       .createSignedUrl(imagePath, 60 * 60); // 1 hour expiry
 
     if (error) {
-      console.error("[generateSignedUrl] Error with original path:", imagePath, error.message);
+      console.error(
+        "[generateSignedUrl] Error with original path:",
+        imagePath,
+        error.message
+      );
 
       // If it's a product image path (starts with a UUID), try alternative paths
       if (
@@ -342,16 +346,31 @@ export async function generateSignedUrl(
       }
 
       const totalTime = Date.now() - startTime;
-      console.log("[generateSignedUrl] Failed after", totalTime, "ms - no fallback worked for:", imagePath);
+      console.log(
+        "[generateSignedUrl] Failed after",
+        totalTime,
+        "ms - no fallback worked for:",
+        imagePath
+      );
       return null;
     }
 
     const totalTime = Date.now() - startTime;
-    console.log("[generateSignedUrl] Success! Generated URL in", totalTime, "ms for:", imagePath);
+    console.log(
+      "[generateSignedUrl] Success! Generated URL in",
+      totalTime,
+      "ms for:",
+      imagePath
+    );
     return data?.signedUrl || null;
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    console.error("[generateSignedUrl] Exception after", totalTime, "ms:", error);
+    console.error(
+      "[generateSignedUrl] Exception after",
+      totalTime,
+      "ms:",
+      error
+    );
     return null;
   }
 }

@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation";
 import { saveKanbanCard } from "../actions";
 import type { KanbanCard } from "../actions";
 import ColorSelector from "./ColorSelector";
+import ImageLibrarySheet from "./ImageLibrarySheet";
+import { ImageIcon } from "lucide-react";
 
 interface KanbanCardEditFormProps {
   initialData?: Partial<KanbanCard> | null;
@@ -60,6 +62,7 @@ export default function KanbanCardEditForm({
     initialData?.image_path || ""
   );
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   // Form action
   const [saveState, saveFormAction, isSavePending] = useActionState(
@@ -134,6 +137,13 @@ export default function KanbanCardEditForm({
     }
   }, [initialData?.image_path]);
 
+  // Handle image selection from library
+  const handleImageSelection = (imagePath: string, fileName: string) => {
+    setUploadedImagePath(imagePath);
+    setUploadedFileName(fileName);
+    // Note: User will need to manually clear dropzone files if any were added
+  };
+
   const getHeaderColor = (color: string) => {
     const colorMap = {
       red: "bg-red-600",
@@ -173,6 +183,7 @@ export default function KanbanCardEditForm({
   }
 
   return (
+    <>
     <div className="max-w-md mx-auto bg-white shadow-lg border border-gray-200 overflow-hidden">
       <form action={saveFormAction} onSubmit={handleFormSubmit}>
         {/* Hidden inputs */}
@@ -201,7 +212,19 @@ export default function KanbanCardEditForm({
         {/* Image Section */}
         <div className="p-6 bg-gray-50 border-b">
           <div className="space-y-2">
-            <Label htmlFor="product-image">Product Image</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="product-image">Product Image</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsLibraryOpen(true)}
+                disabled={!profile?.organization_id}
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Library
+              </Button>
+            </div>
             {initialData?.signedImageUrl && !uploadProps.files.length ? (
               <Image
                 src={initialData.signedImageUrl}
@@ -388,5 +411,16 @@ export default function KanbanCardEditForm({
         </div>
       </form>
     </div>
+
+    {/* Image Library Sheet */}
+    {profile?.organization_id && (
+      <ImageLibrarySheet
+        open={isLibraryOpen}
+        onOpenChange={setIsLibraryOpen}
+        onSelectImage={handleImageSelection}
+        organizationId={profile.organization_id}
+      />
+    )}
+    </>
   );
 }

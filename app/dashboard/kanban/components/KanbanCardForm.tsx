@@ -34,6 +34,8 @@ import { useRouter } from "next/navigation";
 import { saveKanbanCard } from "../actions";
 import type { KanbanCard } from "../actions";
 import ColorSelector from "./ColorSelector";
+import ImageLibrarySheet from "./ImageLibrarySheet";
+import { ImageIcon } from "lucide-react";
 
 interface KanbanCardFormProps {
   initialData?: Partial<KanbanCard> | null;
@@ -74,6 +76,7 @@ export default function KanbanCardForm({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   const router = useRouter();
 
@@ -264,6 +267,13 @@ export default function KanbanCardForm({
     }
   }, [initialData?.image_path]);
 
+  // Handle image selection from library
+  const handleImageSelection = (imagePath: string, fileName: string) => {
+    setUploadedImagePath(imagePath);
+    setUploadedFileName(fileName);
+    // Note: User will need to manually clear dropzone files if any were added
+  };
+
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     // Check if there are files added but not uploaded
     const hasUnuploadedFiles =
@@ -291,6 +301,7 @@ export default function KanbanCardForm({
   }
 
   return (
+    <>
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>
@@ -406,7 +417,19 @@ export default function KanbanCardForm({
 
             {/* Image Upload */}
             <div className="space-y-1.5">
-              <Label htmlFor="product-image">Product Image</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="product-image">Product Image</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsLibraryOpen(true)}
+                  disabled={!profile?.organization_id}
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Library
+                </Button>
+              </div>
               {profile?.organization_id ? (
                 <Dropzone {...uploadProps} className="mt-1 border-border">
                   <DropzoneEmptyState />
@@ -470,5 +493,16 @@ export default function KanbanCardForm({
         </form>
       </CardContent>
     </Card>
+
+    {/* Image Library Sheet */}
+    {profile?.organization_id && (
+      <ImageLibrarySheet
+        open={isLibraryOpen}
+        onOpenChange={setIsLibraryOpen}
+        onSelectImage={handleImageSelection}
+        organizationId={profile.organization_id}
+      />
+    )}
+    </>
   );
 }

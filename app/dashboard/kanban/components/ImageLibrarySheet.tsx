@@ -78,8 +78,9 @@ export default function ImageLibrarySheet({
       }
 
       const data = await response.json();
-      setImages(data.images || []);
-      setFilteredImages(data.images || []);
+      const safe = (data.images || []).filter((img: ImageItem) => !!img.path);
+      setImages(safe);
+      setFilteredImages(safe);
     } catch (error) {
       console.error("Error fetching images:", error);
       setImages([]);
@@ -127,6 +128,7 @@ export default function ImageLibrarySheet({
     image: ImageItem,
     full?: boolean
   ): Promise<string | null> => {
+    if (!image.path) return null;
     if (image.url) return image.url;
 
     setLoadingImages((prev) => new Set(prev).add(image.id));
@@ -148,6 +150,10 @@ export default function ImageLibrarySheet({
       }
 
       if (!response.ok) {
+        if (response.status === 400) {
+          // Bad request (likely missing/invalid path) → mark as error for this card
+          return null;
+        }
         throw new Error("Failed to get signed URL");
       }
 

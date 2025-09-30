@@ -146,7 +146,7 @@ export default function ImageGrid({
       },
       {
         root: null,
-        rootMargin: "200px",
+        rootMargin: "1000px",
         threshold: 0,
       }
     );

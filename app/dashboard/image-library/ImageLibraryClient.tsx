@@ -85,15 +85,23 @@ export default function ImageLibraryClient({
   };
 
   // Load signed URL for image when needed
-  const loadImageUrl = async (image: ImageItem): Promise<string | null> => {
+  const loadImageUrl = async (
+    image: ImageItem,
+    fullRes?: boolean
+  ): Promise<string | null> => {
     // Check if we already have a URL in the map
-    const cachedUrl = imageUrls.get(image.id);
-    if (cachedUrl) {
-      console.log("[ImageLibraryClient] Image URL found in cache:", image.path);
-      return cachedUrl;
+    if (!fullRes) {
+      const cachedUrl = imageUrls.get(image.id);
+      if (cachedUrl) {
+        console.log(
+          "[ImageLibraryClient] Image URL found in cache:",
+          image.path
+        );
+        return cachedUrl;
+      }
     }
 
-    if (image.url) {
+    if (!fullRes && image.url) {
       console.log(
         "[ImageLibraryClient] Image has initial URL, caching:",
         image.path
@@ -102,7 +110,11 @@ export default function ImageLibraryClient({
       return image.url;
     }
 
-    console.log("[ImageLibraryClient] Generating signed URL for:", image.path);
+    console.log(
+      "[ImageLibraryClient] Generating signed URL for:",
+      image.path,
+      fullRes ? "(full)" : "(thumb)"
+    );
     const startTime = Date.now();
 
     const url = await generateSignedUrl(image.path);
@@ -118,7 +130,7 @@ export default function ImageLibraryClient({
       "ms"
     );
 
-    if (url) {
+    if (url && !fullRes) {
       // Store the URL in the map instead of updating the entire images array
       console.log("[ImageLibraryClient] Caching URL for:", image.path);
       setImageUrls((prev) => new Map(prev).set(image.id, url));

@@ -18,7 +18,7 @@ import { toast } from "sonner";
 interface ImageDetailsProps {
   image: ImageItem | null;
   onClose: () => void;
-  onLoadImage: (image: ImageItem) => Promise<string | null>;
+  onLoadImage: (image: ImageItem, fullRes?: boolean) => Promise<string | null>;
 }
 
 export default function ImageDetails({
@@ -39,7 +39,8 @@ export default function ImageDetails({
     if (!image) return;
 
     setIsLoading(true);
-    const url = image.url || (await onLoadImage(image));
+    // Request full-resolution URL for detail view
+    const url = await onLoadImage(image, true);
     setImageUrl(url);
     setIsLoading(false);
   };

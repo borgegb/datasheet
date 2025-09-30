@@ -114,7 +114,6 @@ export default function ImageDetails({
                 fill
                 className="object-contain"
                 sizes="(max-width: 640px) 100vw, 576px"
-                unoptimized
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">

@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "source.unsplash.com",
       },
+      // Allow Supabase signed URLs (adjust hostname if using custom domain)
+      {
+        protocol: "https",
+        hostname: new URL(
+          process.env.NEXT_PUBLIC_SUPABASE_URL || "https://example.supabase.co"
+        ).hostname,
+      },
     ],
   },
   /* other config options here */

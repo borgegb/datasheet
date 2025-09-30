@@ -185,6 +185,7 @@ export default function KanbanCardsTable({
       red: "bg-red-500 text-white",
       orange: "bg-orange-500 text-white",
       green: "bg-green-500 text-white",
+      yellow: "bg-yellow-500 text-white",
     };
 
     return (

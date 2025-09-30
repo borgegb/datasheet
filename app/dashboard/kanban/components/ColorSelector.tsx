@@ -5,8 +5,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 interface ColorSelectorProps {
-  value: "red" | "orange" | "green";
-  onChange: (value: "red" | "orange" | "green") => void;
+  value: "red" | "orange" | "green" | "yellow";
+  onChange: (value: "red" | "orange" | "green" | "yellow") => void;
   name: string;
 }
 
@@ -33,6 +33,12 @@ export default function ColorSelector({
       label: "Green",
       bgColor: "bg-green-500",
       borderColor: "border-green-500",
+    },
+    {
+      value: "yellow",
+      label: "Yellow",
+      bgColor: "bg-yellow-500",
+      borderColor: "border-yellow-500",
     },
   ] as const;
 

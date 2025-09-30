@@ -15,6 +15,7 @@ export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
       red: "bg-red-600",
       orange: "bg-orange-600",
       green: "bg-green-600",
+      yellow: "bg-yellow-600",
     };
     return colorMap[color as keyof typeof colorMap] || "bg-red-600";
   };

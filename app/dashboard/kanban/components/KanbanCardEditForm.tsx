@@ -55,8 +55,8 @@ export default function KanbanCardEditForm({
     initialData?.preferred_supplier || ""
   );
   const [leadTime, setLeadTime] = useState(initialData?.lead_time || "");
-  const [headerColor, setHeaderColor] = useState<"red" | "orange" | "green">(
-    (initialData?.header_color as "red" | "orange" | "green") || "red"
+  const [headerColor, setHeaderColor] = useState<"red" | "orange" | "green" | "yellow">(
+    (initialData?.header_color as "red" | "orange" | "green" | "yellow") || "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState(
     initialData?.image_path || ""
@@ -149,6 +149,7 @@ export default function KanbanCardEditForm({
       red: "bg-red-600",
       orange: "bg-orange-600",
       green: "bg-green-600",
+      yellow: "bg-yellow-600",
     };
     return colorMap[color as keyof typeof colorMap] || "bg-red-600";
   };

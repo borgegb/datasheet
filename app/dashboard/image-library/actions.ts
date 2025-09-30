@@ -159,18 +159,8 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
         new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     );
 
-    // Generate signed URLs for first batch of images using batch resolver
-    const firstPage = images.slice(0, 20);
-    const firstPageUrls = await generateSignedUrlsBatch(
-      firstPage.map((i) => i.path)
-    );
-    const imagesWithUrls = firstPage.map((img) => ({
-      ...img,
-      url: firstPageUrls[img.path] || undefined,
-    }));
-
-    // Combine images with URLs and those without (remaining pages resolved lazily)
-    const finalImages = [...imagesWithUrls, ...images.slice(20)];
+    // Do not pre-generate signed URLs on the server; the client prefetches
+    const finalImages = images;
 
     return {
       images: finalImages,

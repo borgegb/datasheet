@@ -18,7 +18,7 @@ export default async function ImageLibraryPage() {
     redirect("/auth/login");
   }
 
-  // Fetch initial images data
+  // Fetch initial images metadata only (URLs will be prefetched client-side)
   const initialData = await fetchImagesForLibrary();
 
   return (

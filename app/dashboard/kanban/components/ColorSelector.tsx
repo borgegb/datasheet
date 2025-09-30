@@ -37,8 +37,8 @@ export default function ColorSelector({
     {
       value: "yellow",
       label: "Yellow",
-      bgColor: "bg-yellow-500",
-      borderColor: "border-yellow-500",
+      bgColor: "bg-yellow-400",
+      borderColor: "border-yellow-400",
     },
   ] as const;
 

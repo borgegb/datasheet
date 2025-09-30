@@ -10,7 +10,7 @@ interface ImageGridProps {
   images: ImageItem[];
   onImageClick: (image: ImageItem) => void;
   onLoadImage: (image: ImageItem) => Promise<string | null>;
-  onPrefetchImages?: (imagesToPrefetch: ImageItem[]) => Promise<void>;
+  onPrefetchImages?: (imagesToPrefetch: ImageItem[]) => Promise<number>;
   isLoading?: boolean;
 }
 
@@ -77,25 +77,28 @@ export default function ImageGrid({
     }
 
     // Prefetch URLs server-side for the batch (fast path)
+    let prefetchedCount = 0;
     if (onPrefetchImages) {
       try {
-        await onPrefetchImages(newImages);
+        prefetchedCount = await onPrefetchImages(newImages);
       } catch {}
     }
 
     // Fallback: Load any remaining URLs with staggered client calls
+    // Only run if we didn't get anything from prefetch
     const loadStartTime = Date.now();
-    const loadPromises = newImages.map((img, idx) => {
-      // Add a small delay between each request to avoid overwhelming the server
-      return new Promise<string | null>((resolve) => {
-        setTimeout(async () => {
-          const url = await onLoadImage(img);
-          resolve(url);
-        }, idx * 100); // 100ms delay between each request
+    if (!onPrefetchImages || prefetchedCount === 0) {
+      const loadPromises = newImages.map((img, idx) => {
+        // Add a small delay between each request to avoid overwhelming the server
+        return new Promise<string | null>((resolve) => {
+          setTimeout(async () => {
+            const url = await onLoadImage(img);
+            resolve(url);
+          }, idx * 100); // 100ms delay between each request
+        });
       });
-    });
-
-    await Promise.all(loadPromises);
+      await Promise.all(loadPromises);
+    }
 
     const loadEndTime = Date.now();
     console.log(

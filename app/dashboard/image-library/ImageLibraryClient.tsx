@@ -130,8 +130,8 @@ export default function ImageLibraryClient({
   // Prefetch a batch of image URLs and populate the local URL cache
   const prefetchImageUrls = async (
     imagesToPrefetch: ImageItem[]
-  ): Promise<void> => {
-    if (!imagesToPrefetch || imagesToPrefetch.length === 0) return;
+  ): Promise<number> => {
+    if (!imagesToPrefetch || imagesToPrefetch.length === 0) return 0;
 
     // Filter out those already cached or already having a URL
     const missing = imagesToPrefetch.filter((img) => {
@@ -139,7 +139,7 @@ export default function ImageLibraryClient({
       return !imageUrls.get(img.id);
     });
 
-    if (missing.length === 0) return;
+    if (missing.length === 0) return 0;
 
     const paths = missing.map((i) => i.path);
     console.log(
@@ -158,7 +158,7 @@ export default function ImageLibraryClient({
           "[ImageLibraryClient] Batch prefetch failed status:",
           res.status
         );
-        return;
+        return 0;
       }
       const data = (await res.json()) as { urls?: Record<string, string> };
       const result = data.urls || {};
@@ -179,9 +179,12 @@ export default function ImageLibraryClient({
           }
           return next;
         });
+        return Object.keys(result).length;
       }
+      return 0;
     } catch (e) {
       console.warn("[ImageLibraryClient] Prefetch batch error", e);
+      return 0;
     }
   };
 

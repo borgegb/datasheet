@@ -172,7 +172,9 @@ export default function ColorSelector({
                 ${
                   value === color.value
                     ? `${color.bgColor} ${color.borderColor} ${
-                        ["yellow", "pink", "cyan", "lime", "silver"].includes(color.value)
+                        ["yellow", "pink", "cyan", "lime", "silver"].includes(
+                          color.value
+                        )
                           ? "text-gray-900"
                           : "text-white"
                       }`

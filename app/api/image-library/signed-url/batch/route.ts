@@ -55,7 +55,14 @@ export async function POST(request: NextRequest) {
       for (const candidate of candidates) {
         const { data, error } = await supabase.storage
           .from("datasheet-assets")
-          .createSignedUrl(candidate, 60 * 60);
+          .createSignedUrl(candidate, 60 * 60, {
+            transform: {
+              width: 512,
+              height: 512,
+              resize: "contain",
+              quality: 70,
+            },
+          });
         if (!error && data?.signedUrl) {
           resolved = data.signedUrl;
           break;

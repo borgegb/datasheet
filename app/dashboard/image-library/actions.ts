@@ -434,7 +434,14 @@ export async function generateSignedUrlsBatch(
     for (const candidate of candidates) {
       const { data, error } = await supabase.storage
         .from("datasheet-assets")
-        .createSignedUrl(candidate, 60 * 60);
+        .createSignedUrl(candidate, 60 * 60, {
+          transform: {
+            width: 512,
+            height: 512,
+            resize: "contain",
+            quality: 70,
+          },
+        });
       if (!error && data?.signedUrl) {
         resolvedUrl = data.signedUrl;
         // Cache under the original requested path for future lookups

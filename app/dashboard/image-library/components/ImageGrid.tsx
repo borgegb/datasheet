@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ImageItem } from "../types";
 
 import { Loader2 } from "lucide-react";
@@ -22,57 +22,24 @@ export default function ImageGrid({
   const [visibleImages, setVisibleImages] = useState<ImageItem[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
-  const imagesPerPage = 20;
+  const imagesPerPage = 10; // Reduced from 20 to improve performance
 
-  // Reset when images change (due to filtering)
+  // Reset when images array length changes (due to filtering)
   useEffect(() => {
     console.log(
-      "[ImageGrid] Images changed, resetting. Total images:",
+      "[ImageGrid] Images array length changed, resetting. Total images:",
       images.length
     );
     setVisibleImages(images.slice(0, imagesPerPage));
     setPage(1);
-  }, [images]);
+  }, [images.length]); // Only reset when the length changes, not when URLs are added
 
-  // Load more images when scrolling
-  useEffect(() => {
-    const handleScroll = () => {
-      if (loadingMore || visibleImages.length >= images.length) {
-        console.log(
-          "[ImageGrid] Scroll ignored - loadingMore:",
-          loadingMore,
-          "all loaded:",
-          visibleImages.length >= images.length
-        );
-        return;
-      }
+  // Throttle scroll events
+  const lastScrollTime = useRef(0);
 
-      const scrollHeight = document.documentElement.scrollHeight;
-      const scrollTop = document.documentElement.scrollTop;
-      const clientHeight = document.documentElement.clientHeight;
-      const scrollPosition = scrollTop + clientHeight;
-      const triggerPoint = scrollHeight - 500;
-
-      console.log(
-        "[ImageGrid] Scroll event - position:",
-        scrollPosition,
-        "trigger:",
-        triggerPoint,
-        "will load:",
-        scrollPosition >= triggerPoint
-      );
-
-      if (scrollPosition >= triggerPoint) {
-        console.log("[ImageGrid] Triggering loadMoreImages");
-        loadMoreImages();
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [visibleImages, images, loadingMore]);
-
-  const loadMoreImages = async () => {
+  const loadMoreImages = useCallback(async () => {
+    if (loadingMore || visibleImages.length >= images.length) return;
+    
     console.log(
       "[ImageGrid] loadMoreImages started - current page:",
       page,
@@ -96,17 +63,25 @@ export default function ImageGrid({
       newImages.length
     );
 
-    // Load URLs for new batch
+    if (newImages.length === 0) {
+      setLoadingMore(false);
+      return;
+    }
+
+    // Load URLs for new batch - with staggered loading to avoid overwhelming the server
     const loadStartTime = Date.now();
-    await Promise.all(
-      newImages.map((img, idx) => {
-        console.log(
-          `[ImageGrid] Loading URL for image ${idx + 1}/${newImages.length}:`,
-          img.path
-        );
-        return onLoadImage(img);
-      })
-    );
+    const loadPromises = newImages.map((img, idx) => {
+      // Add a small delay between each request to avoid overwhelming the server
+      return new Promise<string | null>((resolve) => {
+        setTimeout(async () => {
+          const url = await onLoadImage(img);
+          resolve(url);
+        }, idx * 100); // 100ms delay between each request
+      });
+    });
+    
+    await Promise.all(loadPromises);
+    
     const loadEndTime = Date.now();
     console.log(
       "[ImageGrid] URL loading completed in",
@@ -128,7 +103,39 @@ export default function ImageGrid({
 
     const totalTime = Date.now() - startTime;
     console.log("[ImageGrid] loadMoreImages completed in", totalTime, "ms");
-  };
+  }, [images, visibleImages.length, loadingMore, page, imagesPerPage, onLoadImage]);
+
+  // Load more images when scrolling with throttling
+  useEffect(() => {
+    const handleScroll = () => {
+      const now = Date.now();
+      
+      // Throttle to max once per 200ms
+      if (now - lastScrollTime.current < 200) {
+        return;
+      }
+      
+      lastScrollTime.current = now;
+
+      if (loadingMore || visibleImages.length >= images.length) {
+        return;
+      }
+
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = document.documentElement.scrollTop;
+      const clientHeight = document.documentElement.clientHeight;
+      const scrollPosition = scrollTop + clientHeight;
+      const triggerPoint = scrollHeight - 300; // Reduced from 500
+
+      if (scrollPosition >= triggerPoint) {
+        console.log("[ImageGrid] Triggering loadMoreImages");
+        loadMoreImages();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [visibleImages.length, images.length, loadingMore, loadMoreImages]);
 
   if (isLoading && visibleImages.length === 0) {
     return (

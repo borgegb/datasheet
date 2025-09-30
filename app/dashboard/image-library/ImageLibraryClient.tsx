@@ -14,7 +14,8 @@ interface ImageLibraryClientProps {
 export default function ImageLibraryClient({
   initialData,
 }: ImageLibraryClientProps) {
-  const [images, setImages] = useState<ImageItem[]>(initialData.images);
+  const [images] = useState<ImageItem[]>(initialData.images);
+  const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [filteredImages, setFilteredImages] = useState<ImageItem[]>(
     initialData.images
   );
@@ -85,11 +86,22 @@ export default function ImageLibraryClient({
 
   // Load signed URL for image when needed
   const loadImageUrl = async (image: ImageItem): Promise<string | null> => {
-    if (image.url) {
+    // Check if we already have a URL in the map
+    const cachedUrl = imageUrls.get(image.id);
+    if (cachedUrl) {
       console.log(
-        "[ImageLibraryClient] Image already has URL, returning cached:",
+        "[ImageLibraryClient] Image URL found in cache:",
         image.path
       );
+      return cachedUrl;
+    }
+
+    if (image.url) {
+      console.log(
+        "[ImageLibraryClient] Image has initial URL, caching:",
+        image.path
+      );
+      setImageUrls(prev => new Map(prev).set(image.id, image.url!));
       return image.url;
     }
 
@@ -110,17 +122,12 @@ export default function ImageLibraryClient({
     );
 
     if (url) {
-      // Update the image with the URL
+      // Store the URL in the map instead of updating the entire images array
       console.log(
-        "[ImageLibraryClient] Updating state with new URL for:",
+        "[ImageLibraryClient] Caching URL for:",
         image.path
       );
-      setImages((prev) =>
-        prev.map((img) => (img.id === image.id ? { ...img, url } : img))
-      );
-      setFilteredImages((prev) =>
-        prev.map((img) => (img.id === image.id ? { ...img, url } : img))
-      );
+      setImageUrls(prev => new Map(prev).set(image.id, url));
     }
 
     return url;

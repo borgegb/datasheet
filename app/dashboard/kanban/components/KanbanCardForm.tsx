@@ -64,9 +64,9 @@ export default function KanbanCardForm({
   );
   const [leadTime, setLeadTime] = useState(initialData?.lead_time || "");
   const [headerColor, setHeaderColor] = useState<
-    "red" | "orange" | "green" | "yellow"
+    "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver"
   >(
-    (initialData?.header_color as "red" | "orange" | "green" | "yellow") ||
+    (initialData?.header_color as "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver") ||
       "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(

@@ -40,7 +40,7 @@ export interface KanbanCard {
   order_quantity: number;
   preferred_supplier: string;
   lead_time: string;
-  header_color: "red" | "orange" | "green" | "yellow";
+  header_color: "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver";
   image_path?: string | null;
   pdf_storage_path?: string | null; // Add PDF storage path field
   signedImageUrl?: string | null; // Add optional signed URL field
@@ -87,7 +87,7 @@ export async function saveKanbanCard(
     preferred_supplier: formData.get("preferredSupplier") as string,
     lead_time: formData.get("leadTime") as string,
     header_color:
-      (formData.get("headerColor") as "red" | "orange" | "green" | "yellow") ||
+      (formData.get("headerColor") as "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver") ||
       "red",
     product_id: formData.get("productId") as string | null,
     image_path: formData.get("imagePath") as string | null,

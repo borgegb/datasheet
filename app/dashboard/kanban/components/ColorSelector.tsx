@@ -5,8 +5,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 interface ColorSelectorProps {
-  value: "red" | "orange" | "green" | "yellow";
-  onChange: (value: "red" | "orange" | "green" | "yellow") => void;
+  value: "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver";
+  onChange: (value: "red" | "orange" | "green" | "yellow" | "blue" | "purple" | "brown" | "pink" | "teal" | "cyan" | "gray" | "magenta" | "lime" | "silver") => void;
   name: string;
 }
 
@@ -39,6 +39,66 @@ export default function ColorSelector({
       label: "Yellow",
       bgColor: "bg-yellow-400",
       borderColor: "border-yellow-400",
+    },
+    {
+      value: "blue",
+      label: "Blue",
+      bgColor: "bg-blue-500",
+      borderColor: "border-blue-500",
+    },
+    {
+      value: "purple",
+      label: "Purple",
+      bgColor: "bg-purple-500",
+      borderColor: "border-purple-500",
+    },
+    {
+      value: "brown",
+      label: "Brown",
+      bgColor: "bg-amber-700",
+      borderColor: "border-amber-700",
+    },
+    {
+      value: "pink",
+      label: "Pink",
+      bgColor: "bg-pink-400",
+      borderColor: "border-pink-400",
+    },
+    {
+      value: "teal",
+      label: "Teal",
+      bgColor: "bg-teal-500",
+      borderColor: "border-teal-500",
+    },
+    {
+      value: "cyan",
+      label: "Cyan",
+      bgColor: "bg-cyan-400",
+      borderColor: "border-cyan-400",
+    },
+    {
+      value: "gray",
+      label: "Gray",
+      bgColor: "bg-gray-500",
+      borderColor: "border-gray-500",
+    },
+    {
+      value: "magenta",
+      label: "Magenta",
+      bgColor: "bg-fuchsia-500",
+      borderColor: "border-fuchsia-500",
+    },
+    {
+      value: "lime",
+      label: "Lime",
+      bgColor: "bg-lime-400",
+      borderColor: "border-lime-400",
+    },
+    {
+      value: "silver",
+      label: "Silver",
+      bgColor: "bg-gray-400",
+      borderColor: "border-gray-400",
     },
   ] as const;
 

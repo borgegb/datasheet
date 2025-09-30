@@ -186,6 +186,16 @@ export default function KanbanCardsTable({
       orange: "bg-orange-500 text-white",
       green: "bg-green-500 text-white",
       yellow: "bg-yellow-400 text-gray-900",
+      blue: "bg-blue-500 text-white",
+      purple: "bg-purple-500 text-white",
+      brown: "bg-amber-700 text-white",
+      pink: "bg-pink-400 text-gray-900",
+      teal: "bg-teal-500 text-white",
+      cyan: "bg-cyan-400 text-gray-900",
+      gray: "bg-gray-500 text-white",
+      magenta: "bg-fuchsia-500 text-white",
+      lime: "bg-lime-400 text-gray-900",
+      silver: "bg-gray-400 text-gray-900",
     };
 
     return (

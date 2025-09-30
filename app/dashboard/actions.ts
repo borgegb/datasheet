@@ -86,6 +86,8 @@ export async function fetchCatalogsForOrg(): Promise<{
   data: CatalogInfo[];
   error: { message: string } | null;
 }> {
+  const start = Date.now();
+  console.log("[fetchCatalogsForOrg] start");
   const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
@@ -116,10 +118,25 @@ export async function fetchCatalogsForOrg(): Promise<{
   }
 
   if (!catalogsData) {
+    console.log(
+      "[fetchCatalogsForOrg] db returned 0 rows in",
+      Date.now() - start,
+      "ms"
+    );
     return { data: [], error: null }; // No catalogs found
   }
 
+  const afterDb = Date.now();
+  console.log(
+    "[fetchCatalogsForOrg] db returned",
+    catalogsData.length,
+    "rows in",
+    afterDb - start,
+    "ms"
+  );
+
   // --- Generate Signed URLs (thumbnail transform) ---
+  const signStart = Date.now();
   const processedData = await Promise.all(
     catalogsData.map(async (catalog) => {
       let signedUrl = null;
@@ -153,6 +170,17 @@ export async function fetchCatalogsForOrg(): Promise<{
     })
   );
   // --- End Generate Signed URLs ---
+  const signEnd = Date.now();
+  const signedCount = processedData.filter((c) => !!c.signedImageUrl).length;
+  console.log(
+    "[fetchCatalogsForOrg] signed",
+    signedCount,
+    "thumbnails in",
+    signEnd - signStart,
+    "ms; total",
+    signEnd - start,
+    "ms"
+  );
 
   return { data: processedData, error: null };
 }
@@ -638,54 +666,56 @@ export async function deleteCatalog(catalogId: string) {
 // ---                         ---
 
 // --- ADD updateCatalogOrder action ---
-export async function updateCatalogOrder(catalogOrders: { id: string; display_order: number }[]) {
+export async function updateCatalogOrder(
+  catalogOrders: { id: string; display_order: number }[]
+) {
   "use server";
   const supabase = await createServerActionClient();
-  
+
   // 1. Verify user is owner or admin
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user) {
     return { error: { message: "Authentication required." } };
   }
-  
+
   const userId = userData.user.id;
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, organization_id")
     .eq("id", userId)
     .single();
-    
+
   if (profileError || !profile) {
     return { error: { message: "User profile not found." } };
   }
-  
+
   // Only owners can reorder catalogs (you can adjust this to include 'member' if needed)
   if (profile.role !== "owner") {
     return {
       error: { message: "Only organization owners can reorder catalogs." },
     };
   }
-  
+
   if (!profile.organization_id) {
     return { error: { message: "User organization context missing." } };
   }
-  
+
   // 2. Update each catalog's display_order
   const errors = [];
-  
+
   for (const { id, display_order } of catalogOrders) {
     const { error: updateError } = await supabase
       .from("catalogs")
       .update({ display_order })
       .eq("id", id)
       .eq("organization_id", profile.organization_id); // Security: only update own org's catalogs
-      
+
     if (updateError) {
       errors.push({ id, error: updateError.message });
       console.error(`Error updating catalog ${id} order:`, updateError);
     }
   }
-  
+
   if (errors.length > 0) {
     return {
       error: {
@@ -694,10 +724,10 @@ export async function updateCatalogOrder(catalogOrders: { id: string; display_or
       },
     };
   }
-  
+
   // 3. Revalidate paths
   revalidatePath("/dashboard/catalogs");
-  
+
   console.log(`Updated order for ${catalogOrders.length} catalogs.`);
   return { error: null };
 }

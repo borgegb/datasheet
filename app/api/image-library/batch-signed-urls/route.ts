@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: NextRequest) {
   try {
     const { imagePaths } = await request.json();
-    
+
     if (!Array.isArray(imagePaths) || imagePaths.length === 0) {
       return NextResponse.json(
         { error: "Invalid request: imagePaths must be a non-empty array" },
@@ -21,14 +21,14 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
-    
+
     // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Process all URLs in parallel
@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
 
         if (error || !data?.signedUrl) {
           console.error(`Failed to generate URL for ${path}:`, error);
-          return { path, url: null, error: error?.message || "Failed to generate URL" };
+          return {
+            path,
+            url: null,
+            error: error?.message || "Failed to generate URL",
+          };
         }
 
         return { path, url: data.signedUrl, error: null };
@@ -51,12 +55,12 @@ export async function POST(request: NextRequest) {
     });
 
     const results = await Promise.all(urlPromises);
-    
+
     // Create a map for easier client-side lookup
     const urlMap: Record<string, string | null> = {};
     const errors: Record<string, string> = {};
-    
-    results.forEach(result => {
+
+    results.forEach((result) => {
       if (result.url) {
         urlMap[result.path] = result.url;
       } else if (result.error) {
@@ -64,10 +68,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       urls: urlMap,
       errors: Object.keys(errors).length > 0 ? errors : undefined,
-      count: results.length
+      count: results.length,
     });
   } catch (error) {
     console.error("Batch signed URL generation error:", error);

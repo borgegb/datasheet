@@ -186,20 +186,25 @@ export async function generateBatchSignedUrls(
   imagePaths: string[]
 ): Promise<Map<string, string>> {
   "use server";
-  
+
   const startTime = Date.now();
-  console.log(`[generateBatchSignedUrls] Generating URLs for ${imagePaths.length} images`);
-  
+  console.log(
+    `[generateBatchSignedUrls] Generating URLs for ${imagePaths.length} images`
+  );
+
   try {
     const supabase = await createClient();
-    
+
     // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       console.error("[generateBatchSignedUrls] Unauthorized");
       return new Map();
     }
-    
+
     // Process all URLs in parallel
     const urlPromises = imagePaths.map(async (path) => {
       try {
@@ -221,16 +226,18 @@ export async function generateBatchSignedUrls(
 
     const results = await Promise.all(urlPromises);
     const urlMap = new Map<string, string>();
-    
-    results.forEach(result => {
+
+    results.forEach((result) => {
       if (result.url) {
         urlMap.set(result.path, result.url);
       }
     });
-    
+
     const totalTime = Date.now() - startTime;
-    console.log(`[generateBatchSignedUrls] Generated ${urlMap.size}/${imagePaths.length} URLs in ${totalTime}ms`);
-    
+    console.log(
+      `[generateBatchSignedUrls] Generated ${urlMap.size}/${imagePaths.length} URLs in ${totalTime}ms`
+    );
+
     return urlMap;
   } catch (error) {
     console.error("[generateBatchSignedUrls] Exception:", error);

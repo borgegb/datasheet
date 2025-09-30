@@ -27,7 +27,7 @@ export default function ImageLibraryClient({
   });
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Batch loading state
   const pendingBatch = useRef<Set<string>>(new Set());
   const batchTimer = useRef<NodeJS.Timeout | null>(null);
@@ -92,20 +92,22 @@ export default function ImageLibraryClient({
   // Process batch of URLs
   const processBatch = useCallback(async () => {
     if (pendingBatch.current.size === 0) return;
-    
+
     const paths = Array.from(pendingBatch.current);
     pendingBatch.current.clear();
-    
-    console.log(`[ImageLibraryClient] Processing batch of ${paths.length} URLs`);
-    
+
+    console.log(
+      `[ImageLibraryClient] Processing batch of ${paths.length} URLs`
+    );
+
     const urlMap = await generateBatchSignedUrls(paths);
-    
+
     if (urlMap.size > 0) {
-      setImageUrls(prev => {
+      setImageUrls((prev) => {
         const newMap = new Map(prev);
         urlMap.forEach((url, path) => {
           // Find the image ID for this path
-          const image = images.find(img => img.path === path);
+          const image = images.find((img) => img.path === path);
           if (image) {
             newMap.set(image.id, url);
           }
@@ -130,13 +132,13 @@ export default function ImageLibraryClient({
 
     // Add to batch
     pendingBatch.current.add(image.path);
-    
+
     // Clear existing timer
     if (batchTimer.current) {
       clearTimeout(batchTimer.current);
       batchTimer.current = null;
     }
-    
+
     // Create or reuse batch promise
     if (!batchPromise.current) {
       batchPromise.current = new Promise<void>((resolve) => {
@@ -148,10 +150,10 @@ export default function ImageLibraryClient({
         }, 50); // Wait 50ms to collect more URLs
       });
     }
-    
+
     // Wait for the batch to complete
     await batchPromise.current;
-    
+
     // Return the URL from the cache after batch processing
     return imageUrls.get(image.id) || null;
   };

@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -16,35 +21,39 @@ interface ImageDetailsProps {
   onLoadImage: (image: ImageItem) => Promise<string | null>;
 }
 
-export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetailsProps) {
+export default function ImageDetails({
+  image,
+  onClose,
+  onLoadImage,
+}: ImageDetailsProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     if (image) {
       loadImageDetails();
     }
   }, [image]);
-  
+
   const loadImageDetails = async () => {
     if (!image) return;
-    
+
     setIsLoading(true);
-    const url = image.url || await onLoadImage(image);
+    const url = image.url || (await onLoadImage(image));
     setImageUrl(url);
     setIsLoading(false);
   };
-  
+
   const handleDownload = async () => {
     if (!imageUrl || !image) return;
-    
+
     try {
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = image.path.split('/').pop() || 'image';
+      a.download = image.path.split("/").pop() || "image";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -54,36 +63,36 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
       toast.error("Failed to download image");
     }
   };
-  
+
   const handleCopyPath = () => {
     if (!image) return;
     navigator.clipboard.writeText(image.path);
     toast.success("Path copied to clipboard");
   };
-  
+
   const handleOpenSource = () => {
     if (!image) return;
-    
-    let url = '';
+
+    let url = "";
     switch (image.source) {
-      case 'products':
+      case "products":
         url = `/dashboard/generator?productId=${image.sourceId}`;
         break;
-      case 'kanban_cards':
+      case "kanban_cards":
         url = `/dashboard/kanban/${image.sourceId}`;
         break;
-      case 'catalogs':
+      case "catalogs":
         url = `/dashboard/catalogs/${image.sourceId}`;
         break;
     }
-    
+
     if (url) {
-      window.open(url, '_blank');
+      window.open(url, "_blank");
     }
   };
-  
+
   if (!image) return null;
-  
+
   return (
     <Sheet open={!!image} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-xl p-6">
@@ -92,7 +101,7 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
             {image.sourceName}
           </SheetTitle>
         </SheetHeader>
-        
+
         <div className="space-y-6">
           {/* Image Preview */}
           <div className="relative aspect-square w-full bg-muted rounded-lg overflow-hidden">
@@ -113,16 +122,18 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
               </div>
             )}
           </div>
-          
+
           {/* Image Details */}
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Details</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                Details
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Source</span>
                   <Badge variant="secondary" className="capitalize">
-                    {image.source.replace('_', ' ')}
+                    {image.source.replace("_", " ")}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
@@ -145,7 +156,7 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
                 </div>
               </div>
             </div>
-            
+
             {/* Actions */}
             <div className="flex gap-2">
               <Button

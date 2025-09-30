@@ -492,10 +492,9 @@ export default function CatalogsPage() {
                         <Image
                           src={catalog.signedImageUrl}
                           alt={catalog.name}
-                          layout="fill"
-                          objectFit="cover"
-                          className="transition-transform duration-300 group-hover:scale-105"
-                          unoptimized
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         />
                       ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground/50">

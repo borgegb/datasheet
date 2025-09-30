@@ -68,17 +68,9 @@ export default function ImageGrid({
       return;
     }
 
-    // Load URLs for new batch - with staggered loading to avoid overwhelming the server
+    // Load URLs for new batch
     const loadStartTime = Date.now();
-    const loadPromises = newImages.map((img, idx) => {
-      // Add a small delay between each request to avoid overwhelming the server
-      return new Promise<string | null>((resolve) => {
-        setTimeout(async () => {
-          const url = await onLoadImage(img);
-          resolve(url);
-        }, idx * 100); // 100ms delay between each request
-      });
-    });
+    const loadPromises = newImages.map((img) => onLoadImage(img));
 
     await Promise.all(loadPromises);
 

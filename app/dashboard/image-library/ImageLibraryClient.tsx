@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { ImageLibraryData, ImageFilters, ImageItem } from "./types";
 import ImageGrid from "./components/ImageGrid";
 import ImageFiltersComponent from "./components/ImageFilters";
 import ImageDetails from "./components/ImageDetails";
-import { generateSignedUrl } from "./actions";
+import { generateSignedUrl, generateBatchSignedUrls } from "./actions";
 
 interface ImageLibraryClientProps {
   initialData: ImageLibraryData;
@@ -27,6 +27,11 @@ export default function ImageLibraryClient({
   });
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Batch loading state
+  const pendingBatch = useRef<Set<string>>(new Set());
+  const batchTimer = useRef<NodeJS.Timeout | null>(null);
+  const batchPromise = useRef<Promise<void> | null>(null);
 
   // Apply filters to images
   const applyFilters = useCallback(
@@ -84,47 +89,71 @@ export default function ImageLibraryClient({
     setFilteredImages(filtered);
   };
 
+  // Process batch of URLs
+  const processBatch = useCallback(async () => {
+    if (pendingBatch.current.size === 0) return;
+    
+    const paths = Array.from(pendingBatch.current);
+    pendingBatch.current.clear();
+    
+    console.log(`[ImageLibraryClient] Processing batch of ${paths.length} URLs`);
+    
+    const urlMap = await generateBatchSignedUrls(paths);
+    
+    if (urlMap.size > 0) {
+      setImageUrls(prev => {
+        const newMap = new Map(prev);
+        urlMap.forEach((url, path) => {
+          // Find the image ID for this path
+          const image = images.find(img => img.path === path);
+          if (image) {
+            newMap.set(image.id, url);
+          }
+        });
+        return newMap;
+      });
+    }
+  }, [images]);
+
   // Load signed URL for image when needed
   const loadImageUrl = async (image: ImageItem): Promise<string | null> => {
     // Check if we already have a URL in the map
     const cachedUrl = imageUrls.get(image.id);
     if (cachedUrl) {
-      console.log("[ImageLibraryClient] Image URL found in cache:", image.path);
       return cachedUrl;
     }
 
     if (image.url) {
-      console.log(
-        "[ImageLibraryClient] Image has initial URL, caching:",
-        image.path
-      );
       setImageUrls((prev) => new Map(prev).set(image.id, image.url!));
       return image.url;
     }
 
-    console.log("[ImageLibraryClient] Generating signed URL for:", image.path);
-    const startTime = Date.now();
-
-    const url = await generateSignedUrl(image.path);
-
-    const genTime = Date.now() - startTime;
-    console.log(
-      "[ImageLibraryClient] Signed URL generation completed:",
-      image.path,
-      "success:",
-      !!url,
-      "time:",
-      genTime,
-      "ms"
-    );
-
-    if (url) {
-      // Store the URL in the map instead of updating the entire images array
-      console.log("[ImageLibraryClient] Caching URL for:", image.path);
-      setImageUrls((prev) => new Map(prev).set(image.id, url));
+    // Add to batch
+    pendingBatch.current.add(image.path);
+    
+    // Clear existing timer
+    if (batchTimer.current) {
+      clearTimeout(batchTimer.current);
+      batchTimer.current = null;
     }
-
-    return url;
+    
+    // Create or reuse batch promise
+    if (!batchPromise.current) {
+      batchPromise.current = new Promise<void>((resolve) => {
+        batchTimer.current = setTimeout(async () => {
+          await processBatch();
+          resolve();
+          batchPromise.current = null;
+          batchTimer.current = null;
+        }, 50); // Wait 50ms to collect more URLs
+      });
+    }
+    
+    // Wait for the batch to complete
+    await batchPromise.current;
+    
+    // Return the URL from the cache after batch processing
+    return imageUrls.get(image.id) || null;
   };
 
   if (initialData.error) {

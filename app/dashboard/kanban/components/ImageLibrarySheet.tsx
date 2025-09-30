@@ -13,6 +13,13 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search, ImageIcon, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -45,6 +52,8 @@ export default function ImageLibrarySheet({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "alphabetical">("newest");
 
   // Fetch images when sheet opens
   useEffect(() => {
@@ -78,20 +87,36 @@ export default function ImageLibrarySheet({
     }
   };
 
-  // Filter images based on search
+  // Filter and sort images
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredImages(images);
-      return;
+    let filtered = [...images];
+
+    // Apply source filter
+    if (sourceFilter !== "all") {
+      filtered = filtered.filter(img => img.source === sourceFilter);
     }
 
-    const query = searchQuery.toLowerCase();
-    const filtered = images.filter(img => 
-      img.sourceName.toLowerCase().includes(query) ||
-      img.path.toLowerCase().includes(query)
-    );
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(img => 
+        img.sourceName.toLowerCase().includes(query) ||
+        img.path.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply sorting
+    if (sortOrder === "alphabetical") {
+      filtered.sort((a, b) => a.sourceName.localeCompare(b.sourceName));
+    } else {
+      // newest first (default)
+      filtered.sort((a, b) => 
+        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+      );
+    }
+
     setFilteredImages(filtered);
-  }, [searchQuery, images]);
+  }, [searchQuery, images, sourceFilter, sortOrder]);
 
   // Load image URL on demand
   const loadImageUrl = async (image: ImageItem): Promise<string | null> => {
@@ -106,21 +131,32 @@ export default function ImageLibrarySheet({
         body: JSON.stringify({ imagePath: image.path }),
       });
 
+      const data = await response.json();
+      
+      // Check if it's a policy issue (product images)
+      if (response.status === 403 && data.requiresPolicyUpdate) {
+        console.log('Product image requires policy update:', data.originalPath);
+        // Return null to show the "Image unavailable" state
+        return null;
+      }
+
       if (!response.ok) {
         throw new Error('Failed to get signed URL');
       }
-
-      const { url } = await response.json();
       
-      // Update the image with the URL
-      setImages(prev => prev.map(img => 
-        img.id === image.id ? { ...img, url } : img
-      ));
-      setFilteredImages(prev => prev.map(img => 
-        img.id === image.id ? { ...img, url } : img
-      ));
+      if (data.url) {
+        // Update the image with the URL
+        setImages(prev => prev.map(img => 
+          img.id === image.id ? { ...img, url: data.url } : img
+        ));
+        setFilteredImages(prev => prev.map(img => 
+          img.id === image.id ? { ...img, url: data.url } : img
+        ));
+        
+        return data.url;
+      }
       
-      return url;
+      return null;
     } catch (error) {
       console.error('Error loading image URL:', error);
       return null;
@@ -144,6 +180,8 @@ export default function ImageLibrarySheet({
       onOpenChange(false);
       setSelectedImage(null);
       setSearchQuery("");
+      setSourceFilter("all");
+      setSortOrder("newest");
     }, 300);
   };
 
@@ -170,8 +208,8 @@ export default function ImageLibrarySheet({
           </SheetDescription>
         </SheetHeader>
 
-        {/* Search Bar */}
-        <div className="px-6 py-4 border-b">
+        {/* Search and Filters */}
+        <div className="px-6 py-4 border-b space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -180,6 +218,30 @@ export default function ImageLibrarySheet({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
             />
+          </div>
+          
+          <div className="flex gap-2">
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                <SelectItem value="products">Products</SelectItem>
+                <SelectItem value="kanban_cards">Kanban</SelectItem>
+                <SelectItem value="catalogs">Catalogs</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as "newest" | "alphabetical")}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest first</SelectItem>
+                <SelectItem value="alphabetical">A-Z</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -280,7 +342,9 @@ function ImageCard({
         ) : hasError ? (
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4">
             <ImageIcon className="h-8 w-8 mb-2" />
-            <p className="text-xs text-center">Image unavailable</p>
+            <p className="text-xs text-center">
+              {image.source === 'products' ? 'Product image (policy update needed)' : 'Image unavailable'}
+            </p>
           </div>
         ) : imageUrl ? (
           <Image

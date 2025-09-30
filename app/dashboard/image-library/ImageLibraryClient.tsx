@@ -5,7 +5,7 @@ import { ImageLibraryData, ImageFilters, ImageItem } from "./types";
 import ImageGrid from "./components/ImageGrid";
 import ImageFiltersComponent from "./components/ImageFilters";
 import ImageDetails from "./components/ImageDetails";
-import { generateSignedUrl, generateSignedUrlsBatch } from "./actions";
+import { generateSignedUrl } from "./actions";
 
 interface ImageLibraryClientProps {
   initialData: ImageLibraryData;
@@ -142,19 +142,46 @@ export default function ImageLibraryClient({
     if (missing.length === 0) return;
 
     const paths = missing.map((i) => i.path);
-    const result = await generateSignedUrlsBatch(paths);
-
-    if (result && Object.keys(result).length > 0) {
-      setImageUrls((prev) => {
-        const next = new Map(prev);
-        for (const img of missing) {
-          const url = result[img.path];
-          if (url) {
-            next.set(img.id, url);
-          }
-        }
-        return next;
+    console.log(
+      "[ImageLibraryClient] Prefetching batch signed URLs for",
+      paths.length,
+      "images"
+    );
+    try {
+      const res = await fetch("/api/image-library/signed-url/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths }),
       });
+      if (!res.ok) {
+        console.warn(
+          "[ImageLibraryClient] Batch prefetch failed status:",
+          res.status
+        );
+        return;
+      }
+      const data = (await res.json()) as { urls?: Record<string, string> };
+      const result = data.urls || {};
+      console.log(
+        "[ImageLibraryClient] Prefetch batch received",
+        Object.keys(result).length,
+        "URLs"
+      );
+
+      if (result && Object.keys(result).length > 0) {
+        setImageUrls((prev) => {
+          const next = new Map(prev);
+          for (const img of missing) {
+            const url = result[img.path];
+            if (url) {
+              next.set(img.id, url);
+            }
+          }
+          return next;
+        });
+      }
+    } catch (e) {
+      console.warn("[ImageLibraryClient] Prefetch batch error", e);
     }
   };
 

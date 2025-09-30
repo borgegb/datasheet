@@ -302,207 +302,207 @@ export default function KanbanCardForm({
 
   return (
     <>
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>
-          {editingCardId ? "Edit Kanban Card" : "Create New Kanban Card"}
-        </CardTitle>
-        <CardDescription>
-          {editingCardId
-            ? "Modify the card details below."
-            : "Enter the details for your new kanban card."}
-        </CardDescription>
-      </CardHeader>
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle>
+            {editingCardId ? "Edit Kanban Card" : "Create New Kanban Card"}
+          </CardTitle>
+          <CardDescription>
+            {editingCardId
+              ? "Modify the card details below."
+              : "Enter the details for your new kanban card."}
+          </CardDescription>
+        </CardHeader>
 
-      <CardContent>
-        <form action={saveFormAction} onSubmit={handleFormSubmit}>
-          {/* Hidden inputs */}
-          <input
-            type="hidden"
-            name="imagePath"
-            value={uploadedImagePath || ""}
-          />
+        <CardContent>
+          <form action={saveFormAction} onSubmit={handleFormSubmit}>
+            {/* Hidden inputs */}
+            <input
+              type="hidden"
+              name="imagePath"
+              value={uploadedImagePath || ""}
+            />
 
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="part-no">
-                  Part Number <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  name="partNo"
-                  id="part-no"
-                  value={partNo}
-                  onChange={(e) => setPartNo(e.target.value)}
-                  placeholder="e.g., SP100041"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="location">
-                  Location <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  name="location"
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g., UA11-04-11"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                name="description"
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g., 1/4 inch BSP M x 1/8 inch BSP M Adaptor"
-                rows={3}
-              />
-            </div>
-
-            {/* Order Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="order-quantity">Order Quantity</Label>
-                <Input
-                  name="orderQuantity"
-                  id="order-quantity"
-                  type="number"
-                  value={orderQuantity}
-                  onChange={(e) => setOrderQuantity(e.target.value)}
-                  placeholder="200"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="preferred-supplier">Preferred Supplier</Label>
-                <Input
-                  name="preferredSupplier"
-                  id="preferred-supplier"
-                  value={preferredSupplier}
-                  onChange={(e) => setPreferredSupplier(e.target.value)}
-                  placeholder="e.g., Beijing Dantec"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="lead-time">Lead Time</Label>
-                <Input
-                  name="leadTime"
-                  id="lead-time"
-                  value={leadTime}
-                  onChange={(e) => setLeadTime(e.target.value)}
-                  placeholder="e.g., 3 Months"
-                />
-              </div>
-            </div>
-
-            {/* Header Color */}
-            <div className="space-y-1.5">
-              <Label>Header Color</Label>
-              <ColorSelector
-                value={headerColor}
-                onChange={setHeaderColor}
-                name="headerColor"
-              />
-            </div>
-
-            {/* Image Upload */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="product-image">Product Image</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsLibraryOpen(true)}
-                  disabled={!profile?.organization_id}
-                >
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Library
-                </Button>
-              </div>
-              {profile?.organization_id ? (
-                <Dropzone {...uploadProps} className="mt-1 border-border">
-                  <DropzoneEmptyState />
-                  <DropzoneContent />
-                </Dropzone>
-              ) : (
-                <div className="mt-1 flex items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg bg-muted">
-                  <p className="text-sm text-muted-foreground">
-                    Loading organization info...
-                  </p>
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                  <Label htmlFor="part-no">
+                    Part Number <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    name="partNo"
+                    id="part-no"
+                    value={partNo}
+                    onChange={(e) => setPartNo(e.target.value)}
+                    placeholder="e.g., SP100041"
+                    required
+                  />
                 </div>
-              )}
-              {uploadedFileName && (
-                <div className="mt-2 text-sm text-green-600">
-                  Image "{uploadedFileName}" ready.
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="location">
+                    Location <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    name="location"
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g., UA11-04-11"
+                    required
+                  />
                 </div>
-              )}
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  name="description"
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g., 1/4 inch BSP M x 1/8 inch BSP M Adaptor"
+                  rows={3}
+                />
+              </div>
+
+              {/* Order Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="space-y-1.5">
+                  <Label htmlFor="order-quantity">Order Quantity</Label>
+                  <Input
+                    name="orderQuantity"
+                    id="order-quantity"
+                    type="number"
+                    value={orderQuantity}
+                    onChange={(e) => setOrderQuantity(e.target.value)}
+                    placeholder="200"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="preferred-supplier">Preferred Supplier</Label>
+                  <Input
+                    name="preferredSupplier"
+                    id="preferred-supplier"
+                    value={preferredSupplier}
+                    onChange={(e) => setPreferredSupplier(e.target.value)}
+                    placeholder="e.g., Beijing Dantec"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="lead-time">Lead Time</Label>
+                  <Input
+                    name="leadTime"
+                    id="lead-time"
+                    value={leadTime}
+                    onChange={(e) => setLeadTime(e.target.value)}
+                    placeholder="e.g., 3 Months"
+                  />
+                </div>
+              </div>
+
+              {/* Header Color */}
+              <div className="space-y-1.5">
+                <Label>Header Color</Label>
+                <ColorSelector
+                  value={headerColor}
+                  onChange={setHeaderColor}
+                  name="headerColor"
+                />
+              </div>
+
+              {/* Image Upload */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="product-image">Product Image</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsLibraryOpen(true)}
+                    disabled={!profile?.organization_id}
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Library
+                  </Button>
+                </div>
+                {profile?.organization_id ? (
+                  <Dropzone {...uploadProps} className="mt-1 border-border">
+                    <DropzoneEmptyState />
+                    <DropzoneContent />
+                  </Dropzone>
+                ) : (
+                  <div className="mt-1 flex items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg bg-muted">
+                    <p className="text-sm text-muted-foreground">
+                      Loading organization info...
+                    </p>
+                  </div>
+                )}
+                {uploadedFileName && (
+                  <div className="mt-2 text-sm text-green-600">
+                    Image "{uploadedFileName}" ready.
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          <CardFooter className="flex justify-end pt-8 gap-x-3 px-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-              disabled={isSavePending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                isSavePending ||
-                isGeneratingPdf ||
-                uploadProps.loading ||
-                (uploadProps.files.length > 0 &&
-                  uploadProps.successes.length === 0 &&
-                  !uploadProps.loading)
-              }
-            >
-              {isSavePending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : isGeneratingPdf ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              {isSavePending
-                ? "Saving..."
-                : isGeneratingPdf
-                ? "Generating PDF..."
-                : uploadProps.files.length > 0 &&
-                  uploadProps.successes.length === 0 &&
-                  !uploadProps.loading
-                ? "Upload Image First"
-                : editingCardId
-                ? "Update Card"
-                : "Create Card & Generate PDF"}
-            </Button>
-          </CardFooter>
-        </form>
-      </CardContent>
-    </Card>
+            <CardFooter className="flex justify-end pt-8 gap-x-3 px-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                disabled={isSavePending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  isSavePending ||
+                  isGeneratingPdf ||
+                  uploadProps.loading ||
+                  (uploadProps.files.length > 0 &&
+                    uploadProps.successes.length === 0 &&
+                    !uploadProps.loading)
+                }
+              >
+                {isSavePending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : isGeneratingPdf ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {isSavePending
+                  ? "Saving..."
+                  : isGeneratingPdf
+                  ? "Generating PDF..."
+                  : uploadProps.files.length > 0 &&
+                    uploadProps.successes.length === 0 &&
+                    !uploadProps.loading
+                  ? "Upload Image First"
+                  : editingCardId
+                  ? "Update Card"
+                  : "Create Card & Generate PDF"}
+              </Button>
+            </CardFooter>
+          </form>
+        </CardContent>
+      </Card>
 
-    {/* Image Library Sheet */}
-    {profile?.organization_id && (
-      <ImageLibrarySheet
-        open={isLibraryOpen}
-        onOpenChange={setIsLibraryOpen}
-        onSelectImage={handleImageSelection}
-        organizationId={profile.organization_id}
-      />
-    )}
+      {/* Image Library Sheet */}
+      {profile?.organization_id && (
+        <ImageLibrarySheet
+          open={isLibraryOpen}
+          onOpenChange={setIsLibraryOpen}
+          onSelectImage={handleImageSelection}
+          organizationId={profile.organization_id}
+        />
+      )}
     </>
   );
 }

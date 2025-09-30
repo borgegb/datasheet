@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Download, ExternalLink, Copy, X } from "lucide-react";
+import { Download, ExternalLink, Copy } from "lucide-react";
 import { ImageItem } from "../types";
 import { toast } from "sonner";
 
@@ -86,22 +86,14 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
   
   return (
     <Sheet open={!!image} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle className="flex items-center justify-between">
-            <span className="truncate pr-2">{image.sourceName}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      <SheetContent className="w-full sm:max-w-xl p-6">
+        <SheetHeader className="mb-6">
+          <SheetTitle className="text-lg font-semibold">
+            {image.sourceName}
           </SheetTitle>
         </SheetHeader>
         
-        <div className="mt-6 space-y-6">
+        <div className="space-y-6">
           {/* Image Preview */}
           <div className="relative aspect-square w-full bg-muted rounded-lg overflow-hidden">
             {isLoading ? (
@@ -123,9 +115,9 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
           </div>
           
           {/* Image Details */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Details</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Details</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Source</span>
@@ -173,11 +165,6 @@ export default function ImageDetails({ image, onClose, onLoadImage }: ImageDetai
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Source
               </Button>
-            </div>
-            
-            {/* Path Display */}
-            <div className="p-3 bg-muted rounded-md">
-              <p className="text-xs font-mono break-all">{image.path}</p>
             </div>
           </div>
         </div>

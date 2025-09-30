@@ -89,10 +89,7 @@ export default function ImageLibraryClient({
     // Check if we already have a URL in the map
     const cachedUrl = imageUrls.get(image.id);
     if (cachedUrl) {
-      console.log(
-        "[ImageLibraryClient] Image URL found in cache:",
-        image.path
-      );
+      console.log("[ImageLibraryClient] Image URL found in cache:", image.path);
       return cachedUrl;
     }
 
@@ -101,7 +98,7 @@ export default function ImageLibraryClient({
         "[ImageLibraryClient] Image has initial URL, caching:",
         image.path
       );
-      setImageUrls(prev => new Map(prev).set(image.id, image.url!));
+      setImageUrls((prev) => new Map(prev).set(image.id, image.url!));
       return image.url;
     }
 
@@ -123,11 +120,8 @@ export default function ImageLibraryClient({
 
     if (url) {
       // Store the URL in the map instead of updating the entire images array
-      console.log(
-        "[ImageLibraryClient] Caching URL for:",
-        image.path
-      );
-      setImageUrls(prev => new Map(prev).set(image.id, url));
+      console.log("[ImageLibraryClient] Caching URL for:", image.path);
+      setImageUrls((prev) => new Map(prev).set(image.id, url));
     }
 
     return url;

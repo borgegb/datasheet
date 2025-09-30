@@ -39,7 +39,7 @@ export default function ImageGrid({
 
   const loadMoreImages = useCallback(async () => {
     if (loadingMore || visibleImages.length >= images.length) return;
-    
+
     console.log(
       "[ImageGrid] loadMoreImages started - current page:",
       page,
@@ -79,9 +79,9 @@ export default function ImageGrid({
         }, idx * 100); // 100ms delay between each request
       });
     });
-    
+
     await Promise.all(loadPromises);
-    
+
     const loadEndTime = Date.now();
     console.log(
       "[ImageGrid] URL loading completed in",
@@ -103,18 +103,25 @@ export default function ImageGrid({
 
     const totalTime = Date.now() - startTime;
     console.log("[ImageGrid] loadMoreImages completed in", totalTime, "ms");
-  }, [images, visibleImages.length, loadingMore, page, imagesPerPage, onLoadImage]);
+  }, [
+    images,
+    visibleImages.length,
+    loadingMore,
+    page,
+    imagesPerPage,
+    onLoadImage,
+  ]);
 
   // Load more images when scrolling with throttling
   useEffect(() => {
     const handleScroll = () => {
       const now = Date.now();
-      
+
       // Throttle to max once per 200ms
       if (now - lastScrollTime.current < 200) {
         return;
       }
-      
+
       lastScrollTime.current = now;
 
       if (loadingMore || visibleImages.length >= images.length) {

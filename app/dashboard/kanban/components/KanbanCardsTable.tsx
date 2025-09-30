@@ -196,6 +196,7 @@ export default function KanbanCardsTable({
       magenta: "bg-fuchsia-500 text-white",
       lime: "bg-lime-400 text-gray-900",
       silver: "bg-gray-400 text-gray-900",
+      black: "bg-black text-white",
     };
 
     return (

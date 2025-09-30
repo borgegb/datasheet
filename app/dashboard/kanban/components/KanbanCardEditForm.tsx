@@ -70,6 +70,7 @@ export default function KanbanCardEditForm({
     | "magenta"
     | "lime"
     | "silver"
+    | "black"
   >(
     (initialData?.header_color as
       | "red"
@@ -85,7 +86,8 @@ export default function KanbanCardEditForm({
       | "gray"
       | "magenta"
       | "lime"
-      | "silver") || "red"
+      | "silver"
+      | "black") || "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState(
     initialData?.image_path || ""
@@ -189,6 +191,7 @@ export default function KanbanCardEditForm({
       magenta: "bg-fuchsia-600",
       lime: "bg-lime-500",
       silver: "bg-gray-400",
+      black: "bg-black",
     };
     return colorMap[color as keyof typeof colorMap] || "bg-red-600";
   };

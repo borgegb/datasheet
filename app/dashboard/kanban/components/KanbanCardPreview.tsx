@@ -26,6 +26,7 @@ export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
       magenta: "bg-fuchsia-600",
       lime: "bg-lime-500",
       silver: "bg-gray-400",
+      black: "bg-black",
     };
     return colorMap[color as keyof typeof colorMap] || "bg-red-600";
   };

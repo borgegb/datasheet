@@ -19,7 +19,8 @@ interface ColorSelectorProps {
     | "gray"
     | "magenta"
     | "lime"
-    | "silver";
+    | "silver"
+    | "black";
   onChange: (
     value:
       | "red"
@@ -36,6 +37,7 @@ interface ColorSelectorProps {
       | "magenta"
       | "lime"
       | "silver"
+      | "black"
   ) => void;
   name: string;
 }
@@ -130,6 +132,12 @@ export default function ColorSelector({
       bgColor: "bg-gray-400",
       borderColor: "border-gray-400",
     },
+    {
+      value: "black",
+      label: "Black",
+      bgColor: "bg-black",
+      borderColor: "border-black",
+    },
   ] as const;
 
   return (
@@ -154,6 +162,7 @@ export default function ColorSelector({
               | "magenta"
               | "lime"
               | "silver"
+              | "black"
           )
         }
         className="grid grid-cols-5 gap-2"

@@ -78,6 +78,7 @@ export default function KanbanCardForm({
     | "magenta"
     | "lime"
     | "silver"
+    | "black"
   >(
     (initialData?.header_color as
       | "red"
@@ -93,7 +94,8 @@ export default function KanbanCardForm({
       | "gray"
       | "magenta"
       | "lime"
-      | "silver") || "red"
+      | "silver"
+      | "black") || "red"
   );
   const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(
     initialData?.image_path || null

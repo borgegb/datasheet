@@ -54,7 +54,8 @@ export interface KanbanCard {
     | "gray"
     | "magenta"
     | "lime"
-    | "silver";
+    | "silver"
+    | "black";
   image_path?: string | null;
   pdf_storage_path?: string | null; // Add PDF storage path field
   signedImageUrl?: string | null; // Add optional signed URL field
@@ -115,7 +116,8 @@ export async function saveKanbanCard(
         | "gray"
         | "magenta"
         | "lime"
-        | "silver") || "red",
+        | "silver"
+        | "black") || "red",
     product_id: formData.get("productId") as string | null,
     image_path: formData.get("imagePath") as string | null,
     organization_id: organizationId,

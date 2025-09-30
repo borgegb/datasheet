@@ -31,7 +31,8 @@ interface KanbanCard {
     | "gray"
     | "magenta"
     | "lime"
-    | "silver";
+    | "silver"
+    | "black";
   image_path?: string | null;
   organization_id: string;
 }

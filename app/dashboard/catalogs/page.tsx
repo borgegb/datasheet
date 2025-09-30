@@ -693,8 +693,21 @@ export default function CatalogsPage() {
           )}
         </div>
         {isLoadingCatalogs || isLoadingProfile ? (
-          <div className="flex justify-center items-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <div className="aspect-[16/10] w-full bg-muted">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground m-4" />
+                  </div>
+                  <CardHeader className="p-4">
+                    <CardTitle className="text-md font-medium">
+                      <div className="h-4 w-2/3 bg-muted rounded" />
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
           </div>
         ) : catalogs.length === 0 ? (
           <p className="text-muted-foreground">No catalogs created yet.</p>

@@ -25,6 +25,7 @@ export default function ImageGrid({
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const imagesPerPage = 10; // Reduced from 20 to improve performance
+  const loaderRef = useRef<HTMLDivElement | null>(null);
 
   // Reset when images array length changes (due to filtering)
   useEffect(() => {
@@ -126,36 +127,29 @@ export default function ImageGrid({
     onLoadImage,
   ]);
 
-  // Load more images when scrolling with throttling
+  // Load more images using IntersectionObserver to avoid scroll handler overhead
   useEffect(() => {
-    const handleScroll = () => {
-      const now = Date.now();
+    if (!loaderRef.current) return;
 
-      // Throttle to max once per 200ms
-      if (now - lastScrollTime.current < 200) {
-        return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          if (!loadingMore && visibleImages.length < images.length) {
+            console.log("[ImageGrid] Triggering loadMoreImages");
+            loadMoreImages();
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: "200px",
+        threshold: 0,
       }
+    );
 
-      lastScrollTime.current = now;
-
-      if (loadingMore || visibleImages.length >= images.length) {
-        return;
-      }
-
-      const scrollHeight = document.documentElement.scrollHeight;
-      const scrollTop = document.documentElement.scrollTop;
-      const clientHeight = document.documentElement.clientHeight;
-      const scrollPosition = scrollTop + clientHeight;
-      const triggerPoint = scrollHeight - 300; // Reduced from 500
-
-      if (scrollPosition >= triggerPoint) {
-        console.log("[ImageGrid] Triggering loadMoreImages");
-        loadMoreImages();
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    observer.observe(loaderRef.current);
+    return () => observer.disconnect();
   }, [visibleImages.length, images.length, loadingMore, loadMoreImages]);
 
   if (isLoading && visibleImages.length === 0) {
@@ -196,7 +190,7 @@ export default function ImageGrid({
       )}
 
       {visibleImages.length < images.length && !loadingMore && (
-        <div className="text-center py-4">
+        <div className="text-center py-4" ref={loaderRef}>
           <p className="text-sm text-muted-foreground">
             Showing {visibleImages.length} of {images.length} images
           </p>

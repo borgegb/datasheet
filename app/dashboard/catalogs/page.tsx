@@ -138,6 +138,7 @@ function SortableCatalogCard({
       <Link
         href={`/dashboard/catalogs/${catalog.id}`}
         passHref
+        prefetch={false}
         className="block h-full"
         onClick={(e) => {
           // Prevent navigation while dragging

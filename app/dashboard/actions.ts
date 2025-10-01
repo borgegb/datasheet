@@ -79,12 +79,15 @@ interface CatalogInfo {
   name: string;
   image_path: string | null;
   signedImageUrl?: string | null; // Add optional signed URL field
+  display_order?: number | null; // Add display order for drag and drop
 }
 
 export async function fetchCatalogsForOrg(): Promise<{
   data: CatalogInfo[];
   error: { message: string } | null;
 }> {
+  const start = Date.now();
+  console.log("[fetchCatalogsForOrg] start");
   const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
 
@@ -98,11 +101,13 @@ export async function fetchCatalogsForOrg(): Promise<{
       `
       id,
       name,
-      image_path 
+      image_path,
+      display_order
     `
     )
     .eq("organization_id", organizationId)
-    .order("name", { ascending: true });
+    .order("display_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true }); // Fallback for null display_order
 
   if (fetchError) {
     console.error("Server Action Error (fetchCatalogsForOrg):", fetchError);
@@ -113,17 +118,39 @@ export async function fetchCatalogsForOrg(): Promise<{
   }
 
   if (!catalogsData) {
+    console.log(
+      "[fetchCatalogsForOrg] db returned 0 rows in",
+      Date.now() - start,
+      "ms"
+    );
     return { data: [], error: null }; // No catalogs found
   }
 
-  // --- Generate Signed URLs ---
+  const afterDb = Date.now();
+  console.log(
+    "[fetchCatalogsForOrg] db returned",
+    catalogsData.length,
+    "rows in",
+    afterDb - start,
+    "ms"
+  );
+
+  // --- Generate Signed URLs (thumbnail transform) ---
+  const signStart = Date.now();
   const processedData = await Promise.all(
     catalogsData.map(async (catalog) => {
       let signedUrl = null;
       if (catalog.image_path) {
         const { data: urlData, error: urlError } = await supabase.storage
-          .from("datasheet-assets") // Ensure this is your bucket name
-          .createSignedUrl(catalog.image_path, 60 * 5); // 5 minutes expiry
+          .from("datasheet-assets")
+          .createSignedUrl(catalog.image_path, 60 * 5, {
+            transform: {
+              width: 512,
+              height: 512,
+              resize: "cover",
+              quality: 75,
+            },
+          });
 
         if (urlError) {
           console.error(
@@ -143,6 +170,17 @@ export async function fetchCatalogsForOrg(): Promise<{
     })
   );
   // --- End Generate Signed URLs ---
+  const signEnd = Date.now();
+  const signedCount = processedData.filter((c) => !!c.signedImageUrl).length;
+  console.log(
+    "[fetchCatalogsForOrg] signed",
+    signedCount,
+    "thumbnails in",
+    signEnd - signStart,
+    "ms; total",
+    signEnd - start,
+    "ms"
+  );
 
   return { data: processedData, error: null };
 }
@@ -627,6 +665,74 @@ export async function deleteCatalog(catalogId: string) {
 }
 // ---                         ---
 
+// --- ADD updateCatalogOrder action ---
+export async function updateCatalogOrder(
+  catalogOrders: { id: string; display_order: number }[]
+) {
+  "use server";
+  const supabase = await createServerActionClient();
+
+  // 1. Verify user is owner or admin
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return { error: { message: "Authentication required." } };
+  }
+
+  const userId = userData.user.id;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id")
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profile) {
+    return { error: { message: "User profile not found." } };
+  }
+
+  // Only owners can reorder catalogs (you can adjust this to include 'member' if needed)
+  if (profile.role !== "owner") {
+    return {
+      error: { message: "Only organization owners can reorder catalogs." },
+    };
+  }
+
+  if (!profile.organization_id) {
+    return { error: { message: "User organization context missing." } };
+  }
+
+  // 2. Update each catalog's display_order
+  const errors = [];
+
+  for (const { id, display_order } of catalogOrders) {
+    const { error: updateError } = await supabase
+      .from("catalogs")
+      .update({ display_order })
+      .eq("id", id)
+      .eq("organization_id", profile.organization_id); // Security: only update own org's catalogs
+
+    if (updateError) {
+      errors.push({ id, error: updateError.message });
+      console.error(`Error updating catalog ${id} order:`, updateError);
+    }
+  }
+
+  if (errors.length > 0) {
+    return {
+      error: {
+        message: `Failed to update ${errors.length} catalog(s) order.`,
+        details: errors,
+      },
+    };
+  }
+
+  // 3. Revalidate paths
+  revalidatePath("/dashboard/catalogs");
+
+  console.log(`Updated order for ${catalogOrders.length} catalogs.`);
+  return { error: null };
+}
+// ---                         ---
+
 // --- ADD fetchCatalogById action ---
 interface CatalogDetails {
   id: string;
@@ -1019,7 +1125,11 @@ export async function inviteUserToOrg(
   // Role validation
   const allowedRoles = ["member", "viewer"];
   if (!allowedRoles.includes(roleToInvite)) {
-    return { error: { message: "Invalid role specified. Must be 'member' or 'viewer'." } };
+    return {
+      error: {
+        message: "Invalid role specified. Must be 'member' or 'viewer'.",
+      },
+    };
   }
 
   const supabase = await createServerActionClient();
@@ -1134,7 +1244,12 @@ export async function updateUserRole(
   const allowedRoles = ["member", "viewer", "owner"];
   if (!allowedRoles.includes(newRole)) {
     console.error("❌ Invalid role:", newRole);
-    return { error: { message: "Invalid role specified. Must be 'member', 'viewer', or 'owner'." } };
+    return {
+      error: {
+        message:
+          "Invalid role specified. Must be 'member', 'viewer', or 'owner'.",
+      },
+    };
   }
 
   console.log("✅ Role validation passed");
@@ -1151,7 +1266,10 @@ export async function updateUserRole(
       return { error: { message: "Authentication required." } };
     }
     const currentUserId = userData.user.id;
-    console.log("✅ Current user:", { currentUserId, email: userData.user.email });
+    console.log("✅ Current user:", {
+      currentUserId,
+      email: userData.user.email,
+    });
 
     console.log("📋 Getting current user profile...");
     const { data: currentUserProfile, error: profileError } = await supabase
@@ -1171,7 +1289,9 @@ export async function updateUserRole(
 
     // 2. Check if the current user is an owner
     if (currentUserProfile.role !== "owner") {
-      console.warn(`Update Role Attempt Denied: User ${currentUserId} is not an owner.`);
+      console.warn(
+        `Update Role Attempt Denied: User ${currentUserId} is not an owner.`
+      );
       return {
         error: { message: "Only organization owners can update user roles." },
       };
@@ -1186,11 +1306,12 @@ export async function updateUserRole(
 
     // 3. Get target user profile to verify they're in the same organization
     console.log("🎯 Getting target user profile...", { targetUserId });
-    const { data: targetUserProfile, error: targetProfileError } = await supabase
-      .from("profiles")
-      .select("organization_id, role")
-      .eq("id", targetUserId)
-      .single();
+    const { data: targetUserProfile, error: targetProfileError } =
+      await supabase
+        .from("profiles")
+        .select("organization_id, role")
+        .eq("id", targetUserId)
+        .single();
 
     if (targetProfileError || !targetUserProfile) {
       console.error(
@@ -1202,30 +1323,40 @@ export async function updateUserRole(
     console.log("✅ Target user profile:", targetUserProfile);
 
     // 4. Verify target user is in the same organization
-    if (targetUserProfile.organization_id !== currentUserProfile.organization_id) {
+    if (
+      targetUserProfile.organization_id !== currentUserProfile.organization_id
+    ) {
       console.warn(
         `Update Role Attempt Denied: Target user ${targetUserId} is not in the same organization.`
       );
-      return { error: { message: "Cannot update users from other organizations." } };
+      return {
+        error: { message: "Cannot update users from other organizations." },
+      };
     }
 
     // 5. Prevent owners from demoting themselves (would lock out organization)
-    if (targetUserId === currentUserId && targetUserProfile.role === "owner" && newRole !== "owner") {
+    if (
+      targetUserId === currentUserId &&
+      targetUserProfile.role === "owner" &&
+      newRole !== "owner"
+    ) {
       console.warn(
         `Update Role Attempt Denied: Owner ${currentUserId} trying to demote themselves.`
       );
-      return { error: { message: "You cannot demote yourself from owner role." } };
+      return {
+        error: { message: "You cannot demote yourself from owner role." },
+      };
     }
 
     // 6. Update the user's role
     console.log("💾 Updating user role in database...");
-    console.log("📝 Update query:", { 
-      table: "profiles", 
-      update: { role: newRole }, 
+    console.log("📝 Update query:", {
+      table: "profiles",
+      update: { role: newRole },
       where: { id: targetUserId },
-      currentRole: targetUserProfile.role 
+      currentRole: targetUserProfile.role,
     });
-    
+
     const { data: updateData, error: updateError } = await supabase
       .from("profiles")
       .update({ role: newRole })
@@ -1237,17 +1368,21 @@ export async function updateUserRole(
     if (updateError) {
       console.error(`❌ Update Role Error for ${targetUserId}:`, updateError);
       return {
-        error: { message: `Failed to update user role: ${updateError.message}` },
+        error: {
+          message: `Failed to update user role: ${updateError.message}`,
+        },
       };
     }
 
-    console.log(`✅ Successfully updated user ${targetUserId} role to '${newRole}'.`);
+    console.log(
+      `✅ Successfully updated user ${targetUserId} role to '${newRole}'.`
+    );
     console.log("📊 Updated record:", updateData);
-    
+
     // Revalidate the organization page to refresh the members list
     console.log("🔄 Revalidating /dashboard/organization...");
     revalidatePath("/dashboard/organization");
-    
+
     return { error: null }; // Success
   } catch (e: any) {
     console.error("Unexpected error updating user role:", e);

@@ -7,6 +7,7 @@ import {
   PackageIcon,
   UsersIcon,
   TagIcon,
+  ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,11 @@ const mainNavItems = [
     title: "Kanban Cards",
     href: "/dashboard/kanban",
     icon: TagIcon,
+  },
+  {
+    title: "Image Library",
+    href: "/dashboard/image-library",
+    icon: ImageIcon,
   },
   {
     title: "Organization",

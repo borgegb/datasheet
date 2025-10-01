@@ -1,0 +1,204 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ImageItem } from "../types";
+
+import { Loader2 } from "lucide-react";
+import ImageCard from "./ImageCard";
+
+interface ImageGridProps {
+  images: ImageItem[];
+  onImageClick: (image: ImageItem) => void;
+  onLoadImage: (image: ImageItem) => Promise<string | null>;
+  onPrefetchImages?: (imagesToPrefetch: ImageItem[]) => Promise<number>;
+  isLoading?: boolean;
+}
+
+export default function ImageGrid({
+  images,
+  onImageClick,
+  onLoadImage,
+  onPrefetchImages,
+  isLoading,
+}: ImageGridProps) {
+  const [visibleImages, setVisibleImages] = useState<ImageItem[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const imagesPerPage = 10; // Reduced from 20 to improve performance
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset when images array length changes (due to filtering)
+  useEffect(() => {
+    console.log(
+      "[ImageGrid] Images array length changed, resetting. Total images:",
+      images.length
+    );
+    const firstPage = images.slice(0, imagesPerPage);
+    setVisibleImages(firstPage);
+    // Proactively prefetch first page URLs
+    if (onPrefetchImages) {
+      onPrefetchImages(firstPage).catch(() => {});
+    }
+    setPage(1);
+  }, [images.length]); // Only reset when the length changes, not when URLs are added
+
+  // Throttle scroll events
+  const lastScrollTime = useRef(0);
+
+  const loadMoreImages = useCallback(async () => {
+    if (loadingMore || visibleImages.length >= images.length) return;
+
+    console.log(
+      "[ImageGrid] loadMoreImages started - current page:",
+      page,
+      "visible:",
+      visibleImages.length
+    );
+    const startTime = Date.now();
+
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const startIndex = page * imagesPerPage;
+    const endIndex = nextPage * imagesPerPage;
+    const newImages = images.slice(startIndex, endIndex);
+
+    console.log(
+      "[ImageGrid] Loading batch - startIndex:",
+      startIndex,
+      "endIndex:",
+      endIndex,
+      "batch size:",
+      newImages.length
+    );
+
+    if (newImages.length === 0) {
+      setLoadingMore(false);
+      return;
+    }
+
+    // Prefetch URLs server-side for the batch (fast path)
+    let prefetchedCount = 0;
+    if (onPrefetchImages) {
+      try {
+        prefetchedCount = await onPrefetchImages(newImages);
+      } catch {}
+    }
+
+    // Fallback: Load any remaining URLs with staggered client calls
+    // Only run if we didn't get anything from prefetch
+    const loadStartTime = Date.now();
+    if (!onPrefetchImages || prefetchedCount === 0) {
+      const loadPromises = newImages.map((img, idx) => {
+        // Add a small delay between each request to avoid overwhelming the server
+        return new Promise<string | null>((resolve) => {
+          setTimeout(async () => {
+            const url = await onLoadImage(img);
+            resolve(url);
+          }, idx * 100); // 100ms delay between each request
+        });
+      });
+      await Promise.all(loadPromises);
+    }
+
+    const loadEndTime = Date.now();
+    console.log(
+      "[ImageGrid] URL loading completed in",
+      loadEndTime - loadStartTime,
+      "ms"
+    );
+
+    setVisibleImages((prev) => {
+      console.log(
+        "[ImageGrid] Updating visible images - previous:",
+        prev.length,
+        "adding:",
+        newImages.length
+      );
+      return [...prev, ...newImages];
+    });
+    setPage(nextPage);
+    setLoadingMore(false);
+
+    const totalTime = Date.now() - startTime;
+    console.log("[ImageGrid] loadMoreImages completed in", totalTime, "ms");
+  }, [
+    images,
+    visibleImages.length,
+    loadingMore,
+    page,
+    imagesPerPage,
+    onLoadImage,
+  ]);
+
+  // Load more images using IntersectionObserver to avoid scroll handler overhead
+  useEffect(() => {
+    if (!loaderRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          if (!loadingMore && visibleImages.length < images.length) {
+            console.log("[ImageGrid] Triggering loadMoreImages");
+            loadMoreImages();
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: "1000px",
+        threshold: 0,
+      }
+    );
+
+    observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [visibleImages.length, images.length, loadingMore, loadMoreImages]);
+
+  if (isLoading && visibleImages.length === 0) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">
+          No images found matching your filters.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {visibleImages.map((image) => (
+          <ImageCard
+            key={image.id}
+            image={image}
+            onClick={() => onImageClick(image)}
+            onLoadImage={onLoadImage}
+          />
+        ))}
+      </div>
+
+      {loadingMore && (
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {visibleImages.length < images.length && !loadingMore && (
+        <div className="text-center py-4" ref={loaderRef}>
+          <p className="text-sm text-muted-foreground">
+            Showing {visibleImages.length} of {images.length} images
+          </p>
+        </div>
+      )}
+    </>
+  );
+}

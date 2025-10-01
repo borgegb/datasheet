@@ -17,7 +17,22 @@ interface KanbanCard {
   order_quantity: number;
   preferred_supplier: string;
   lead_time: string;
-  header_color: "red" | "orange" | "green";
+  header_color:
+    | "red"
+    | "orange"
+    | "green"
+    | "yellow"
+    | "blue"
+    | "purple"
+    | "brown"
+    | "pink"
+    | "teal"
+    | "cyan"
+    | "gray"
+    | "magenta"
+    | "lime"
+    | "silver"
+    | "black";
   image_path?: string | null;
   organization_id: string;
 }

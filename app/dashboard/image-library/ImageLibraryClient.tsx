@@ -53,15 +53,17 @@ export default function ImageLibraryClient({
         const order = filters.sortOrder === "asc" ? 1 : -1;
 
         switch (filters.sortBy) {
-          case "name":
-            return a.sourceName.localeCompare(b.sourceName) * order;
+          case "name": {
+            const cmp = a.sourceName.localeCompare(b.sourceName);
+            return cmp * order;
+          }
           case "date":
-          default:
-            return (
-              (new Date(b.uploadedAt).getTime() -
-                new Date(a.uploadedAt).getTime()) *
-              order
-            );
+          default: {
+            const aTime = new Date(a.uploadedAt).getTime();
+            const bTime = new Date(b.uploadedAt).getTime();
+            const cmp = aTime - bTime; // base ascending comparison
+            return cmp * order; // flip when desc
+          }
         }
       });
 

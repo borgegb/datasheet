@@ -25,6 +25,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   }
   const router = useRouter();
   const [form, setForm] = React.useState<Record<string, any>>(typeDef.defaults);
+  const [productId, setProductId] = React.useState<string>("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [organizationId, setOrganizationId] = React.useState<string | null>(
     null
@@ -89,7 +90,11 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ certification: form, organizationId }),
+          body: JSON.stringify({
+            certification: form,
+            organizationId,
+            productId: productId || null,
+          }),
         }
       );
       const data = await res.json();
@@ -132,6 +137,15 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
                 {renderField(f)}
               </div>
             ))}
+            {/* Optional product link for associating certificate to a product */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Product ID (optional)</Label>
+              <Input
+                placeholder="Paste a product UUID to link this certificate"
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>

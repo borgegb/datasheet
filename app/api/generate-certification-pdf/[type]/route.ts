@@ -5,6 +5,7 @@ export const maxDuration = 60;
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { buildCertificationPdf } from "@/lib/pdf/certifications/buildCertificationPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
+import { randomUUID } from "node:crypto";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -31,7 +32,7 @@ export async function POST(
     }
 
     const payload = await req.json();
-    const { certification, organizationId } = payload || {};
+    const { certification, organizationId, productId } = payload || {};
     if (!certification) {
       return new Response(
         JSON.stringify({ error: "Missing certification payload" }),
@@ -55,8 +56,9 @@ export async function POST(
       template: templateJson.default,
     });
 
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const fileName = `${params.type}-certificate-${timestamp}.pdf`;
+    const iso = new Date().toISOString().replace(/[:.]/g, "-");
+    const rid = randomUUID().slice(0, 8);
+    const fileName = `${params.type}-certificate-${iso}-${rid}.pdf`;
     const org = organizationId || "public";
     const filePath = `${org}/certifications/${params.type}/generated/${fileName}`;
 
@@ -64,7 +66,7 @@ export async function POST(
       .from("datasheet-assets")
       .upload(filePath, pdfBytes, {
         contentType: "application/pdf",
-        upsert: true,
+        upsert: false,
       });
 
     if (uploadError) {
@@ -85,7 +87,23 @@ export async function POST(
       });
     }
 
-    return Response.json({ url: signed?.signedUrl });
+    // Persist certification record (if table exists)
+    try {
+      await supabase.from("certifications").insert({
+        organization_id: org,
+        product_id: productId || null,
+        type: params.type,
+        data: merged,
+        pdf_storage_path: filePath,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      // Non-fatal if table missing; PDF already generated and uploaded
+      console.error("Failed to insert certification record:", e);
+    }
+
+    return Response.json({ url: signed?.signedUrl, path: filePath });
   } catch (e: any) {
     return new Response(
       JSON.stringify({ error: e?.message || "Unknown error" }),

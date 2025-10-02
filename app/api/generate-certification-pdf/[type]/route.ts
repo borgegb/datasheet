@@ -46,11 +46,14 @@ export async function POST(
     const merged = { ...typeDef.defaults, ...certification };
 
     // Generate PDF
-    const pdfBytes = await buildCertificationPdf(
-      merged,
-      // Resolve from repo root; builder will path.resolve(process.cwd(), ...)
-      `pdf/template/certifications/${typeDef.slug}.json`
+    // Prefer bundling the template via import so it exists in serverless
+    // The builder accepts a Template directly.
+    const templateJson = await import(
+      `@/pdf/template/certifications/${typeDef.slug}.json`
     );
+    const pdfBytes = await buildCertificationPdf(merged, {
+      template: templateJson.default,
+    });
 
     const timestamp = new Date().toISOString().slice(0, 10);
     const fileName = `${params.type}-certificate-${timestamp}.pdf`;

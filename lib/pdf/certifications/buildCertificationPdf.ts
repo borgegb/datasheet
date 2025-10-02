@@ -30,15 +30,36 @@ export interface CertificationDataModel {
   };
 }
 
+type BuildOptions = {
+  templatePath?: string;
+  template?: Template;
+};
+
 export async function buildCertificationPdf(
   data: CertificationDataModel,
-  templatePath: string = "pdf/template/certifications/hydrostatic-test.json"
+  opts: BuildOptions | string = {
+    templatePath: "pdf/template/certifications/hydrostatic-test.json",
+  }
 ): Promise<Uint8Array> {
-  // Load template from filesystem to avoid bundler dynamic import constraints
-  const absPath = path.resolve(process.cwd(), templatePath);
-  const templateRaw = await fs.readFile(absPath, "utf8");
-  const parsed = JSON.parse(templateRaw);
-  const template: Template = parsed as Template;
+  let template: Template | null = null;
+
+  // Back-compat if a string path was passed
+  const options: BuildOptions =
+    typeof opts === "string" ? { templatePath: opts } : opts || {};
+
+  if (options.template) {
+    template = options.template;
+  } else if (options.templatePath) {
+    // Load template from filesystem (works in dev and in serverless if file bundled)
+    const absPath = path.resolve(process.cwd(), options.templatePath);
+    const templateRaw = await fs.readFile(absPath, "utf8");
+    const parsed = JSON.parse(templateRaw);
+    template = parsed as Template;
+  }
+
+  if (!template) {
+    throw new Error("No certificate template provided or found.");
+  }
 
   // Fonts
   const defaultFonts = getDefaultFont();

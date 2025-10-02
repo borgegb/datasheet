@@ -10,11 +10,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, MoreHorizontal } from "lucide-react";
 import type { CertificationRow } from "../actions";
 import { deleteCertification } from "../actions";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   initialData: CertificationRow[];
@@ -72,7 +79,7 @@ export default function CertificationsTable({ initialData }: Props) {
             <TableHead>Model</TableHead>
             <TableHead>Serial</TableHead>
             <TableHead>Created</TableHead>
-            <TableHead className="w-[140px]">Actions</TableHead>
+            <TableHead className="w-[80px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -104,24 +111,32 @@ export default function CertificationsTable({ initialData }: Props) {
                     {new Date(r.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openPdf(r.pdf_storage_path)}
-                      >
-                        <Download className="mr-2 h-4 w-4" /> Open
-                      </Button>
-                      {userRole === "owner" && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(r.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => openPdf(r.pdf_storage_path)}
+                        >
+                          <Download className="mr-2 h-4 w-4" /> Open PDF
+                        </DropdownMenuItem>
+                        {userRole === "owner" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDelete(r.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );

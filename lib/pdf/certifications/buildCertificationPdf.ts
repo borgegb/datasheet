@@ -115,6 +115,7 @@ export async function buildCertificationPdf(
   const inputs = [
     {
       logo: appliedLogoBase64,
+      watermarkLogo: appliedLogoBase64,
       leftRibbon: data.branding.leftRibbonText,
       companyNameStatic: data.branding.companyName || "Applied Concepts",
       taglineStatic:

@@ -2,6 +2,16 @@
   "schemas": [
     [
       {
+        "type": "image",
+        "name": "watermarkLogo",
+        "position": { "x": 55, "y": 95 },
+        "width": 120,
+        "height": 120,
+        "fit": "contain",
+        "opacity": 0.5,
+        "content": ""
+      },
+      {
         "type": "rectangle",
         "name": "topRightBadgeBg",
         "position": { "x": 143, "y": 0 },

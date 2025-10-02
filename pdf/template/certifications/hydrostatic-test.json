@@ -8,7 +8,7 @@
         "width": 120,
         "height": 120,
         "fit": "contain",
-        "opacity": 0.5,
+        "opacity": 0.3,
         "content": ""
       },
       {
@@ -282,27 +282,29 @@
         "type": "text",
         "name": "signLineLead",
         "content": "",
-        "position": { "x": 39.35, "y": 237.38 },
-        "width": 156.7,
-        "height": 8,
+        "position": { "x": 37.95, "y": 246.58 },
+        "width": 76.99,
+        "height": 7.94,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "readOnly": false
       },
       {
         "type": "line",
         "name": "signatureLine",
-        "position": { "x": 32.31, "y": 245.38 },
-        "width": 73.74,
-        "height": 0.2,
-        "content": ""
+        "position": { "x": 119.31, "y": 251.38 },
+        "width": 73.82,
+        "height": 0,
+        "content": "",
+        "color": "#000000"
       },
       {
         "type": "text",
         "name": "signatoryName",
         "content": "",
-        "position": { "x": 39.72, "y": 247.12 },
-        "width": 73.74,
-        "height": 8,
+        "position": { "x": 120.87, "y": 242.42 },
+        "width": 80.7,
+        "height": 7.94,
         "fontName": "Inter-Bold",
         "fontSize": 8
       },
@@ -310,11 +312,12 @@
         "type": "text",
         "name": "signatoryTitle",
         "content": "",
-        "position": { "x": 38.88, "y": 258.03 },
-        "width": 110.61,
-        "height": 8,
+        "position": { "x": 120.82, "y": 252.33 },
+        "width": 80.7,
+        "height": 7.94,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "readOnly": false
       },
       {
         "type": "text",

@@ -89,10 +89,18 @@ export async function POST(
 
     // Persist certification record (if table exists)
     try {
+      const title = [
+        merged?.model || merged?.equipmentDescription || "",
+        merged?.serialNumber || "",
+      ]
+        .filter(Boolean)
+        .join(" – ");
+
       await supabase.from("certifications").insert({
         organization_id: org,
         product_id: productId || null,
         type: params.type,
+        title: title || null,
         data: merged,
         pdf_storage_path: filePath,
         created_at: new Date().toISOString(),

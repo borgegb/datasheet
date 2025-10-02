@@ -184,7 +184,7 @@
         "type": "text",
         "name": "serialNumberLabel",
         "content": "",
-        "position": { "x": 95, "y": 115.84 },
+        "position": { "x": 37.06, "y": 124.57 },
         "width": 20,
         "height": 8,
         "fontName": "Inter-Bold",
@@ -195,7 +195,7 @@
         "type": "text",
         "name": "serialNumber",
         "content": "",
-        "position": { "x": 115.19, "y": 115.84 },
+        "position": { "x": 59.1, "y": 124.31 },
         "width": 79.27,
         "height": 8,
         "fontName": "Inter-Regular",
@@ -270,13 +270,25 @@
       },
       {
         "type": "text",
-        "name": "dateOfTest",
+        "name": "dateOfTestLabel",
         "content": "",
         "position": { "x": 39.35, "y": 227.38 },
-        "width": 156.7,
+        "width": 45,
+        "height": 8,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "left"
+      },
+      {
+        "type": "text",
+        "name": "dateOfTest",
+        "content": "",
+        "position": { "x": 86.0, "y": 227.38 },
+        "width": 50,
         "height": 8,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "alignment": "left"
       },
       {
         "type": "text",
@@ -285,7 +297,7 @@
         "position": { "x": 37.95, "y": 246.58 },
         "width": 76.99,
         "height": 7.94,
-        "fontName": "Inter-Regular",
+        "fontName": "Inter-Bold",
         "fontSize": 8,
         "readOnly": false
       },
@@ -294,7 +306,7 @@
         "name": "signatureLine",
         "position": { "x": 119.31, "y": 251.38 },
         "width": 73.82,
-        "height": 0,
+        "height": 1,
         "content": "",
         "color": "#000000"
       },
@@ -326,7 +338,7 @@
         "position": { "x": 38.56, "y": 271.61 },
         "width": 156.7,
         "height": 8,
-        "fontName": "Inter-Regular",
+        "fontName": "Inter-Bold",
         "fontSize": 8,
         "alignment": "left"
       },

@@ -147,6 +147,7 @@ export async function buildCertificationPdf(
       designTemp: `${data.designedTemperatureC} °C`,
       hydroPressureLabel: "Hydrostatic Test Pressure:",
       hydroPressure: `${data.hydrostaticTestPressurePSI} PSI`,
+      dateOfTestLabel: "Date of test:",
       dateOfTest: data.dateOfTest
         ? new Date(data.dateOfTest).toLocaleDateString()
         : "",

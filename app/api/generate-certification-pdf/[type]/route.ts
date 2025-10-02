@@ -48,8 +48,8 @@ export async function POST(
     // Generate PDF
     const pdfBytes = await buildCertificationPdf(
       merged,
-      // dynamic import path from registry
-      `../../../pdf/template/certifications/${typeDef.slug}.json`
+      // Resolve from repo root; builder will path.resolve(process.cwd(), ...)
+      `pdf/template/certifications/${typeDef.slug}.json`
     );
 
     const timestamp = new Date().toISOString().slice(0, 10);

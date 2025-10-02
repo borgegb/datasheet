@@ -116,6 +116,12 @@ export async function buildCertificationPdf(
     {
       logo: appliedLogoBase64,
       leftRibbon: data.branding.leftRibbonText,
+      companyNameStatic: data.branding.companyName || "Applied Concepts",
+      taglineStatic:
+        (data.branding.tagline &&
+          data.branding.tagline
+            .replace(/\s+IN\s+BLASTING\s+TECHNOLOGY/i, " IN\nBLASTING\nTECHNOLOGY")) ||
+        "LEADERS IN\nBLASTING\nTECHNOLOGY",
       titleTop: data.titleTop,
       titleBottom: data.titleBottom,
       intro: `The equipment has been assessed and tested and conforms to the ${data.euDirective}.`,

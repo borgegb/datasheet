@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Save, FileText } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
@@ -95,9 +95,19 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to generate PDF");
       if (data?.url) {
-        toast.success(`${typeDef.title} PDF generated`);
-        window.open(data.url, "_blank");
-        router.push("/dashboard/certifications");
+        toast.success(`✅ ${typeDef.title} PDF generated!`, {
+          description: "Click the button to open your generated PDF.",
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(data.url, "_blank")}
+            >
+              Open PDF
+            </Button>
+          ),
+          duration: 15000,
+        });
       } else {
         throw new Error("No URL returned");
       }
@@ -126,7 +136,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
-                <FileText className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}

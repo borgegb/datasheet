@@ -138,6 +138,8 @@ export async function buildCertificationPdf(
       serialNumberLabel: "Serial Number:",
       serialNumber: data.serialNumber,
       pedTable: pedTableBody,
+      // Support current template table name
+      field30: pedTableBody,
       swpLabel: "Safe Working Pressure:",
       swp: `${data.safeWorkingPressurePSI} PSI`,
       designTempLabel: "Designed Temperature:",

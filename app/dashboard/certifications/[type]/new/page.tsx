@@ -32,7 +32,7 @@ export default function NewCertificationTypePage({ params }: Props) {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="w-full max-w-2xl mx-auto">
-          <GenericCertificationForm typeDef={typeDef} />
+          <GenericCertificationForm typeSlug={params.type} />
         </div>
       </div>
     </div>

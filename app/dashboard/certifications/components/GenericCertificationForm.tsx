@@ -9,13 +9,20 @@ import { toast } from "sonner";
 import { Save, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { FieldSpec, CertificationTypeDef } from "../registry";
+import type { FieldSpec } from "../registry";
+import { CERT_TYPES } from "../registry";
 
 interface Props {
-  typeDef: CertificationTypeDef;
+  typeSlug: string;
 }
 
-export default function GenericCertificationForm({ typeDef }: Props) {
+export default function GenericCertificationForm({ typeSlug }: Props) {
+  const typeDef = CERT_TYPES[typeSlug];
+  if (!typeDef) {
+    return (
+      <div className="p-6 text-destructive">Unknown certification type.</div>
+    );
+  }
   const router = useRouter();
   const [form, setForm] = React.useState<Record<string, any>>(typeDef.defaults);
   const [isSubmitting, setIsSubmitting] = React.useState(false);

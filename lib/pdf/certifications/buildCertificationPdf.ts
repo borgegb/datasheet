@@ -32,18 +32,13 @@ export interface CertificationDataModel {
 
 export async function buildCertificationPdf(
   data: CertificationDataModel,
-  templatePath: string = "../../../pdf/template/certifications/hydrostatic-test.json"
+  templatePath: string = "pdf/template/certifications/hydrostatic-test.json"
 ): Promise<Uint8Array> {
-  // Load template per type
-  const templateData = (await import(templatePath)).default;
-
-  const template: Template = {
-    ...templateData,
-    basePdf: {
-      ...templateData.basePdf,
-      padding: templateData.basePdf.padding as [number, number, number, number],
-    },
-  } as Template;
+  // Load template from filesystem to avoid bundler dynamic import constraints
+  const absPath = path.resolve(process.cwd(), templatePath);
+  const templateRaw = await fs.readFile(absPath, "utf8");
+  const parsed = JSON.parse(templateRaw);
+  const template: Template = parsed as Template;
 
   // Fonts
   const defaultFonts = getDefaultFont();

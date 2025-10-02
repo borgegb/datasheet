@@ -27,10 +27,10 @@ export default function ImageGrid({
   const imagesPerPage = 10; // Reduced from 20 to improve performance
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset when images array length changes (due to filtering)
+  // Reset when images input changes (filtering, sorting, search)
   useEffect(() => {
     console.log(
-      "[ImageGrid] Images array length changed, resetting. Total images:",
+      "[ImageGrid] Images input changed, resetting. Total images:",
       images.length
     );
     const firstPage = images.slice(0, imagesPerPage);
@@ -40,7 +40,7 @@ export default function ImageGrid({
       onPrefetchImages(firstPage).catch(() => {});
     }
     setPage(1);
-  }, [images.length]); // Only reset when the length changes, not when URLs are added
+  }, [images]);
 
   // Throttle scroll events
   const lastScrollTime = useRef(0);

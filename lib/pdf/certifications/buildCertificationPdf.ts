@@ -62,27 +62,26 @@ export async function buildCertificationPdf(
   }
 
   // Fonts
-  const defaultFonts = getDefaultFont();
   const fontDir = path.resolve(process.cwd(), "pdf/fonts");
-  let fontMap: Font = { ...defaultFonts };
+  // Start with pdfme default (Roboto) but ensure it is NOT fallback
+  const defaultFontsObj = getDefaultFont();
+  if (defaultFontsObj.Roboto) {
+    defaultFontsObj.Roboto.fallback = false;
+  }
+  let fontMap: Font = { ...defaultFontsObj };
   try {
     const interBold = await fs.readFile(path.join(fontDir, "Inter-Bold.ttf"));
     const interRegular = await fs.readFile(
       path.join(fontDir, "Inter-Regular.ttf")
     );
+    // Only ONE fallback font is allowed. Use Inter-Regular as the fallback.
     fontMap = {
       ...fontMap,
-      "Inter-Bold": {
-        data: interBold,
-        fallback: true,
-      },
-      "Inter-Regular": {
-        data: interRegular,
-        fallback: true,
-      },
+      "Inter-Regular": { data: interRegular, subset: true, fallback: true },
+      "Inter-Bold": { data: interBold, subset: true },
     } as unknown as Font;
   } catch (e) {
-    // Use default font if Inter is unavailable
+    // If Inter fonts are not available, keep Roboto (non-fallback) and rely on default glyphs
   }
 
   // Assets

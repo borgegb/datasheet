@@ -48,7 +48,7 @@ export async function buildCertificationPdf(
     typeof opts === "string" ? { templatePath: opts } : opts || {};
 
   if (options.template) {
-    template = options.template;
+    template = options.template as Template;
   } else if (options.templatePath) {
     // Load template from filesystem (works in dev and in serverless if file bundled)
     const absPath = path.resolve(process.cwd(), options.templatePath);
@@ -60,6 +60,21 @@ export async function buildCertificationPdf(
   if (!template) {
     throw new Error("No certificate template provided or found.");
   }
+
+  // Normalize template fields (match kanban approach)
+  const normalizedTemplate: Template = {
+    ...(template as any),
+    basePdf: {
+      ...(template as any).basePdf,
+      padding: (template as any).basePdf.padding as [
+        number,
+        number,
+        number,
+        number
+      ],
+    },
+  } as Template;
+  template = normalizedTemplate;
 
   // Fonts
   const fontDir = path.resolve(process.cwd(), "pdf/fonts");

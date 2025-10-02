@@ -109,8 +109,8 @@ export async function buildCertificationPdf(
     appliedLogoBase64 = "";
   }
 
-  // Build table for PED - pdfme Table expects body rows only when head is defined in template
-  const pedTableBody = [data.ped.row];
+  // Build table rows. Current template uses showHead=false, so include header labels as first body row
+  const pedTableBody = [data.ped.columns, data.ped.row];
 
   const inputs = [
     {

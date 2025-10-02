@@ -2,13 +2,48 @@
   "schemas": [
     [
       {
+        "type": "rectangle",
+        "name": "topRightBadgeBg",
+        "position": { "x": 143.0, "y": 0 },
+        "width": 53.0,
+        "height": 62.0,
+        "color": "#d3d4d3",
+        "content": ""
+      },
+      {
         "type": "image",
         "name": "logo",
-        "position": { "x": 143.44, "y": 0.48 },
-        "width": 50.01,
-        "height": 42.6,
+        "position": { "x": 144.0, "y": 2.0 },
+        "width": 51.0,
+        "height": 40.0,
         "fit": "contain",
         "content": ""
+      },
+      {
+        "type": "text",
+        "name": "companyNameStatic",
+        "content": "Applied Concepts",
+        "position": { "x": 144.0, "y": 44.5 },
+        "width": 51.0,
+        "height": 6.0,
+        "fontName": "Inter-Regular",
+        "fontSize": 8,
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "fontColor": "#000000"
+      },
+      {
+        "type": "text",
+        "name": "taglineStatic",
+        "content": "LEADERS IN\nBLASTING\nTECHNOLOGY",
+        "position": { "x": 144.0, "y": 51.0 },
+        "width": 51.0,
+        "height": 20.0,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "fontColor": "#000000"
       },
       {
         "type": "rectangle",

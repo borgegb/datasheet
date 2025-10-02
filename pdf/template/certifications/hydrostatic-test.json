@@ -128,6 +128,7 @@
           "verticalAlignment": "middle",
           "fontColor": "#ffffff",
           "backgroundColor": "#2f855a",
+          "borderWidth": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
           "padding": { "top": 2, "right": 2, "bottom": 2, "left": 2 }
         },
         "bodyStyles": {
@@ -135,6 +136,7 @@
           "fontSize": 8,
           "alignment": "center",
           "verticalAlignment": "middle",
+          "borderColor": "#000000",
           "borderWidth": {
             "top": 0.2,
             "right": 0.2,

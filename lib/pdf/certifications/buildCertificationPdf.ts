@@ -138,8 +138,11 @@ export async function buildCertificationPdf(
       serialNumberLabel: "Serial Number:",
       serialNumber: data.serialNumber,
       pedTable: pedTableBody,
+      swpLabel: "Safe Working Pressure:",
       swp: `${data.safeWorkingPressurePSI} PSI`,
+      designTempLabel: "Designed Temperature:",
       designTemp: `${data.designedTemperatureC} °C`,
+      hydroPressureLabel: "Hydrostatic Test Pressure:",
       hydroPressure: `${data.hydrostaticTestPressurePSI} PSI`,
       dateOfTest: data.dateOfTest
         ? new Date(data.dateOfTest).toLocaleDateString()

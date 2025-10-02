@@ -233,33 +233,69 @@
       },
       {
         "type": "text",
-        "name": "swp",
+        "name": "swpLabel",
         "content": "",
         "position": { "x": 37.76, "y": 155.84 },
-        "width": 156.7,
+        "width": 58,
+        "height": 8,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "left"
+      },
+      {
+        "type": "text",
+        "name": "swp",
+        "content": "",
+        "position": { "x": 97.5, "y": 155.84 },
+        "width": 97,
         "height": 8,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "alignment": "left"
+      },
+      {
+        "type": "text",
+        "name": "designTempLabel",
+        "content": "",
+        "position": { "x": 37.76, "y": 165.84 },
+        "width": 65,
+        "height": 8,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "left"
       },
       {
         "type": "text",
         "name": "designTemp",
         "content": "",
-        "position": { "x": 37.76, "y": 165.84 },
-        "width": 156.7,
+        "position": { "x": 106.0, "y": 165.84 },
+        "width": 88,
         "height": 8,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "alignment": "left"
+      },
+      {
+        "type": "text",
+        "name": "hydroPressureLabel",
+        "content": "",
+        "position": { "x": 37.76, "y": 175.84 },
+        "width": 80,
+        "height": 8,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "left"
       },
       {
         "type": "text",
         "name": "hydroPressure",
         "content": "",
-        "position": { "x": 37.76, "y": 175.84 },
-        "width": 156.7,
+        "position": { "x": 120.0, "y": 175.84 },
+        "width": 74,
         "height": 8,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "alignment": "left"
       },
       {
         "type": "text",

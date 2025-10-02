@@ -150,13 +150,36 @@
       },
       {
         "type": "text",
+        "name": "modelLabel",
+        "content": "",
+        "position": { "x": 37.76, "y": 115.84 },
+        "width": 18.0,
+        "height": 8,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "left"
+      },
+      {
+        "type": "text",
         "name": "model",
         "content": "",
-        "position": { "x": 37.6, "y": 115.84 },
-        "width": 73.74,
+        "position": { "x": 57.0, "y": 115.84 },
+        "width": 54.0,
         "height": 8,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "alignment": "left"
+      },
+      {
+        "type": "text",
+        "name": "serialNumberLabel",
+        "content": "",
+        "position": { "x": 95.0, "y": 115.84 },
+        "width": 20.0,
+        "height": 8,
+        "fontName": "Inter-Bold",
+        "fontSize": 8,
+        "alignment": "left"
       },
       {
         "type": "text",
@@ -166,14 +189,15 @@
         "width": 79.27,
         "height": 8,
         "fontName": "Inter-Regular",
-        "fontSize": 8
+        "fontSize": 8,
+        "alignment": "left"
       },
       {
         "type": "table",
         "name": "pedTable",
         "position": { "x": 37.76, "y": 127.84 },
         "width": 156.7,
-        "height": 24,
+        "height": 28,
         "content": "",
         "showHead": true,
         "head": ["Equipment", "PED Category", "Assessment module(s)"],

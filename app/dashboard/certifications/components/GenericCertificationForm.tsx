@@ -70,10 +70,10 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
           .select("id, product_title, product_code")
           .eq("organization_id", organizationId)
           .or(
-            `product_title.ilike.%${q.replaceAll(
-              "%",
+            `product_title.ilike.%${q.replace(
+              /%/g,
               ""
-            )}%,product_code.ilike.%${q.replaceAll("%", "")} %`
+            )}%,product_code.ilike.%${q.replace(/%/g, "")}%)`
           )
           .order("updated_at", { ascending: false })
           .limit(10);
@@ -93,6 +93,62 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   }, [productQuery, organizationId]);
 
   const renderField = (f: FieldSpec) => {
+    // Special case: model uses the product search input; store chosen title in form.model
+    if (f.name === "model") {
+      return (
+        <div className="relative">
+          <Input
+            placeholder="Search product by name or code..."
+            value={productLabel || productQuery}
+            onChange={(e) => {
+              setProductLabel("");
+              setProductId("");
+              setForm((s) => ({ ...s, model: "" }));
+              setProductQuery(e.target.value);
+            }}
+          />
+          {productQuery.length >= 2 && (
+            <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow">
+              <div className="max-h-64 overflow-auto text-sm">
+                {isSearchingProducts ? (
+                  <div className="px-3 py-2 text-muted-foreground">
+                    Searching...
+                  </div>
+                ) : productResults.length === 0 ? (
+                  <div className="px-3 py-2 text-muted-foreground">
+                    No results
+                  </div>
+                ) : (
+                  productResults.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent"
+                      onClick={() => {
+                        setProductId(p.id);
+                        const titleOnly = p.product_title;
+                        setProductLabel(titleOnly);
+                        setForm((s) => ({ ...s, model: titleOnly }));
+                        setProductQuery("");
+                        setProductResults([]);
+                      }}
+                    >
+                      <span className="font-medium">{p.product_title}</span>
+                      {p.product_code && (
+                        <span className="text-muted-foreground text-xs">
+                          ({p.product_code})
+                        </span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (f.type === "select") {
       // Minimal select using native input to avoid extra deps
       return (
@@ -184,78 +240,6 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
                 {renderField(f)}
               </div>
             ))}
-            {/* Optional product link for associating certificate to a product */}
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Product (optional)</Label>
-              <div className="relative">
-                <Input
-                  placeholder="Search product by name or code..."
-                  value={productLabel || productQuery}
-                  onChange={(e) => {
-                    setProductLabel("");
-                    setProductId("");
-                    setProductQuery(e.target.value);
-                  }}
-                />
-                {productQuery.length >= 2 && (
-                  <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow">
-                    <div className="max-h-64 overflow-auto text-sm">
-                      {isSearchingProducts ? (
-                        <div className="px-3 py-2 text-muted-foreground">
-                          Searching...
-                        </div>
-                      ) : productResults.length === 0 ? (
-                        <div className="px-3 py-2 text-muted-foreground">
-                          No results
-                        </div>
-                      ) : (
-                        productResults.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent"
-                            onClick={() => {
-                              setProductId(p.id);
-                              const label = p.product_code
-                                ? `${p.product_title} (${p.product_code})`
-                                : p.product_title;
-                              setProductLabel(label);
-                              setProductQuery("");
-                              setProductResults([]);
-                            }}
-                          >
-                            <span className="font-medium">
-                              {p.product_title}
-                            </span>
-                            {p.product_code && (
-                              <span className="text-muted-foreground text-xs">
-                                {p.product_code}
-                              </span>
-                            )}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {productId && (
-                <div className="text-xs text-muted-foreground">
-                  Linked product: {productLabel || productId}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-6 px-2 ml-2"
-                    onClick={() => {
-                      setProductId("");
-                      setProductLabel("");
-                    }}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              )}
-            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>

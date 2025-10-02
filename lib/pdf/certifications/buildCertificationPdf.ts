@@ -119,13 +119,19 @@ export async function buildCertificationPdf(
       companyNameStatic: data.branding.companyName || "Applied Concepts",
       taglineStatic:
         (data.branding.tagline &&
-          data.branding.tagline
-            .replace(/\s+IN\s+BLASTING\s+TECHNOLOGY/i, " IN\nBLASTING\nTECHNOLOGY")) ||
+          data.branding.tagline.replace(
+            /\s+IN\s+BLASTING\s+TECHNOLOGY/i,
+            " IN\nBLASTING\nTECHNOLOGY"
+          )) ||
         "LEADERS IN\nBLASTING\nTECHNOLOGY",
-      titleTop: data.titleTop,
-      titleBottom: data.titleBottom,
-      intro: `The equipment has been assessed and tested and conforms to the ${data.euDirective}.`,
+      // Merge title into one centered block with manual line break
+      titleTop: `${data.titleTop}\nCertificate of Hydrostatic Test`,
+      titleBottom: "",
+      // Two-line intro with manual break before directive
+      intro: `The following equipment has been assessed and tested and conforms to the\n${data.euDirective}`,
+      manufacturerLabel: "Manufacturer:",
       manufacturer: data.manufacturer,
+      equipmentDescriptionLabel: "Description of the Pressure Equipment:",
       equipmentDescription: data.equipmentDescription,
       model: data.model,
       serialNumber: data.serialNumber,

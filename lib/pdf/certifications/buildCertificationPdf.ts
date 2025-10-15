@@ -136,9 +136,8 @@ export async function buildCertificationPdf(
             " IN\nBLASTING\nTECHNOLOGY"
           )) ||
         "LEADERS IN\nBLASTING\nTECHNOLOGY",
-      // Merge title into one centered block with manual line break
-      titleTop: `${data.titleTop}\nCertificate of Hydrostatic Test`,
-      titleBottom: "",
+      // Merge two title lines into one field (template only has titleTop)
+      titleTop: `${data.titleTop}\n${data.titleBottom || ""}`.trim(),
       // Two-line intro with manual break before directive
       intro: `The following equipment has been assessed and tested and conforms to the\n${data.euDirective}`,
       manufacturerLabel: "Manufacturer:",

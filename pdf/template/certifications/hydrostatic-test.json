@@ -60,7 +60,7 @@
         "name": "leftRibbon",
         "content": "",
         "position": { "x": 6, "y": 0 },
-        "width": 22,
+        "width": 27,
         "height": 297,
         "fit": "cover",
         "opacity": 1

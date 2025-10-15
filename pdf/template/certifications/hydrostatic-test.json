@@ -62,6 +62,7 @@
         "position": { "x": 6, "y": 0 },
         "width": 22,
         "height": 297,
+        "fit": "cover",
         "opacity": 1
       },
       {

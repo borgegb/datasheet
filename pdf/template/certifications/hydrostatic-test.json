@@ -56,27 +56,13 @@
         "fontColor": "#000000"
       },
       {
-        "type": "rectangle",
-        "name": "leftRibbonBg",
-        "position": { "x": 7.67, "y": 0 },
-        "width": 23.55,
-        "height": 297,
-        "color": "#0f5132",
-        "content": ""
-      },
-      {
-        "type": "text",
+        "type": "image",
         "name": "leftRibbon",
-        "content": "CERTIFICATE",
-        "position": { "x": 18.0, "y": 80.26 },
-        "width": 12,
-        "height": 50,
-        "fontName": "Inter-Bold",
-        "fontSize": 14,
-        "fontColor": "#ffffff",
-        "alignment": "center",
-        "verticalAlignment": "middle",
-        "rotation": 90
+        "content": "",
+        "position": { "x": 6, "y": 0 },
+        "width": 22,
+        "height": 297,
+        "opacity": 1
       },
       {
         "type": "text",

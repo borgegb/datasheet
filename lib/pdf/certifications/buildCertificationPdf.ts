@@ -148,6 +148,8 @@ export async function buildCertificationPdf(
       model: data.model,
       serialNumberLabel: "Serial Number:",
       serialNumber: data.serialNumber,
+      // Static section heading above PED table
+      pedCategory: "PED Category and Conformity Assessment Procedure:",
       pedTable: pedTableBody,
       // Support current template table name
       field30: pedTableBody,

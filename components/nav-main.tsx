@@ -47,6 +47,11 @@ const mainNavItems = [
     icon: TagIcon,
   },
   {
+    title: "Certifications",
+    href: "/dashboard/certifications",
+    icon: FileTextIcon,
+  },
+  {
     title: "Image Library",
     href: "/dashboard/image-library",
     icon: ImageIcon,

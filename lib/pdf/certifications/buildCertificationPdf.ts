@@ -102,6 +102,7 @@ export async function buildCertificationPdf(
   // Assets
   let appliedLogoBase64 = "";
   let leftRibbonBase64 = "";
+  let approvedLogoBase64 = "";
   try {
     const logoPath = path.resolve(process.cwd(), "pdf/assets/Appliedweb.jpg");
     const file = await fs.readFile(logoPath);
@@ -119,6 +120,16 @@ export async function buildCertificationPdf(
   } catch (e) {
     leftRibbonBase64 = "";
   }
+  try {
+    const approvedPath = path.resolve(
+      process.cwd(),
+      "pdf/assets/approvedlogo.png"
+    );
+    const file = await fs.readFile(approvedPath);
+    approvedLogoBase64 = `data:image/png;base64,${file.toString("base64")}`;
+  } catch (e) {
+    approvedLogoBase64 = "";
+  }
 
   // Build table rows. Current template uses showHead=false, so include header labels as first body row
   const pedTableBody = [data.ped.columns, data.ped.row];
@@ -128,6 +139,7 @@ export async function buildCertificationPdf(
       logo: appliedLogoBase64,
       watermarkLogo: appliedLogoBase64,
       leftRibbon: leftRibbonBase64,
+      approvedLogo: approvedLogoBase64,
       companyNameStatic: data.branding.companyName || "Applied Concepts",
       taglineStatic:
         (data.branding.tagline &&

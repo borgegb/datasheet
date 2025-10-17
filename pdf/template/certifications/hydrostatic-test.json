@@ -158,7 +158,7 @@
       {
         "type": "line",
         "name": "modelUnderline",
-        "position": { "x": 48, "y": 104.5 },
+        "position": { "x": 48, "y": 104 },
         "width": 80,
         "height": 0.2,
         "content": "",
@@ -189,7 +189,7 @@
       {
         "type": "line",
         "name": "serialUnderline",
-        "position": { "x": 59, "y": 114.5 },
+        "position": { "x": 59, "y": 114 },
         "width": 80,
         "height": 0.2,
         "content": "",
@@ -310,7 +310,7 @@
         "position": { "x": 107, "y": 229 },
         "width": 30,
         "height": 4,
-        "fontName": "Inter-Bold",
+        "fontName": "Inter-Regular",
         "fontSize": 8
       },
       {

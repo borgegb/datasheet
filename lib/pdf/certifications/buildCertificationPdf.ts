@@ -76,6 +76,69 @@ export async function buildCertificationPdf(
   } as Template;
   template = normalizedTemplate;
 
+  // Convert specific solid lines in the template into dashed by splitting them
+  // into many short line segments. pdfme's built-in line schema doesn't support
+  // dash patterns directly.
+  const dashifyLine = (
+    tpl: Template,
+    lineName: string,
+    segmentLength: number,
+    gapLength: number
+  ) => {
+    const tplAny = tpl as any;
+    if (!Array.isArray(tplAny.schemas)) return;
+    for (let p = 0; p < tplAny.schemas.length; p++) {
+      const page = tplAny.schemas[p];
+      if (!Array.isArray(page)) continue;
+      const idx = page.findIndex(
+        (el: any) => el && el.type === "line" && el.name === lineName
+      );
+      if (idx === -1) continue;
+      const base = page[idx];
+      const startX = base.position?.x ?? 0;
+      const y = base.position?.y ?? 0;
+      const totalWidth = base.width ?? 0;
+      const height = base.height ?? 0.2;
+      const color = base.color ?? "#000000";
+
+      const segments: any[] = [];
+      let cursorX = startX;
+      const stride = segmentLength + gapLength;
+      while (cursorX + segmentLength <= startX + totalWidth) {
+        segments.push({
+          type: "line",
+          name: `${lineName}_seg_${segments.length}`,
+          position: { x: cursorX, y },
+          width: segmentLength,
+          height,
+          content: "",
+          color,
+        });
+        cursorX += stride;
+      }
+      // Handle any remainder at the end (optional short segment)
+      const remaining = startX + totalWidth - cursorX;
+      if (remaining > 0.1) {
+        segments.push({
+          type: "line",
+          name: `${lineName}_seg_${segments.length}`,
+          position: { x: cursorX, y },
+          width: Math.min(segmentLength, remaining),
+          height,
+          content: "",
+          color,
+        });
+      }
+
+      // Replace original line with dashed segments
+      page.splice(idx, 1, ...segments);
+    }
+  };
+
+  // Apply dashed effect to model and serial underlines
+  dashifyLine(template, "modelUnderline", 1, 1); // dotted: 1 on, 1 off
+  dashifyLine(template, "serialUnderline", 1, 1);
+
   // Fonts
   const fontDir = path.resolve(process.cwd(), "pdf/fonts");
   // Start with pdfme default (Roboto) but ensure it is NOT fallback

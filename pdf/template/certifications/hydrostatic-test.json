@@ -156,6 +156,15 @@
         "alignment": "left"
       },
       {
+        "type": "line",
+        "name": "modelUnderline",
+        "position": { "x": 48, "y": 104.5 },
+        "width": 80,
+        "height": 0.2,
+        "content": "",
+        "color": "#000000"
+      },
+      {
         "type": "text",
         "name": "serialNumberLabel",
         "content": "",
@@ -176,6 +185,15 @@
         "fontName": "Inter-Regular",
         "fontSize": 8,
         "alignment": "left"
+      },
+      {
+        "type": "line",
+        "name": "serialUnderline",
+        "position": { "x": 59, "y": 114.5 },
+        "width": 80,
+        "height": 0.2,
+        "content": "",
+        "color": "#000000"
       },
       {
         "type": "text",
@@ -270,7 +288,7 @@
         "name": "signLineLead",
         "content": "",
         "position": { "x": 37, "y": 230 },
-        "width": 52,
+        "width": 56,
         "height": 4,
         "fontName": "Inter-Bold",
         "fontSize": 8,
@@ -279,8 +297,8 @@
       {
         "type": "line",
         "name": "signatureLine",
-        "position": { "x": 89, "y": 234 },
-        "width": 73,
+        "position": { "x": 95, "y": 234 },
+        "width": 45,
         "height": 0.2,
         "content": "",
         "color": "#000000"
@@ -311,7 +329,7 @@
         "name": "validity",
         "content": "",
         "position": { "x": 37, "y": 280 },
-        "width": 70,
+        "width": 76,
         "height": 4,
         "fontName": "Inter-Bold",
         "fontSize": 8,

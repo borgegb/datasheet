@@ -6,11 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Save, Loader2 } from "lucide-react";
+import {
+  Save,
+  Loader2,
+  Calendar as CalendarIcon,
+  ChevronDown,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface Props {
   typeSlug: string;
@@ -167,9 +179,51 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       );
     }
 
+    // Shadcn-style date picker for date fields
+    if (f.type === "date") {
+      const iso = (form[f.name] as string) || "";
+      const dateObj = iso ? new Date(iso) : undefined;
+      const [open, setOpen] = React.useState(false);
+      return (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              data-empty={!dateObj}
+              className="data-[empty=true]:text-muted-foreground w-[280px] justify-between font-normal"
+            >
+              <span className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                {dateObj ? format(dateObj, "PPP") : <span>Pick a date</span>}
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateObj}
+              captionLayout="dropdown"
+              onSelect={(d) => {
+                setForm((s) => ({
+                  ...s,
+                  [f.name]: d
+                    ? new Date(
+                        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+                      ).toISOString()
+                    : "",
+                }));
+                setOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      );
+    }
+
     return (
       <Input
-        type={f.type === "date" ? "date" : "text"}
+        type="text"
         value={form[f.name] ?? ""}
         placeholder={f.placeholder}
         onChange={(e) => setForm((s) => ({ ...s, [f.name]: e.target.value }))}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FC } from 'react';
+import { FC } from "react";
 
 const Footer: FC = () => {
   const currentYear = new Date().getFullYear();
@@ -28,6 +28,17 @@ const Footer: FC = () => {
           <p className="text-center text-sm leading-loose md:text-left">
             &copy; {currentYear} DataSheetGen. All rights reserved.
           </p>
+          <p className="text-center text-xs text-muted-foreground md:text-left">
+            Built by{" "}
+            <a
+              href="https://www.mvpexpert.com/?utm_source=datasheetgen&utm_medium=footer&utm_campaign=credit"
+              target="_blank"
+              rel="noopener"
+              className="underline hover:text-foreground underline-offset-4 transition-colors"
+            >
+              MVPexpert
+            </a>
+          </p>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           {/* Add actual links */}
@@ -47,7 +58,6 @@ const Footer: FC = () => {
       </div>
     </footer>
   );
-}
+};
 
 export default Footer;
- 

@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -27,8 +20,7 @@ import {
 } from "@/components/dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { Loader2, Save, Download } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { saveKanbanCard } from "../actions";
@@ -36,6 +28,11 @@ import type { KanbanCard } from "../actions";
 import ColorSelector from "./ColorSelector";
 import ImageLibrarySheet from "./ImageLibrarySheet";
 import { ImageIcon } from "lucide-react";
+import {
+  normalizeKanbanHeaderColor,
+  type KanbanHeaderColor,
+} from "@/lib/kanban/colors";
+import { printPdfFromUrl } from "@/lib/client/print-pdf";
 
 interface KanbanCardFormProps {
   initialData?: Partial<KanbanCard> | null;
@@ -63,39 +60,8 @@ export default function KanbanCardForm({
     initialData?.preferred_supplier || ""
   );
   const [leadTime, setLeadTime] = useState(initialData?.lead_time || "");
-  const [headerColor, setHeaderColor] = useState<
-    | "red"
-    | "orange"
-    | "green"
-    | "yellow"
-    | "blue"
-    | "purple"
-    | "brown"
-    | "pink"
-    | "teal"
-    | "cyan"
-    | "gray"
-    | "magenta"
-    | "lime"
-    | "silver"
-    | "black"
-  >(
-    (initialData?.header_color as
-      | "red"
-      | "orange"
-      | "green"
-      | "yellow"
-      | "blue"
-      | "purple"
-      | "brown"
-      | "pink"
-      | "teal"
-      | "cyan"
-      | "gray"
-      | "magenta"
-      | "lime"
-      | "silver"
-      | "black") || "red"
+  const [headerColor, setHeaderColor] = useState<KanbanHeaderColor>(
+    normalizeKanbanHeaderColor(initialData?.header_color)
   );
   const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(
     initialData?.image_path || null
@@ -103,7 +69,6 @@ export default function KanbanCardForm({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   // User and profile state
-  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -189,14 +154,22 @@ export default function KanbanCardForm({
           if (url) {
             // Show success toast with View Button (similar to DatasheetGeneratorForm)
             toast.success("✅ Kanban card PDF generated successfully!", {
-              description: "Click the button to view your generated PDF.",
+              description: "Click the button to print your generated PDF.",
               action: (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(url, "_blank")}
+                  onClick={async () => {
+                    try {
+                      await printPdfFromUrl(url, `${savedPartNo}.pdf`);
+                    } catch (printError: any) {
+                      toast.error(
+                        `Failed to open print dialog: ${printError.message}`
+                      );
+                    }
+                  }}
                 >
-                  View PDF
+                  Print PDF
                 </Button>
               ),
               duration: 15000, // Keep toast longer so user can click
@@ -238,12 +211,10 @@ export default function KanbanCardForm({
         await supabase.auth.getUser();
       if (userError || !userData?.user) {
         console.error("Error fetching user:", userError);
-        setUser(null);
         setProfile(null);
         setIsLoadingData(false);
         return;
       }
-      setUser(userData.user);
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")

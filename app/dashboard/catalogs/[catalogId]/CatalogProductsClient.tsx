@@ -1,11 +1,6 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  startTransition,
-} from "react";
+import React, { useState, startTransition } from "react";
 import DatasheetsTable from "@/components/DatasheetsTable"; // Use the new table
 import { columns, Product } from "@/app/dashboard/products/columns"; // Use columns from products
 import {
@@ -15,6 +10,7 @@ import {
 import { toast } from "sonner";
 import type { Row } from "@tanstack/react-table";
 import { createClient } from "@/lib/supabase/client";
+import { printPdfBlob } from "@/lib/client/print-pdf";
 
 // Define Category type
 interface Category {
@@ -36,6 +32,8 @@ export default function CatalogProductsClient({
   catalogName,
   userRole,
 }: CatalogProductsClientProps) {
+  void catalogName;
+
   // State for products (if needed for client-side updates like delete)
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [isLoading, setIsLoading] = useState(false); // Maybe track deleting state etc.
@@ -167,17 +165,6 @@ export default function CatalogProductsClient({
   // --- End Remove from Catalog Handlers ---
 
   // --- PDF Handlers (Adapted from ProductsPageClient) ---
-  const getSafeFilename = (
-    name: string | null | undefined,
-    code: string | null | undefined,
-    extension: string
-  ): string => {
-    const safeBase = (name || code || "datasheet")
-      .replace(/[^a-z0-9]/gi, "_")
-      .toLowerCase();
-    return `${safeBase}.${extension}`;
-  };
-
   const handleDownload = async (storagePath: string, filename: string) => {
     if (!storagePath) {
       toast.error("No PDF file path found for this datasheet.");
@@ -221,41 +208,8 @@ export default function CatalogProductsClient({
 
       if (downloadError) throw downloadError;
       if (!blobData) throw new Error("Downloaded PDF data (Blob) is null.");
-
-      const pdfUrl = URL.createObjectURL(blobData);
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.left = "-9999px";
-      iframe.src = pdfUrl;
-      iframe.title = `Printing ${filename}`;
-      document.body.appendChild(iframe);
-
-      iframe.onload = () => {
-        setTimeout(() => {
-          try {
-            if (!iframe.contentWindow)
-              throw new Error("Cannot access iframe content window.");
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            toast.success("Print dialog initiated!", { id: toastId });
-          } catch (printError: any) {
-            console.error("Error triggering print:", printError);
-            toast.error(`Failed to initiate print: ${printError.message}`, {
-              id: toastId,
-            });
-          } finally {
-            // Debatable: Remove iframe immediately or after delay?
-            // document.body.removeChild(iframe);
-            // URL.revokeObjectURL(pdfUrl);
-          }
-        }, 200);
-      };
-      iframe.onerror = (err) => {
-        console.error("Error loading PDF into iframe:", err);
-        toast.error(`Failed to load PDF for printing.`, { id: toastId });
-        // document.body.removeChild(iframe);
-        // URL.revokeObjectURL(pdfUrl);
-      };
+      await printPdfBlob(blobData, filename);
+      toast.success("Print window opened.", { id: toastId });
     } catch (error: any) {
       console.error("Error preparing PDF for print:", error);
       toast.error(`Print preparation failed: ${error.message}`, {
@@ -265,6 +219,8 @@ export default function CatalogProductsClient({
   };
 
   const handleViewPdf = async (storagePath: string, filename: string) => {
+    void filename;
+
     if (!storagePath) {
       toast.error("No PDF file path found to view.");
       return;

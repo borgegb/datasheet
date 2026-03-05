@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerActionClient } from "@/lib/supabase/server";
+import {
+  normalizeKanbanHeaderColor,
+  type KanbanHeaderColor,
+} from "@/lib/kanban/colors";
 
 // --- Action to get user's organization ID ---
 async function getUserOrgId(
@@ -40,22 +44,7 @@ export interface KanbanCard {
   order_quantity: number;
   preferred_supplier: string;
   lead_time: string;
-  header_color:
-    | "red"
-    | "orange"
-    | "green"
-    | "yellow"
-    | "blue"
-    | "purple"
-    | "brown"
-    | "pink"
-    | "teal"
-    | "cyan"
-    | "gray"
-    | "magenta"
-    | "lime"
-    | "silver"
-    | "black";
+  header_color: KanbanHeaderColor;
   image_path?: string | null;
   pdf_storage_path?: string | null; // Add PDF storage path field
   signedImageUrl?: string | null; // Add optional signed URL field
@@ -81,7 +70,6 @@ export async function saveKanbanCard(
     console.error("User not authenticated for saveKanbanCard:", userError);
     return { data: null, error: { message: "User not authenticated." } };
   }
-  const userId = userData.user.id;
 
   // Get user's organization ID
   const organizationId = await getUserOrgId(supabase);
@@ -101,23 +89,7 @@ export async function saveKanbanCard(
     order_quantity: parseInt(formData.get("orderQuantity") as string) || 0,
     preferred_supplier: formData.get("preferredSupplier") as string,
     lead_time: formData.get("leadTime") as string,
-    header_color:
-      (formData.get("headerColor") as
-        | "red"
-        | "orange"
-        | "green"
-        | "yellow"
-        | "blue"
-        | "purple"
-        | "brown"
-        | "pink"
-        | "teal"
-        | "cyan"
-        | "gray"
-        | "magenta"
-        | "lime"
-        | "silver"
-        | "black") || "red",
+    header_color: normalizeKanbanHeaderColor(formData.get("headerColor")),
     product_id: formData.get("productId") as string | null,
     image_path: formData.get("imagePath") as string | null,
     organization_id: organizationId,

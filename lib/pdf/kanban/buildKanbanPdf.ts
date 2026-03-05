@@ -4,10 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font } from "@pdfme/common";
-
-// Default placeholder image
-const DEFAULT_KANBAN_IMAGE_BASE64 =
-  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgNzBMMTMwIDEzMEg3MEwxMDAgNzBaIiBmaWxsPSIjQ0NEMkQzIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjc3NDhGIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K";
+import { normalizeKanbanHeaderColor } from "@/lib/kanban/colors";
 
 interface KanbanCard {
   id: string;
@@ -17,22 +14,7 @@ interface KanbanCard {
   order_quantity: number;
   preferred_supplier: string;
   lead_time: string;
-  header_color:
-    | "red"
-    | "orange"
-    | "green"
-    | "yellow"
-    | "blue"
-    | "purple"
-    | "brown"
-    | "pink"
-    | "teal"
-    | "cyan"
-    | "gray"
-    | "magenta"
-    | "lime"
-    | "silver"
-    | "black";
+  header_color: string;
   image_path?: string | null;
   organization_id: string;
 }
@@ -43,7 +25,7 @@ export async function buildKanbanPdf(
   console.log(`Building PDF for ${kanbanCards.length} kanban cards`);
 
   // Load template based on header color (use first card's color, default to red)
-  const headerColor = kanbanCards[0]?.header_color || "red";
+  const headerColor = normalizeKanbanHeaderColor(kanbanCards[0]?.header_color);
   const templateData = (
     await import(`../../../pdf/template/kanban/template-${headerColor}.json`)
   ).default;

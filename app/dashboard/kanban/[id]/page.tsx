@@ -37,7 +37,7 @@ export default async function KanbanCardViewPage({
     redirect("/auth/login");
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -73,7 +73,6 @@ export default async function KanbanCardViewPage({
                 cardId={card.id}
                 partNo={card.part_no}
                 hasPdf={!!card.pdf_storage_path}
-                pdfStoragePath={card.pdf_storage_path}
               />
 
               {/* Edit Button - Only for owners and members */}

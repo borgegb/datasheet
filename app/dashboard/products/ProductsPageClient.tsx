@@ -15,9 +15,9 @@ import {
 } from "../actions";
 import { toast } from "sonner";
 import type { Row } from "@tanstack/react-table";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { printPdfBlob } from "@/lib/client/print-pdf";
 
 // Catalog type definition
 interface Catalog {
@@ -60,12 +60,9 @@ export default function ProductsPageClient({
   );
   // Set initial loading state based on whether initialProducts were provided
   const [isLoading, setIsLoading] = useState(!initialProducts); // If initial data exists, not loading initially
-  const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<string>("viewer");
   // --------------------------------------------------
 
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams(); // Use hook here
 
   const currentCatalogFilter = searchParams.get("catalog");
@@ -76,7 +73,6 @@ export default function ProductsPageClient({
     const fetchUserAndRole = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
-        setUser(userData.user);
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("role")
@@ -232,49 +228,8 @@ export default function ProductsPageClient({
 
       if (downloadError) throw downloadError;
       if (!blobData) throw new Error("Downloaded PDF data (Blob) is null.");
-
-      const pdfUrl = URL.createObjectURL(blobData);
-
-      // Create a hidden iframe
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.left = "-9999px"; // Position off-screen
-      iframe.src = pdfUrl;
-      iframe.title = `Printing ${filename}`; // Add title for accessibility/debugging
-
-      document.body.appendChild(iframe);
-
-      iframe.onload = () => {
-        // Add a small delay to ensure PDF rendering is complete
-        setTimeout(() => {
-          try {
-            if (!iframe.contentWindow) {
-              throw new Error("Cannot access iframe content window.");
-            }
-            // Attempt to focus the iframe before printing
-            iframe.contentWindow.focus();
-            // Trigger print dialog
-            iframe.contentWindow.print();
-            toast.success("Print dialog initiated!", { id: toastId });
-          } catch (printError: any) {
-            console.error("Error triggering print:", printError);
-            toast.error(`Failed to initiate print: ${printError.message}`, {
-              id: toastId,
-            });
-          } finally {
-            // Clean up iframe and object URL after a longer delay
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(pdfUrl);
-          }
-        }, 200); // Small delay (e.g., 200ms)
-      };
-
-      iframe.onerror = (err) => {
-        console.error("Error loading PDF into iframe:", err);
-        toast.error(`Failed to load PDF for printing.`, { id: toastId });
-        document.body.removeChild(iframe);
-        URL.revokeObjectURL(pdfUrl);
-      };
+      await printPdfBlob(blobData, filename);
+      toast.success("Print window opened.", { id: toastId });
     } catch (error: any) {
       console.error("Error preparing PDF for print:", error);
       toast.error(`Print preparation failed: ${error.message}`, {
@@ -286,6 +241,8 @@ export default function ProductsPageClient({
 
   // --- ADD handleViewPdf function ---
   const handleViewPdf = async (storagePath: string, filename: string) => {
+    void filename;
+
     if (!storagePath) {
       toast.error("No PDF file path found to view.");
       return;

@@ -13,8 +13,7 @@ import {
 } from "@/components/dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { Loader2, Save, Upload, X } from "lucide-react";
+import { Loader2, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { saveKanbanCard } from "../actions";
@@ -22,6 +21,10 @@ import type { KanbanCard } from "../actions";
 import ColorSelector from "./ColorSelector";
 import ImageLibrarySheet from "./ImageLibrarySheet";
 import { ImageIcon } from "lucide-react";
+import {
+  normalizeKanbanHeaderColor,
+  type KanbanHeaderColor,
+} from "@/lib/kanban/colors";
 
 interface KanbanCardEditFormProps {
   initialData?: Partial<KanbanCard> | null;
@@ -39,8 +42,6 @@ export default function KanbanCardEditForm({
   const router = useRouter();
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Form state
   const [partNo, setPartNo] = useState(initialData?.part_no || "");
@@ -55,39 +56,8 @@ export default function KanbanCardEditForm({
     initialData?.preferred_supplier || ""
   );
   const [leadTime, setLeadTime] = useState(initialData?.lead_time || "");
-  const [headerColor, setHeaderColor] = useState<
-    | "red"
-    | "orange"
-    | "green"
-    | "yellow"
-    | "blue"
-    | "purple"
-    | "brown"
-    | "pink"
-    | "teal"
-    | "cyan"
-    | "gray"
-    | "magenta"
-    | "lime"
-    | "silver"
-    | "black"
-  >(
-    (initialData?.header_color as
-      | "red"
-      | "orange"
-      | "green"
-      | "yellow"
-      | "blue"
-      | "purple"
-      | "brown"
-      | "pink"
-      | "teal"
-      | "cyan"
-      | "gray"
-      | "magenta"
-      | "lime"
-      | "silver"
-      | "black") || "red"
+  const [headerColor, setHeaderColor] = useState<KanbanHeaderColor>(
+    normalizeKanbanHeaderColor(initialData?.header_color)
   );
   const [uploadedImagePath, setUploadedImagePath] = useState(
     initialData?.image_path || ""
@@ -123,7 +93,6 @@ export default function KanbanCardEditForm({
           error: userError,
         } = await supabase.auth.getUser();
         if (userError) throw userError;
-        setUser(user);
 
         if (user) {
           const { data: profile, error: profileError } = await supabase

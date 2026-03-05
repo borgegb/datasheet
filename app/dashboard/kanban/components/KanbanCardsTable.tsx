@@ -40,14 +40,15 @@ import {
   Upload,
   Download,
   FileText,
+  Printer,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { deleteKanbanCards } from "../actions";
 import type { KanbanCard } from "../actions";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { useEffect } from "react";
+import { printPdfFromUrl } from "@/lib/client/print-pdf";
 
 interface KanbanCardsTableProps {
   initialData: KanbanCard[];
@@ -60,7 +61,7 @@ export default function KanbanCardsTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [isPrintingPdf, setIsPrintingPdf] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("viewer");
 
   // Fetch user and role on component mount
@@ -69,7 +70,6 @@ export default function KanbanCardsTable({
     const fetchUserAndRole = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
-        setUser(userData.user);
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("role")
@@ -176,6 +176,43 @@ export default function KanbanCardsTable({
         );
       } finally {
         setIsGeneratingPdf(null);
+      }
+    });
+  };
+
+  const handlePrintPdf = async (cardId: string, partNo: string) => {
+    setIsPrintingPdf(cardId);
+    const toastId = toast.loading(`Preparing print for "${partNo}"...`);
+
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/generate-kanban-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanCardIds: [cardId] }),
+        });
+
+        const { url, error: apiError } = await res.json();
+
+        if (!res.ok) {
+          throw new Error(apiError || "Failed to get PDF");
+        }
+
+        if (apiError) {
+          throw new Error(apiError);
+        }
+
+        if (!url) {
+          throw new Error("PDF URL not found in response.");
+        }
+
+        await printPdfFromUrl(url, `${partNo}.pdf`);
+        toast.success("Print window opened.", { id: toastId });
+      } catch (error: any) {
+        console.error("Error printing kanban PDF:", error);
+        toast.error(`Failed to print PDF: ${error.message}`, { id: toastId });
+      } finally {
+        setIsPrintingPdf(null);
       }
     });
   };
@@ -322,7 +359,10 @@ export default function KanbanCardsTable({
                               !!card.pdf_storage_path
                             )
                           }
-                          disabled={isGeneratingPdf === card.id}
+                          disabled={
+                            isGeneratingPdf === card.id ||
+                            isPrintingPdf === card.id
+                          }
                         >
                           {isGeneratingPdf === card.id ? (
                             <>
@@ -340,6 +380,27 @@ export default function KanbanCardsTable({
                             <>
                               <FileText className="mr-2 h-4 w-4" />
                               Generate PDF
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handlePrintPdf(card.id, card.part_no)}
+                          disabled={
+                            isPrintingPdf === card.id ||
+                            isGeneratingPdf === card.id
+                          }
+                        >
+                          {isPrintingPdf === card.id ? (
+                            <>
+                              <Printer className="mr-2 h-4 w-4 animate-spin" />
+                              Preparing...
+                            </>
+                          ) : (
+                            <>
+                              <Printer className="mr-2 h-4 w-4" />
+                              {card.pdf_storage_path
+                                ? "Print PDF"
+                                : "Generate & Print"}
                             </>
                           )}
                         </DropdownMenuItem>

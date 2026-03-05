@@ -2,14 +2,14 @@
 
 import React, { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Printer } from "lucide-react";
 import { toast } from "sonner";
+import { printPdfFromUrl } from "@/lib/client/print-pdf";
 
 interface KanbanCardActionsProps {
   cardId: string;
   partNo: string;
   hasPdf: boolean;
-  pdfStoragePath?: string | null;
   onPdfGenerated?: () => void;
 }
 
@@ -17,7 +17,6 @@ export default function KanbanCardActions({
   cardId,
   partNo,
   hasPdf,
-  pdfStoragePath,
   onPdfGenerated,
 }: KanbanCardActionsProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -119,17 +118,66 @@ export default function KanbanCardActions({
     });
   };
 
+  const handlePrintPdf = async () => {
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading(`Preparing print for "${partNo}"...`);
+
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/generate-kanban-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanCardIds: [cardId] }),
+        });
+
+        const { url, error: apiError } = await res.json();
+
+        if (!res.ok) {
+          throw new Error(apiError || "Failed to get PDF");
+        }
+
+        if (apiError) {
+          throw new Error(apiError);
+        }
+
+        if (!url) {
+          throw new Error("PDF URL not found in response.");
+        }
+
+        await printPdfFromUrl(url, `${partNo}.pdf`);
+        toast.success("Print window opened.", { id: toastId });
+      } catch (error: any) {
+        console.error("Error printing kanban PDF:", error);
+        toast.error(`Failed to print PDF: ${error.message}`, {
+          id: toastId,
+        });
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+    });
+  };
+
   return (
     <div className="flex items-center gap-2">
       {hasPdf ? (
-        <Button
-          variant="outline"
-          onClick={handleDownloadPdf}
-          disabled={isGeneratingPdf}
-        >
-          <Download className="mr-2 h-4 w-4" />
-          {isGeneratingPdf ? "Loading..." : "Download PDF"}
-        </Button>
+        <>
+          <Button
+            variant="outline"
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {isGeneratingPdf ? "Loading..." : "Download PDF"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePrintPdf}
+            disabled={isGeneratingPdf}
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            {isGeneratingPdf ? "Preparing..." : "Print PDF"}
+          </Button>
+        </>
       ) : (
         <Button
           variant="outline"

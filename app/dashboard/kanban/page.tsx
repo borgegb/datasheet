@@ -7,8 +7,41 @@ import KanbanCardsTable from "./components/KanbanCardsTable";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
+type SearchParams = Record<string, string | string[] | undefined>;
 
-export default async function KanbanCardsPage() {
+interface KanbanCardsPageProps {
+  searchParams?: SearchParams | Promise<SearchParams>;
+}
+
+function getSingleParam(
+  value: string | string[] | undefined
+): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+export default async function KanbanCardsPage({
+  searchParams,
+}: KanbanCardsPageProps) {
+  const resolvedSearchParams = await Promise.resolve(searchParams ?? {});
+  const searchQuery = (getSingleParam(resolvedSearchParams.q) ?? "").trim();
+  const page = parsePositiveInt(getSingleParam(resolvedSearchParams.page), 1);
+  const pageSize = parsePositiveInt(
+    getSingleParam(resolvedSearchParams.pageSize),
+    25
+  );
+
   // Get user role for conditional UI
   const supabase = await createClient();
   const {
@@ -28,11 +61,26 @@ export default async function KanbanCardsPage() {
 
   const userRole = profile?.role || "viewer"; // Default to viewer if no role found
 
-  // Fetch kanban cards server-side
-  const { data: kanbanCards, error } = await fetchKanbanCardsForOrg();
+  // Fetch kanban cards server-side with pagination and search
+  const { data: kanbanCards, totalCount, totalPages, error } =
+    await fetchKanbanCardsForOrg({
+      page,
+      pageSize,
+      search: searchQuery,
+    });
 
   if (error) {
     console.error("Error fetching kanban cards:", error);
+  }
+
+  if (!error && totalCount > 0 && page > totalPages) {
+    const params = new URLSearchParams();
+    if (searchQuery) {
+      params.set("q", searchQuery);
+    }
+    params.set("page", String(totalPages));
+    params.set("pageSize", String(pageSize));
+    redirect(`/dashboard/kanban?${params.toString()}`);
   }
 
   return (
@@ -65,7 +113,15 @@ export default async function KanbanCardsPage() {
 
       {/* Cards Table */}
       <Suspense fallback={<div>Loading kanban cards...</div>}>
-        <KanbanCardsTable initialData={kanbanCards || []} />
+        <KanbanCardsTable
+          cards={kanbanCards || []}
+          searchQuery={searchQuery}
+          page={Math.min(page, totalPages)}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          totalPages={totalPages}
+          userRole={userRole}
+        />
       </Suspense>
     </div>
   );

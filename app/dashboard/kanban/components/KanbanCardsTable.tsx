@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, startTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,71 +43,130 @@ import {
   Printer,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { deleteKanbanCards } from "../actions";
 import type { KanbanCard } from "../actions";
-import { createClient } from "@/lib/supabase/client";
-import { useEffect } from "react";
 import { printPdfFromUrl } from "@/lib/client/print-pdf";
 
 interface KanbanCardsTableProps {
-  initialData: KanbanCard[];
+  cards: KanbanCard[];
+  searchQuery: string;
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  userRole: string;
 }
 
 export default function KanbanCardsTable({
-  initialData,
+  cards,
+  searchQuery,
+  page,
+  pageSize,
+  totalCount,
+  totalPages,
+  userRole,
 }: KanbanCardsTableProps) {
-  const [cards, setCards] = useState<KanbanCard[]>(initialData);
-  const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchQuery);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<string | null>(null);
   const [isPrintingPdf, setIsPrintingPdf] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string>("viewer");
-
-  // Fetch user and role on component mount
-  useEffect(() => {
-    const supabase = createClient();
-    const fetchUserAndRole = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", userData.user.id)
-          .single();
-        if (profileData && !profileError) {
-          setUserRole(profileData.role || "viewer");
-        }
-      }
-    };
-    fetchUserAndRole();
-  }, []);
-
-  // Filter cards based on search term
-  const filteredCards = cards.filter(
-    (card) =>
-      card.part_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.preferred_supplier?.toLowerCase().includes(searchTerm.toLowerCase())
+  const [generatedPdfCardIds, setGeneratedPdfCardIds] = useState(
+    () => new Set<string>()
   );
+  const [isRoutePending, startRouteTransition] = useTransition();
+
+  useEffect(() => {
+    setSearchTerm(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const normalizedSearch = searchTerm.trim();
+    if (normalizedSearch === searchQuery) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      startRouteTransition(() => {
+        const params = new URLSearchParams(currentSearchParams.toString());
+        if (normalizedSearch) {
+          params.set("q", normalizedSearch);
+        } else {
+          params.delete("q");
+        }
+        params.set("page", "1");
+        params.set("pageSize", String(pageSize));
+        const query = params.toString();
+        router.push(query ? `${pathname}?${query}` : pathname, {
+          scroll: false,
+        });
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [
+    currentSearchParams,
+    pageSize,
+    pathname,
+    router,
+    searchQuery,
+    searchTerm,
+    startRouteTransition,
+  ]);
+
+  const navigateToPage = (nextPage: number) => {
+    const clampedPage = Math.min(Math.max(nextPage, 1), Math.max(totalPages, 1));
+    if (clampedPage === page) {
+      return;
+    }
+
+    startRouteTransition(() => {
+      const params = new URLSearchParams(currentSearchParams.toString());
+      params.set("page", String(clampedPage));
+      params.set("pageSize", String(pageSize));
+      const query = params.toString();
+      router.push(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    });
+  };
 
   const handleDelete = async (cardId: string, partNo: string) => {
     setIsDeleting(cardId);
     const toastId = toast.loading(`Deleting card "${partNo}"...`);
 
-    startTransition(async () => {
+    try {
       const { error } = await deleteKanbanCards([cardId]);
 
       if (error) {
         toast.error(`Failed to delete card: ${error.message}`, { id: toastId });
       } else {
         toast.success("Card deleted successfully", { id: toastId });
-        setCards((prev) => prev.filter((card) => card.id !== cardId));
+        if (cards.length === 1 && page > 1) {
+          startRouteTransition(() => {
+            const params = new URLSearchParams(currentSearchParams.toString());
+            params.set("page", String(page - 1));
+            params.set("pageSize", String(pageSize));
+            const query = params.toString();
+            router.push(query ? `${pathname}?${query}` : pathname, {
+              scroll: false,
+            });
+          });
+        } else {
+          startRouteTransition(() => {
+            router.refresh();
+          });
+        }
       }
-
+    } finally {
       setIsDeleting(null);
-    });
+    }
   };
 
   const handlePdfAction = async (
@@ -120,101 +179,89 @@ export default function KanbanCardsTable({
       `${hasPdf ? "Getting" : "Generating"} PDF for "${partNo}"...`
     );
 
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/generate-kanban-pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kanbanCardIds: [cardId] }),
-        });
+    try {
+      const res = await fetch("/api/generate-kanban-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kanbanCardIds: [cardId] }),
+      });
 
-        const { url, error: apiError } = await res.json();
+      const { url, error: apiError } = await res.json();
 
-        if (!res.ok) {
-          throw new Error(apiError || "Failed to generate PDF");
-        }
-
-        if (apiError) {
-          throw new Error(apiError);
-        }
-
-        if (url) {
-          toast.success(
-            `✅ PDF ${hasPdf ? "ready" : "generated successfully"}!`,
-            {
-              id: toastId,
-              description: "Click the button to view your PDF.",
-              action: (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(url, "_blank")}
-                >
-                  View PDF
-                </Button>
-              ),
-              duration: 15000,
-            }
-          );
-
-          // Update local state to reflect PDF is now available
-          setCards((prev) =>
-            prev.map((c) =>
-              c.id === cardId ? { ...c, pdf_storage_path: "generated" } : c
-            )
-          );
-        } else {
-          throw new Error("PDF URL not found in response.");
-        }
-      } catch (error: any) {
-        console.error("Error with kanban PDF:", error);
-        toast.error(
-          `Failed to ${hasPdf ? "get" : "generate"} PDF: ${error.message}`,
-          {
-            id: toastId,
-          }
-        );
-      } finally {
-        setIsGeneratingPdf(null);
+      if (!res.ok) {
+        throw new Error(apiError || "Failed to generate PDF");
       }
-    });
+
+      if (apiError) {
+        throw new Error(apiError);
+      }
+
+      if (url) {
+        toast.success(`✅ PDF ${hasPdf ? "ready" : "generated successfully"}!`, {
+          id: toastId,
+          description: "Click the button to view your PDF.",
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(url, "_blank")}
+            >
+              View PDF
+            </Button>
+          ),
+          duration: 15000,
+        });
+        setGeneratedPdfCardIds((prev) => {
+          const next = new Set(prev);
+          next.add(cardId);
+          return next;
+        });
+      } else {
+        throw new Error("PDF URL not found in response.");
+      }
+    } catch (error: any) {
+      console.error("Error with kanban PDF:", error);
+      toast.error(`Failed to ${hasPdf ? "get" : "generate"} PDF: ${error.message}`, {
+        id: toastId,
+      });
+    } finally {
+      setIsGeneratingPdf(null);
+    }
   };
 
   const handlePrintPdf = async (cardId: string, partNo: string) => {
     setIsPrintingPdf(cardId);
     const toastId = toast.loading(`Preparing print for "${partNo}"...`);
 
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/generate-kanban-pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kanbanCardIds: [cardId] }),
-        });
+    try {
+      const res = await fetch("/api/generate-kanban-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kanbanCardIds: [cardId] }),
+      });
 
-        const { url, error: apiError } = await res.json();
+      const { url, error: apiError } = await res.json();
 
-        if (!res.ok) {
-          throw new Error(apiError || "Failed to get PDF");
-        }
-
-        if (apiError) {
-          throw new Error(apiError);
-        }
-
-        if (!url) {
-          throw new Error("PDF URL not found in response.");
-        }
-
-        await printPdfFromUrl(url, `${partNo}.pdf`);
-        toast.success("Print window opened.", { id: toastId });
-      } catch (error: any) {
-        console.error("Error printing kanban PDF:", error);
-        toast.error(`Failed to print PDF: ${error.message}`, { id: toastId });
-      } finally {
-        setIsPrintingPdf(null);
+      if (!res.ok) {
+        throw new Error(apiError || "Failed to get PDF");
       }
-    });
+
+      if (apiError) {
+        throw new Error(apiError);
+      }
+
+      if (!url) {
+        throw new Error("PDF URL not found in response.");
+      }
+
+      await printPdfFromUrl(url, `${partNo}.pdf`);
+      toast.success("Print window opened.", { id: toastId });
+    } catch (error: any) {
+      console.error("Error printing kanban PDF:", error);
+      toast.error(`Failed to print PDF: ${error.message}`, { id: toastId });
+    } finally {
+      setIsPrintingPdf(null);
+    }
   };
 
   const getHeaderColorBadge = (color: string) => {
@@ -247,6 +294,9 @@ export default function KanbanCardsTable({
     );
   };
 
+  const showingFrom = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const showingTo = totalCount === 0 ? 0 : Math.min(page * pageSize, totalCount);
+
   return (
     <div className="space-y-4">
       {/* Search and Actions Bar */}
@@ -258,6 +308,7 @@ export default function KanbanCardsTable({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
+            aria-label="Search kanban cards"
           />
         </div>
 
@@ -287,178 +338,198 @@ export default function KanbanCardsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCards.length === 0 ? (
+            {cards.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center">
-                  {searchTerm
+                  {searchQuery
                     ? "No cards match your search."
                     : "No kanban cards found."}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredCards.map((card) => (
-                <TableRow key={card.id}>
-                  <TableCell className="font-medium">{card.part_no}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    {card.description || (
-                      <span className="text-muted-foreground italic">
-                        No description
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>{card.location}</TableCell>
-                  <TableCell>
-                    {card.order_quantity || (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[150px] truncate">
-                    {card.preferred_supplier || (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {card.lead_time || (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {getHeaderColorBadge(card.header_color)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/kanban/${card.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-                        {/* Only show Edit for owners and members, not viewers */}
-                        {userRole !== "viewer" && (
+              cards.map((card) => {
+                const hasPdf =
+                  Boolean(card.pdf_storage_path) ||
+                  generatedPdfCardIds.has(card.id);
+
+                return (
+                  <TableRow key={card.id}>
+                    <TableCell className="font-medium">{card.part_no}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {card.description || (
+                        <span className="text-muted-foreground italic">
+                          No description
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>{card.location}</TableCell>
+                    <TableCell>
+                      {card.order_quantity || (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[150px] truncate">
+                      {card.preferred_supplier || (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {card.lead_time || (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{getHeaderColorBadge(card.header_color)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/kanban/${card.id}/edit`}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                            <Link href={`/dashboard/kanban/${card.id}`}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
                             </Link>
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handlePdfAction(
-                              card.id,
-                              card.part_no,
-                              !!card.pdf_storage_path
-                            )
-                          }
-                          disabled={
-                            isGeneratingPdf === card.id ||
-                            isPrintingPdf === card.id
-                          }
-                        >
-                          {isGeneratingPdf === card.id ? (
-                            <>
-                              <FileText className="mr-2 h-4 w-4 animate-spin" />
-                              {card.pdf_storage_path
-                                ? "Getting..."
-                                : "Generating..."}
-                            </>
-                          ) : card.pdf_storage_path ? (
-                            <>
-                              <Download className="mr-2 h-4 w-4" />
-                              Download PDF
-                            </>
-                          ) : (
-                            <>
-                              <FileText className="mr-2 h-4 w-4" />
-                              Generate PDF
-                            </>
+                          {/* Only show Edit for owners and members, not viewers */}
+                          {userRole !== "viewer" && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/kanban/${card.id}/edit`}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </Link>
+                            </DropdownMenuItem>
                           )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePrintPdf(card.id, card.part_no)}
-                          disabled={
-                            isPrintingPdf === card.id ||
-                            isGeneratingPdf === card.id
-                          }
-                        >
-                          {isPrintingPdf === card.id ? (
-                            <>
-                              <Printer className="mr-2 h-4 w-4 animate-spin" />
-                              Preparing...
-                            </>
-                          ) : (
-                            <>
-                              <Printer className="mr-2 h-4 w-4" />
-                              {card.pdf_storage_path
-                                ? "Print PDF"
-                                : "Generate & Print"}
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {/* Only show Delete for owners and members, not viewers */}
-                        {userRole !== "viewer" && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onSelect={(e) => e.preventDefault()}
-                                disabled={isDeleting === card.id}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Are you sure?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete the kanban card
-                                  for <strong>{card.part_no}</strong>. This
-                                  action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() =>
-                                    handleDelete(card.id, card.part_no)
-                                  }
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handlePdfAction(card.id, card.part_no, hasPdf)
+                            }
+                            disabled={
+                              isGeneratingPdf === card.id ||
+                              isPrintingPdf === card.id
+                            }
+                          >
+                            {isGeneratingPdf === card.id ? (
+                              <>
+                                <FileText className="mr-2 h-4 w-4 animate-spin" />
+                                {hasPdf ? "Getting..." : "Generating..."}
+                              </>
+                            ) : hasPdf ? (
+                              <>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download PDF
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Generate PDF
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handlePrintPdf(card.id, card.part_no)}
+                            disabled={
+                              isPrintingPdf === card.id ||
+                              isGeneratingPdf === card.id
+                            }
+                          >
+                            {isPrintingPdf === card.id ? (
+                              <>
+                                <Printer className="mr-2 h-4 w-4 animate-spin" />
+                                Preparing...
+                              </>
+                            ) : (
+                              <>
+                                <Printer className="mr-2 h-4 w-4" />
+                                {hasPdf ? "Print PDF" : "Generate & Print"}
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {/* Only show Delete for owners and members, not viewers */}
+                          {userRole !== "viewer" && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onSelect={(e) => e.preventDefault()}
                                   disabled={isDeleting === card.id}
                                 >
-                                  {isDeleting === card.id
-                                    ? "Deleting..."
-                                    : "Delete"}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Are you sure?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete the kanban card
+                                    for <strong>{card.part_no}</strong>. This
+                                    action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDelete(card.id, card.part_no)
+                                    }
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={isDeleting === card.id}
+                                  >
+                                    {isDeleting === card.id
+                                      ? "Deleting..."
+                                      : "Delete"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Results Info */}
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredCards.length} of {cards.length} cards
+      {/* Results Info and Pagination */}
+      <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          Showing {showingFrom}-{showingTo} of {totalCount} cards
+          {isRoutePending ? " (updating...)" : ""}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigateToPage(page - 1)}
+            disabled={page <= 1 || isRoutePending}
+          >
+            Previous
+          </Button>
+          <span>
+            Page {Math.min(page, totalPages)} of {Math.max(totalPages, 1)}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigateToPage(page + 1)}
+            disabled={page >= totalPages || isRoutePending}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

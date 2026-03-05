@@ -52,6 +52,21 @@ export interface KanbanCard {
   updated_at?: string;
 }
 
+interface FetchKanbanCardsForOrgOptions {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+interface FetchKanbanCardsForOrgResult {
+  data: KanbanCard[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  error: { message: string } | null;
+}
+
 // --- Action to Save/Update Kanban Card ---
 type SaveKanbanCardState = {
   data: KanbanCard | null;
@@ -160,53 +175,79 @@ export async function saveKanbanCard(
 }
 
 // --- Action to Fetch Kanban Cards ---
-export async function fetchKanbanCardsForOrg() {
+export async function fetchKanbanCardsForOrg(
+  options: FetchKanbanCardsForOrgOptions = {}
+): Promise<FetchKanbanCardsForOrgResult> {
   const supabase = await createServerActionClient();
   const organizationId = await getUserOrgId(supabase);
+  const rawPage = options.page ?? 1;
+  const rawPageSize = options.pageSize ?? 25;
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+  const pageSize = Number.isFinite(rawPageSize)
+    ? Math.min(Math.max(1, rawPageSize), 100)
+    : 25;
+  const search = options.search?.trim() ?? "";
 
   if (!organizationId) {
-    return { data: [], error: { message: "User organization not found." } };
+    return {
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+      error: { message: "User organization not found." },
+    };
   }
 
-  const { data: kanbanCardsData, error } = await supabase
+  let query = supabase
     .from("kanban_cards")
-    .select("*")
+    .select(
+      "id, organization_id, part_no, description, location, order_quantity, preferred_supplier, lead_time, header_color, pdf_storage_path, created_at, updated_at",
+      { count: "exact" }
+    )
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Server Action Error (fetchKanbanCardsForOrg):", error);
-    return { data: [], error };
+  if (search) {
+    const escapedSearch = search
+      .replace(/\\/g, "\\\\")
+      .replace(/,/g, "\\,")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)");
+
+    query = query.or(
+      `part_no.ilike.%${escapedSearch}%,description.ilike.%${escapedSearch}%,location.ilike.%${escapedSearch}%,preferred_supplier.ilike.%${escapedSearch}%`
+    );
   }
 
-  // --- Generate Signed URLs ---
-  const processedData = await Promise.all(
-    (kanbanCardsData || []).map(async (card) => {
-      let signedUrl = null;
-      if (card.image_path) {
-        const { data: urlData, error: urlError } = await supabase.storage
-          .from("datasheet-assets") // Ensure this is your bucket name
-          .createSignedUrl(card.image_path, 60 * 5); // 5 minutes expiry
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-        if (urlError) {
-          console.error(
-            `Error generating signed URL for ${card.image_path}:`,
-            urlError
-          );
-          // Log error and return null
-        } else {
-          signedUrl = urlData.signedUrl;
-        }
-      }
-      return {
-        ...card,
-        signedImageUrl: signedUrl, // Add the signed URL to the object
-      };
-    })
-  );
-  // --- End Generate Signed URLs ---
+  const { data: kanbanCardsData, error, count } = await query.range(from, to);
 
-  return { data: processedData, error: null };
+  if (error) {
+    console.error("Server Action Error (fetchKanbanCardsForOrg):", error);
+    return {
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+      error: { message: error.message },
+    };
+  }
+
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  return {
+    data: kanbanCardsData ?? [],
+    totalCount,
+    page,
+    pageSize,
+    totalPages,
+    error: null,
+  };
 }
 
 // --- Action to Delete Kanban Cards ---

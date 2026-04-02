@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -41,6 +42,7 @@ import {
   Download,
   FileText,
   Printer,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -78,11 +80,17 @@ export default function KanbanCardsTable({
   const [generatedPdfCardIds, setGeneratedPdfCardIds] = useState(
     () => new Set<string>()
   );
+  const [selectedCardIds, setSelectedCardIds] = useState(() => new Set<string>());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
   const [isRoutePending, startRouteTransition] = useTransition();
 
   useEffect(() => {
     setSearchTerm(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setSelectedCardIds(new Set());
+  }, [cards]);
 
   useEffect(() => {
     const normalizedSearch = searchTerm.trim();
@@ -264,6 +272,90 @@ export default function KanbanCardsTable({
     }
   };
 
+  const handleToggleCardSelection = (cardId: string, checked: boolean) => {
+    setSelectedCardIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(cardId);
+      } else {
+        next.delete(cardId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAllVisibleCards = (checked: boolean) => {
+    if (!checked) {
+      setSelectedCardIds(new Set());
+      return;
+    }
+
+    setSelectedCardIds(new Set(cards.map((card) => card.id)));
+  };
+
+  const getDownloadFileName = (contentDisposition: string | null) => {
+    if (!contentDisposition) {
+      return `kanban-cards-${new Date().toISOString().slice(0, 10)}.zip`;
+    }
+
+    const match = contentDisposition.match(/filename="?([^"]+)"?/i);
+    return match?.[1] || `kanban-cards-${new Date().toISOString().slice(0, 10)}.zip`;
+  };
+
+  const handleBulkDownload = async () => {
+    const selectedIds = cards
+      .filter((card) => selectedCardIds.has(card.id))
+      .map((card) => card.id);
+
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    setIsBulkDownloading(true);
+    const toastId = toast.loading(
+      `Preparing ${selectedIds.length} kanban PDF${
+        selectedIds.length === 1 ? "" : "s"
+      }...`
+    );
+
+    try {
+      const res = await fetch("/api/download-kanban-pdfs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kanbanCardIds: selectedIds }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res
+          .json()
+          .catch(() => ({ error: "Failed to download selected kanban PDFs." }));
+        throw new Error(errorData.error || "Failed to download selected PDFs.");
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = getDownloadFileName(
+        res.headers.get("Content-Disposition")
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      toast.success("Bulk download started.", { id: toastId });
+      setSelectedCardIds(new Set());
+    } catch (error: any) {
+      console.error("Error downloading selected kanban PDFs:", error);
+      toast.error(`Failed to download selected PDFs: ${error.message}`, {
+        id: toastId,
+      });
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+
   const getHeaderColorBadge = (color: string) => {
     const colorMap = {
       red: "bg-red-500 text-white",
@@ -296,6 +388,12 @@ export default function KanbanCardsTable({
 
   const showingFrom = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const showingTo = totalCount === 0 ? 0 : Math.min(page * pageSize, totalCount);
+  const selectedCount = selectedCardIds.size;
+  const allVisibleCardsSelected =
+    cards.length > 0 && cards.every((card) => selectedCardIds.has(card.id));
+  const someVisibleCardsSelected = cards.some((card) =>
+    selectedCardIds.has(card.id)
+  );
 
   return (
     <div className="space-y-4">
@@ -313,6 +411,19 @@ export default function KanbanCardsTable({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleBulkDownload}
+            disabled={selectedCount === 0 || isBulkDownloading}
+          >
+            {isBulkDownloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Download Selected
+            {selectedCount > 0 ? ` (${selectedCount})` : ""}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/dashboard/kanban/batch">
               <Upload className="mr-2 h-4 w-4" />
@@ -327,6 +438,18 @@ export default function KanbanCardsTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[48px]">
+                <Checkbox
+                  checked={
+                    allVisibleCardsSelected ||
+                    (someVisibleCardsSelected && "indeterminate")
+                  }
+                  onCheckedChange={(checked) =>
+                    handleToggleAllVisibleCards(checked === true)
+                  }
+                  aria-label="Select all cards on this page"
+                />
+              </TableHead>
               <TableHead>Part No</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Location</TableHead>
@@ -340,7 +463,7 @@ export default function KanbanCardsTable({
           <TableBody>
             {cards.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   {searchQuery
                     ? "No cards match your search."
                     : "No kanban cards found."}
@@ -351,9 +474,19 @@ export default function KanbanCardsTable({
                 const hasPdf =
                   Boolean(card.pdf_storage_path) ||
                   generatedPdfCardIds.has(card.id);
+                const isSelected = selectedCardIds.has(card.id);
 
                 return (
-                  <TableRow key={card.id}>
+                  <TableRow key={card.id} data-state={isSelected ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) =>
+                          handleToggleCardSelection(card.id, checked === true)
+                        }
+                        aria-label={`Select ${card.part_no}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{card.part_no}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {card.description || (

@@ -86,7 +86,7 @@ export default async function KanbanCardViewPage({
                   </Button>
                   <Button asChild>
                     <Link href="/dashboard/kanban/new">
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                       New
                     </Link>
                   </Button>

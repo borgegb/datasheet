@@ -2,7 +2,7 @@ import React from "react";
 import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, FileText, Calendar, Plus } from "lucide-react";
+import { ArrowLeft, Edit, FileText, Calendar } from "lucide-react";
 import Link from "next/link";
 import { fetchKanbanCardById } from "../actions";
 import KanbanCardPreview from "../components/KanbanCardPreview";
@@ -79,16 +79,13 @@ export default async function KanbanCardViewPage({
               {userRole !== "viewer" && (
                 <>
                   <Button variant="outline" asChild>
-                    <Link href="/dashboard/kanban/new">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create New
-                    </Link>
-                  </Button>
-                  <Button variant="outline" asChild>
                     <Link href={`/dashboard/kanban/${card.id}/edit`}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/dashboard/kanban/new">+ New</Link>
                   </Button>
                 </>
               )}

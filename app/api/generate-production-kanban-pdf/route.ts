@@ -7,7 +7,7 @@ import {
   ProductionKanbanRouteError,
   createProductionKanbanPdfSignedUrl,
   fetchProductionKanbanCardsByIds,
-  generateAndStoreProductionKanbanPdf,
+  getOrCreateProductionKanbanPdf,
   getAuthenticatedProductionKanbanRouteContext,
 } from "@/lib/production-kanban/pdf-server";
 import { normalizeProductionKanbanPdfFormat } from "@/lib/production-kanban/pdf-format";
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       organizationId,
       productionKanbanCardIds
     );
-    const { storagePath } = await generateAndStoreProductionKanbanPdf(
+    const { storagePath } = await getOrCreateProductionKanbanPdf(
       supabaseAdmin,
       card,
       format

@@ -52,7 +52,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { printPdfFromUrl } from "@/lib/client/print-pdf";
+import {
+  downloadPdfFromUrl,
+  printPdfFromUrl,
+} from "@/lib/client/print-pdf";
 import {
   DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
   getProductionKanbanPdfFormatLabel,
@@ -218,22 +221,44 @@ export default function ProductionKanbanTable({
     hasPdf: boolean
   ) => {
     setIsGeneratingPdf(cardId);
+    const shouldDownloadAfterReady =
+      hasPdf || selectedPdfFormat !== DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT;
     const toastId = toast.loading(
       `${hasPdf ? "Getting" : "Generating"} ${selectedPdfFormatLabel} PDF for "${partNo}"...`
     );
 
     try {
       const url = await getPdfUrl(cardId, selectedPdfFormat);
-      toast.success(`${selectedPdfFormatLabel} PDF ${hasPdf ? "ready" : "generated"}.`, {
-        id: toastId,
-        description: `Click the button to view the ${selectedPdfFormatLabel.toLowerCase()} PDF.`,
-        action: (
-          <Button variant="outline" size="sm" onClick={() => window.open(url, "_blank")}>
-            View PDF
-          </Button>
-        ),
-        duration: 15000,
-      });
+
+      if (shouldDownloadAfterReady) {
+        const fileName =
+          selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+            ? `${partNo}.pdf`
+            : `${partNo}-${getProductionKanbanPdfFormatToken(
+                selectedPdfFormat
+              )}.pdf`;
+        await downloadPdfFromUrl(url, fileName);
+        toast.success("Download started.", { id: toastId });
+      } else {
+        toast.success(
+          `${selectedPdfFormatLabel} PDF ${hasPdf ? "ready" : "generated"}.`,
+          {
+            id: toastId,
+            description: `Click the button to view the ${selectedPdfFormatLabel.toLowerCase()} PDF.`,
+            action: (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(url, "_blank")}
+              >
+                View PDF
+              </Button>
+            ),
+            duration: 15000,
+          }
+        );
+      }
+
       if (selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT) {
         setGeneratedPdfCardIds((currentIds) => {
           const nextIds = new Set(currentIds);

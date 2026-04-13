@@ -10,9 +10,10 @@ import {
   type ProductionKanbanPdfFormat,
 } from "@/lib/production-kanban/pdf-format";
 import {
+  downloadProductionKanbanPdfBytes,
   ProductionKanbanRouteError,
   fetchProductionKanbanCardsByIds,
-  generateAndStoreProductionKanbanPdf,
+  getOrCreateProductionKanbanPdf,
   getAuthenticatedProductionKanbanRouteContext,
   getSafeProductionKanbanPdfBaseName,
 } from "@/lib/production-kanban/pdf-server";
@@ -78,12 +79,15 @@ export async function POST(req: Request) {
 
     const zip = new JSZip();
     for (const card of cards) {
-      const { pdfBytes } = await generateAndStoreProductionKanbanPdf(
+      const { pdfBytes, storagePath } = await getOrCreateProductionKanbanPdf(
         supabaseAdmin,
         card,
         format
       );
-      zip.file(getZipFileName(card, baseNameCounts, format), pdfBytes);
+      const archiveBytes =
+        pdfBytes ??
+        (await downloadProductionKanbanPdfBytes(supabaseAdmin, storagePath));
+      zip.file(getZipFileName(card, baseNameCounts, format), archiveBytes);
     }
 
     const zipBytes = await zip.generateAsync({

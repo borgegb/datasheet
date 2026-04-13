@@ -149,6 +149,82 @@ export function getProductionKanbanPdfStoragePath(
   )}.pdf`;
 }
 
+function getStoredProductionKanbanPdfStoragePath(
+  card: Pick<
+    ProductionKanbanPdfCard,
+    "id" | "organization_id" | "pdf_storage_path"
+  >,
+  format: ProductionKanbanPdfFormat
+) {
+  if (
+    format === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT &&
+    typeof card.pdf_storage_path === "string" &&
+    card.pdf_storage_path
+  ) {
+    return card.pdf_storage_path;
+  }
+
+  return getProductionKanbanPdfStoragePath(card, format);
+}
+
+function splitStoragePath(storagePath: string) {
+  const lastSlashIndex = storagePath.lastIndexOf("/");
+
+  if (lastSlashIndex === -1) {
+    return { folder: "", fileName: storagePath };
+  }
+
+  return {
+    folder: storagePath.slice(0, lastSlashIndex),
+    fileName: storagePath.slice(lastSlashIndex + 1),
+  };
+}
+
+export function getAllProductionKanbanPdfStoragePaths(
+  card: Pick<
+    ProductionKanbanPdfCard,
+    "id" | "organization_id" | "pdf_storage_path"
+  >
+) {
+  const storagePaths = new Set<string>();
+
+  if (typeof card.pdf_storage_path === "string" && card.pdf_storage_path) {
+    storagePaths.add(card.pdf_storage_path);
+  }
+
+  storagePaths.add(
+    getProductionKanbanPdfStoragePath(
+      card,
+      DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+    )
+  );
+  storagePaths.add(getProductionKanbanPdfStoragePath(card, "a5_folded"));
+
+  return [...storagePaths];
+}
+
+export async function productionKanbanPdfExists(
+  supabaseClient: SupabaseClient,
+  storagePath: string
+) {
+  const { folder, fileName } = splitStoragePath(storagePath);
+  const { data, error } = await supabaseClient.storage
+    .from("datasheet-assets")
+    .list(folder, {
+      limit: 100,
+      search: fileName,
+    });
+
+  if (error) {
+    throw new ProductionKanbanRouteError(
+      `Failed to check Production Kanban PDF: ${error.message}`,
+      500
+    );
+  }
+
+  return (data ?? []).some((file) => file.name === fileName);
+}
+
 export async function generateAndStoreProductionKanbanPdf(
   supabaseAdmin: SupabaseClient,
   card: ProductionKanbanPdfCard,
@@ -176,7 +252,6 @@ export async function generateAndStoreProductionKanbanPdf(
       .from("production_kanban_cards")
       .update({
         pdf_storage_path: storagePath,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", card.id)
       .eq("organization_id", card.organization_id);
@@ -190,6 +265,51 @@ export async function generateAndStoreProductionKanbanPdf(
   }
 
   return { pdfBytes, storagePath };
+}
+
+export async function downloadProductionKanbanPdfBytes(
+  supabaseAdmin: SupabaseClient,
+  storagePath: string
+) {
+  const { data, error } = await supabaseAdmin.storage
+    .from("datasheet-assets")
+    .download(storagePath);
+
+  if (error || !data) {
+    throw new ProductionKanbanRouteError(
+      `Failed to download Production Kanban PDF: ${error?.message ?? "Unknown error"}`,
+      500
+    );
+  }
+
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+export async function getOrCreateProductionKanbanPdf(
+  supabaseAdmin: SupabaseClient,
+  card: ProductionKanbanPdfCard,
+  format: ProductionKanbanPdfFormat = DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+) {
+  const storagePath = getStoredProductionKanbanPdfStoragePath(card, format);
+
+  if (await productionKanbanPdfExists(supabaseAdmin, storagePath)) {
+    return {
+      storagePath,
+      pdfBytes: null,
+      generated: false,
+    };
+  }
+
+  const generatedPdf = await generateAndStoreProductionKanbanPdf(
+    supabaseAdmin,
+    card,
+    format
+  );
+
+  return {
+    ...generatedPdf,
+    generated: true,
+  };
 }
 
 export async function createProductionKanbanPdfSignedUrl(

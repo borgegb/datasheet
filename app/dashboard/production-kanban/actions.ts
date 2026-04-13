@@ -7,6 +7,10 @@ import {
   normalizeProductionKanbanBackRows,
   type ProductionKanbanBackRow,
 } from "@/lib/production-kanban/back-rows";
+import {
+  getAllProductionKanbanPdfStoragePaths,
+  productionKanbanPdfExists,
+} from "@/lib/production-kanban/pdf-server";
 
 async function getUserOrgId(
   supabase: Awaited<ReturnType<typeof createServerActionClient>>
@@ -94,6 +98,33 @@ interface FetchProductionKanbanCardsForOrgResult {
   error: { message: string } | null;
 }
 
+async function getExistingProductionKanbanPdfPaths(
+  supabase: Awaited<ReturnType<typeof createServerActionClient>>,
+  cards: Array<{
+    id: string;
+    organization_id: string;
+    pdf_storage_path?: string | null;
+  }>
+) {
+  if (cards.length === 0) {
+    return [];
+  }
+
+  const knownStoragePaths = cards.flatMap((card) =>
+    getAllProductionKanbanPdfStoragePaths(card)
+  );
+  const existingStoragePaths = await Promise.all(
+    [...new Set(knownStoragePaths)].map(async (storagePath) => ({
+      storagePath,
+      exists: await productionKanbanPdfExists(supabase, storagePath),
+    }))
+  );
+
+  return existingStoragePaths
+    .filter((entry) => entry.exists)
+    .map((entry) => entry.storagePath);
+}
+
 type SaveProductionKanbanCardState = {
   data: ProductionKanbanCard | null;
   error: { message: string } | null;
@@ -166,10 +197,48 @@ export async function saveProductionKanbanCard(
 
   try {
     if (editingCardId) {
+      const { data: existingCard, error: existingCardError } = await supabase
+        .from("production_kanban_cards")
+        .select("id, organization_id, pdf_storage_path")
+        .eq("id", editingCardId)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (existingCardError || !existingCard) {
+        return {
+          data: null,
+          error: {
+            message:
+              existingCardError?.message || "Production Kanban card not found.",
+          },
+        };
+      }
+
+      const existingPdfPaths = await getExistingProductionKanbanPdfPaths(
+        supabase,
+        [existingCard]
+      );
+
+      if (existingPdfPaths.length > 0) {
+        const { error: removeError } = await supabase.storage
+          .from("datasheet-assets")
+          .remove(existingPdfPaths);
+
+        if (removeError) {
+          return {
+            data: null,
+            error: {
+              message: `Failed to remove existing Production Kanban PDFs: ${removeError.message}`,
+            },
+          };
+        }
+      }
+
       const { data: updateData, error: updateError } = await supabase
         .from("production_kanban_cards")
         .update({
           ...productionKanbanCardData,
+          pdf_storage_path: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", editingCardId)
@@ -306,22 +375,60 @@ export async function deleteProductionKanbanCards(cardIds: string[]) {
     return { error: { message: "User organization not found." } };
   }
 
-  const { error } = await supabase
-    .from("production_kanban_cards")
-    .delete()
-    .in("id", cardIds)
-    .eq("organization_id", organizationId);
+  try {
+    const { data: existingCards, error: existingCardsError } = await supabase
+      .from("production_kanban_cards")
+      .select("id, organization_id, pdf_storage_path")
+      .in("id", cardIds)
+      .eq("organization_id", organizationId);
 
-  if (error) {
-    console.error(
-      "Server Action Error (deleteProductionKanbanCards):",
-      error
+    if (existingCardsError) {
+      return { error: existingCardsError };
+    }
+
+    const existingPdfPaths = await getExistingProductionKanbanPdfPaths(
+      supabase,
+      existingCards ?? []
     );
-    return { error };
-  }
 
-  revalidatePath("/dashboard/production-kanban");
-  return { error: null };
+    if (existingPdfPaths.length > 0) {
+      const { error: removeError } = await supabase.storage
+        .from("datasheet-assets")
+        .remove(existingPdfPaths);
+
+      if (removeError) {
+        return { error: removeError };
+      }
+    }
+
+    const { error } = await supabase
+      .from("production_kanban_cards")
+      .delete()
+      .in("id", cardIds)
+      .eq("organization_id", organizationId);
+
+    if (error) {
+      console.error(
+        "Server Action Error (deleteProductionKanbanCards):",
+        error
+      );
+      return { error };
+    }
+
+    revalidatePath("/dashboard/production-kanban");
+    return { error: null };
+  } catch (unexpectedError: any) {
+    console.error(
+      "Unexpected error deleting production kanban cards:",
+      unexpectedError
+    );
+    return {
+      error: {
+        message:
+          unexpectedError.message || "Unexpected error deleting Production Kanban cards.",
+      },
+    };
+  }
 }
 
 export async function fetchProductionKanbanCardById(cardId: string) {

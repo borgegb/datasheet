@@ -47,7 +47,16 @@ export async function printPdfBlob(
   printWindow.location.href = pdfUrl;
   printWindow.addEventListener("beforeunload", cleanup, { once: true });
 
+  let didStartPrint = false;
+  let fallbackTimeoutId: number | null = null;
+
   const tryPrint = () => {
+    if (didStartPrint || printWindow.closed) {
+      return;
+    }
+
+    didStartPrint = true;
+
     try {
       printWindow.document.title = fileName;
       printWindow.focus();
@@ -60,13 +69,16 @@ export async function printPdfBlob(
   printWindow.addEventListener(
     "load",
     () => {
+      if (fallbackTimeoutId !== null) {
+        window.clearTimeout(fallbackTimeoutId);
+      }
       window.setTimeout(tryPrint, 350);
     },
     { once: true }
   );
 
   // Fallback in case the PDF viewer does not trigger a reliable load event.
-  window.setTimeout(tryPrint, 1200);
+  fallbackTimeoutId = window.setTimeout(tryPrint, 1200);
 }
 
 export async function printPdfFromUrl(

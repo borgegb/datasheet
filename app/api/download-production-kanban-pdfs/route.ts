@@ -4,6 +4,12 @@ export const maxDuration = 120;
 
 import JSZip from "jszip";
 import {
+  DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
+  getProductionKanbanPdfFormatToken,
+  normalizeProductionKanbanPdfFormat,
+  type ProductionKanbanPdfFormat,
+} from "@/lib/production-kanban/pdf-format";
+import {
   ProductionKanbanRouteError,
   fetchProductionKanbanCardsByIds,
   generateAndStoreProductionKanbanPdf,
@@ -15,21 +21,24 @@ const MAX_BULK_DOWNLOAD_CARDS = 100;
 
 function getZipFileName(
   card: { id: string; part_no: string },
-  counts: Map<string, number>
+  counts: Map<string, number>,
+  format: ProductionKanbanPdfFormat
 ) {
   const baseName = getSafeProductionKanbanPdfBaseName(card.part_no);
   const duplicateCount = counts.get(baseName) ?? 0;
+  const duplicateSuffix = duplicateCount > 1 ? `-${card.id.slice(0, 8)}` : "";
+  const formatSuffix =
+    format === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+      ? ""
+      : `-${getProductionKanbanPdfFormatToken(format)}`;
 
-  if (duplicateCount > 1) {
-    return `${baseName}-${card.id.slice(0, 8)}.pdf`;
-  }
-
-  return `${baseName}.pdf`;
+  return `${baseName}${duplicateSuffix}${formatSuffix}.pdf`;
 }
 
 export async function POST(req: Request) {
   try {
     const payload = await req.json();
+    const format = normalizeProductionKanbanPdfFormat(payload?.format);
     const productionKanbanCardIds = Array.isArray(
       payload?.productionKanbanCardIds
     )
@@ -71,9 +80,10 @@ export async function POST(req: Request) {
     for (const card of cards) {
       const { pdfBytes } = await generateAndStoreProductionKanbanPdf(
         supabaseAdmin,
-        card
+        card,
+        format
       );
-      zip.file(getZipFileName(card, baseNameCounts), pdfBytes);
+      zip.file(getZipFileName(card, baseNameCounts, format), pdfBytes);
     }
 
     const zipBytes = await zip.generateAsync({
@@ -81,9 +91,12 @@ export async function POST(req: Request) {
       compression: "DEFLATE",
       compressionOptions: { level: 6 },
     });
-    const archiveName = `production-kanban-${new Date()
-      .toISOString()
-      .slice(0, 10)}.zip`;
+    const archiveName =
+      format === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+        ? `production-kanban-${new Date().toISOString().slice(0, 10)}.zip`
+        : `production-kanban-${getProductionKanbanPdfFormatToken(
+            format
+          )}-${new Date().toISOString().slice(0, 10)}.zip`;
 
     return new Response(zipBytes, {
       status: 200,

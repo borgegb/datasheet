@@ -52,7 +52,7 @@ export default async function ProductionKanbanViewPage({
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 z-10 border-b border-gray-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+          <div className="flex min-h-16 items-center justify-between py-3">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard/production-kanban">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -60,7 +60,7 @@ export default async function ProductionKanbanViewPage({
               </Link>
             </Button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <ProductionKanbanActions
                 cardId={card.id}
                 partNo={card.part_no}
@@ -105,7 +105,7 @@ export default async function ProductionKanbanViewPage({
                   className="bg-green-100 text-green-800"
                 >
                   <FileText className="mr-1 h-3 w-3" />
-                  PDF Ready
+                  A6 PDF Ready
                 </Badge>
               ) : (
                 <Badge
@@ -113,7 +113,7 @@ export default async function ProductionKanbanViewPage({
                   className="border-orange-300 bg-orange-100 text-orange-800"
                 >
                   <Calendar className="mr-1 h-3 w-3" />
-                  Generate PDF
+                  Generate A6 PDF
                 </Badge>
               )}
               <Badge

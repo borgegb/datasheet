@@ -4,6 +4,10 @@ import {
   normalizeProductionKanbanBackRows,
   type ProductionKanbanBackRow,
 } from "@/lib/production-kanban/back-rows";
+import {
+  DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
+  type ProductionKanbanPdfFormat,
+} from "@/lib/production-kanban/pdf-format";
 
 interface ProductionKanbanPdfCard {
   id: string;
@@ -247,8 +251,38 @@ async function buildBackPagePdf(card: ProductionKanbanPdfCard) {
   return pdfDoc;
 }
 
+async function buildA5FoldedPdf(options: {
+  frontPdfBytes: Uint8Array;
+  backPdfBytes: Uint8Array;
+}) {
+  const { frontPdfBytes, backPdfBytes } = options;
+  const foldedPdf = await PDFDocument.create();
+  const page = foldedPdf.addPage([mmToPoints(210), mmToPoints(148)]);
+  const halfWidth = page.getWidth() / 2;
+  const pageHeight = page.getHeight();
+
+  const [embeddedFrontPage] = await foldedPdf.embedPdf(frontPdfBytes, [0]);
+  const [embeddedBackPage] = await foldedPdf.embedPdf(backPdfBytes, [0]);
+
+  page.drawPage(embeddedFrontPage, {
+    x: 0,
+    y: 0,
+    width: halfWidth,
+    height: pageHeight,
+  });
+  page.drawPage(embeddedBackPage, {
+    x: halfWidth,
+    y: 0,
+    width: halfWidth,
+    height: pageHeight,
+  });
+
+  return foldedPdf.save();
+}
+
 export async function buildProductionKanbanPdf(
-  card: ProductionKanbanPdfCard
+  card: ProductionKanbanPdfCard,
+  format: ProductionKanbanPdfFormat = DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
 ): Promise<Uint8Array> {
   const frontPdfBytes = await buildKanbanPdf(
     [
@@ -259,9 +293,17 @@ export async function buildProductionKanbanPdf(
     ],
     { templateName: "brown" }
   );
+  const backPdfBytes = await (await buildBackPagePdf(card)).save();
+
+  if (format === "a5_folded") {
+    return buildA5FoldedPdf({
+      frontPdfBytes,
+      backPdfBytes,
+    });
+  }
 
   const frontPdf = await PDFDocument.load(frontPdfBytes);
-  const backPdf = await buildBackPagePdf(card);
+  const backPdf = await PDFDocument.load(backPdfBytes);
   const mergedPdf = await PDFDocument.create();
 
   const [frontPage] = await mergedPdf.copyPages(frontPdf, [0]);

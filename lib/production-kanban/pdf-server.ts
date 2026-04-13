@@ -8,6 +8,11 @@ import {
   normalizeProductionKanbanBackRows,
   type ProductionKanbanBackRow,
 } from "@/lib/production-kanban/back-rows";
+import {
+  DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
+  getProductionKanbanPdfFormatToken,
+  type ProductionKanbanPdfFormat,
+} from "@/lib/production-kanban/pdf-format";
 
 export interface ProductionKanbanPdfCard {
   id: string;
@@ -132,17 +137,25 @@ export async function fetchProductionKanbanCardsByIds(
 }
 
 export function getProductionKanbanPdfStoragePath(
-  card: Pick<ProductionKanbanPdfCard, "id" | "organization_id">
+  card: Pick<ProductionKanbanPdfCard, "id" | "organization_id">,
+  format: ProductionKanbanPdfFormat = DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
 ) {
-  return `${card.organization_id}/production-kanban/pdfs/${card.id}.pdf`;
+  if (format === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT) {
+    return `${card.organization_id}/production-kanban/pdfs/${card.id}.pdf`;
+  }
+
+  return `${card.organization_id}/production-kanban/pdfs/${card.id}-${getProductionKanbanPdfFormatToken(
+    format
+  )}.pdf`;
 }
 
 export async function generateAndStoreProductionKanbanPdf(
   supabaseAdmin: SupabaseClient,
-  card: ProductionKanbanPdfCard
+  card: ProductionKanbanPdfCard,
+  format: ProductionKanbanPdfFormat = DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
 ) {
-  const pdfBytes = await buildProductionKanbanPdf(card);
-  const storagePath = getProductionKanbanPdfStoragePath(card);
+  const pdfBytes = await buildProductionKanbanPdf(card, format);
+  const storagePath = getProductionKanbanPdfStoragePath(card, format);
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from("datasheet-assets")
@@ -158,20 +171,22 @@ export async function generateAndStoreProductionKanbanPdf(
     );
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from("production_kanban_cards")
-    .update({
-      pdf_storage_path: storagePath,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", card.id)
-    .eq("organization_id", card.organization_id);
+  if (format === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT) {
+    const { error: updateError } = await supabaseAdmin
+      .from("production_kanban_cards")
+      .update({
+        pdf_storage_path: storagePath,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", card.id)
+      .eq("organization_id", card.organization_id);
 
-  if (updateError) {
-    throw new ProductionKanbanRouteError(
-      `Failed to update Production Kanban PDF path: ${updateError.message}`,
-      500
-    );
+    if (updateError) {
+      throw new ProductionKanbanRouteError(
+        `Failed to update Production Kanban PDF path: ${updateError.message}`,
+        500
+      );
+    }
   }
 
   return { pdfBytes, storagePath };

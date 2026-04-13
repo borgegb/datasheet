@@ -26,6 +26,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -46,6 +53,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { printPdfFromUrl } from "@/lib/client/print-pdf";
+import {
+  DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
+  getProductionKanbanPdfFormatLabel,
+  getProductionKanbanPdfFormatToken,
+  normalizeProductionKanbanPdfFormat,
+  PRODUCTION_KANBAN_PDF_FORMAT_OPTIONS,
+  type ProductionKanbanPdfFormat,
+} from "@/lib/production-kanban/pdf-format";
 import {
   deleteProductionKanbanCards,
   type ProductionKanbanCard,
@@ -82,7 +97,11 @@ export default function ProductionKanbanTable({
   );
   const [selectedCardIds, setSelectedCardIds] = useState(() => new Set<string>());
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [selectedPdfFormat, setSelectedPdfFormat] =
+    useState<ProductionKanbanPdfFormat>(DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT);
   const [isRoutePending, startRouteTransition] = useTransition();
+  const selectedPdfFormatLabel =
+    getProductionKanbanPdfFormatLabel(selectedPdfFormat);
 
   useEffect(() => {
     setSearchTerm(searchQuery);
@@ -143,11 +162,17 @@ export default function ProductionKanbanTable({
     });
   };
 
-  const getPdfUrl = async (cardId: string) => {
+  const getPdfUrl = async (
+    cardId: string,
+    format: ProductionKanbanPdfFormat
+  ) => {
     const res = await fetch("/api/generate-production-kanban-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productionKanbanCardIds: [cardId] }),
+      body: JSON.stringify({
+        productionKanbanCardIds: [cardId],
+        format,
+      }),
     });
 
     const { url, error: apiError } = await res.json();
@@ -194,14 +219,14 @@ export default function ProductionKanbanTable({
   ) => {
     setIsGeneratingPdf(cardId);
     const toastId = toast.loading(
-      `${hasPdf ? "Getting" : "Generating"} PDF for "${partNo}"...`
+      `${hasPdf ? "Getting" : "Generating"} ${selectedPdfFormatLabel} PDF for "${partNo}"...`
     );
 
     try {
-      const url = await getPdfUrl(cardId);
-      toast.success(`Production Kanban PDF ${hasPdf ? "ready" : "generated"}.`, {
+      const url = await getPdfUrl(cardId, selectedPdfFormat);
+      toast.success(`${selectedPdfFormatLabel} PDF ${hasPdf ? "ready" : "generated"}.`, {
         id: toastId,
-        description: "Click the button to view the duplex PDF.",
+        description: `Click the button to view the ${selectedPdfFormatLabel.toLowerCase()} PDF.`,
         action: (
           <Button variant="outline" size="sm" onClick={() => window.open(url, "_blank")}>
             View PDF
@@ -209,11 +234,13 @@ export default function ProductionKanbanTable({
         ),
         duration: 15000,
       });
-      setGeneratedPdfCardIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.add(cardId);
-        return nextIds;
-      });
+      if (selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT) {
+        setGeneratedPdfCardIds((currentIds) => {
+          const nextIds = new Set(currentIds);
+          nextIds.add(cardId);
+          return nextIds;
+        });
+      }
     } catch (error: any) {
       console.error("Error with Production Kanban PDF:", error);
       toast.error(`Failed to get PDF: ${error.message}`, { id: toastId });
@@ -224,11 +251,19 @@ export default function ProductionKanbanTable({
 
   const handlePrintPdf = async (cardId: string, partNo: string) => {
     setIsPrintingPdf(cardId);
-    const toastId = toast.loading(`Preparing print for "${partNo}"...`);
+    const toastId = toast.loading(
+      `Preparing ${selectedPdfFormatLabel} print for "${partNo}"...`
+    );
 
     try {
-      const url = await getPdfUrl(cardId);
-      await printPdfFromUrl(url, `${partNo}.pdf`);
+      const url = await getPdfUrl(cardId, selectedPdfFormat);
+      const fileName =
+        selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+          ? `${partNo}.pdf`
+          : `${partNo}-${getProductionKanbanPdfFormatToken(
+              selectedPdfFormat
+            )}.pdf`;
+      await printPdfFromUrl(url, fileName);
       toast.success("Print window opened.", { id: toastId });
     } catch (error: any) {
       console.error("Error printing Production Kanban PDF:", error);
@@ -261,7 +296,13 @@ export default function ProductionKanbanTable({
 
   const getDownloadFileName = (contentDisposition: string | null) => {
     if (!contentDisposition) {
-      return `production-kanban-${new Date().toISOString().slice(0, 10)}.zip`;
+      const suffix =
+        selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+          ? ""
+          : `-${getProductionKanbanPdfFormatToken(selectedPdfFormat)}`;
+      return `production-kanban${suffix}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.zip`;
     }
 
     const match = contentDisposition.match(/filename="?([^"]+)"?/i);
@@ -282,7 +323,7 @@ export default function ProductionKanbanTable({
 
     setIsBulkDownloading(true);
     const toastId = toast.loading(
-      `Preparing ${selectedIds.length} Production Kanban PDF${
+      `Preparing ${selectedIds.length} ${selectedPdfFormatLabel} Production Kanban PDF${
         selectedIds.length === 1 ? "" : "s"
       }...`
     );
@@ -291,7 +332,10 @@ export default function ProductionKanbanTable({
       const res = await fetch("/api/download-production-kanban-pdfs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productionKanbanCardIds: selectedIds }),
+        body: JSON.stringify({
+          productionKanbanCardIds: selectedIds,
+          format: selectedPdfFormat,
+        }),
       });
 
       if (!res.ok) {
@@ -341,7 +385,7 @@ export default function ProductionKanbanTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -353,7 +397,28 @@ export default function ProductionKanbanTable({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={selectedPdfFormat}
+            onValueChange={(value) =>
+              setSelectedPdfFormat(normalizeProductionKanbanPdfFormat(value))
+            }
+          >
+            <SelectTrigger
+              className="w-[140px]"
+              aria-label="Select Production Kanban PDF format"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRODUCTION_KANBAN_PDF_FORMAT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             onClick={handleBulkDownload}
@@ -406,8 +471,9 @@ export default function ProductionKanbanTable({
             ) : (
               cards.map((card) => {
                 const hasPdf =
-                  Boolean(card.pdf_storage_path) ||
-                  generatedPdfCardIds.has(card.id);
+                  selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT &&
+                  (Boolean(card.pdf_storage_path) ||
+                    generatedPdfCardIds.has(card.id));
                 const isSelected = selectedCardIds.has(card.id);
 
                 return (
@@ -488,7 +554,10 @@ export default function ProductionKanbanTable({
                             ) : (
                               <>
                                 <FileText className="mr-2 h-4 w-4" />
-                                Generate PDF
+                                {selectedPdfFormat ===
+                                DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+                                  ? "Generate PDF"
+                                  : "Generate & Download"}
                               </>
                             )}
                           </DropdownMenuItem>

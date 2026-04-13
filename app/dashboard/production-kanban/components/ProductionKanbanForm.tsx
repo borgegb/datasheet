@@ -131,7 +131,7 @@ export default function ProductionKanbanForm({
 
       const generateAndShowPdf = async () => {
         setIsGeneratingPdf(true);
-        toast.info("Your Production Kanban PDF is being generated...", {
+        toast.info("Your A6 duplex Production Kanban PDF is being generated...", {
           duration: 10000,
         });
 
@@ -162,8 +162,8 @@ export default function ProductionKanbanForm({
             throw new Error("PDF URL not found in response.");
           }
 
-          toast.success("Production Kanban PDF generated successfully!", {
-            description: "Click the button to print the duplex PDF.",
+          toast.success("A6 duplex Production Kanban PDF generated successfully!", {
+            description: "Click the button to print the A6 duplex PDF.",
             action: (
               <Button
                 variant="outline"
@@ -311,7 +311,7 @@ export default function ProductionKanbanForm({
               : "Create Production Kanban"}
           </CardTitle>
           <CardDescription>
-            Brown front side with a duplex A6 back-page location grid.
+            Brown front side with a location grid and A6 duplex or A5 folded PDF output.
           </CardDescription>
         </CardHeader>
         <CardContent>

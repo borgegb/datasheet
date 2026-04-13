@@ -10,10 +10,12 @@ import {
   generateAndStoreProductionKanbanPdf,
   getAuthenticatedProductionKanbanRouteContext,
 } from "@/lib/production-kanban/pdf-server";
+import { normalizeProductionKanbanPdfFormat } from "@/lib/production-kanban/pdf-format";
 
 export async function POST(req: Request) {
   try {
     const payload = await req.json();
+    const format = normalizeProductionKanbanPdfFormat(payload?.format);
     const productionKanbanCardIds = Array.isArray(
       payload?.productionKanbanCardIds
     )
@@ -39,7 +41,8 @@ export async function POST(req: Request) {
     );
     const { storagePath } = await generateAndStoreProductionKanbanPdf(
       supabaseAdmin,
-      card
+      card,
+      format
     );
     const url = await createProductionKanbanPdfSignedUrl(
       supabaseAdmin,

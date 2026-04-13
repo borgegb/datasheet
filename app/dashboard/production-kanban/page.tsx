@@ -81,7 +81,7 @@ export default async function ProductionKanbanPage({
         <div>
           <h1 className="text-2xl font-semibold">Production Kanban</h1>
           <p className="text-muted-foreground">
-            Manage duplex A6 Production Kanban cards.
+            Manage Production Kanban cards with A6 duplex and A5 folded PDF output.
           </p>
         </div>
         {userRole !== "viewer" && (

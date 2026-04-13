@@ -2,10 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileText, Printer } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { printPdfFromUrl } from "@/lib/client/print-pdf";
+import {
+  DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
+  getProductionKanbanPdfFormatLabel,
+  getProductionKanbanPdfFormatToken,
+  normalizeProductionKanbanPdfFormat,
+  PRODUCTION_KANBAN_PDF_FORMAT_OPTIONS,
+  type ProductionKanbanPdfFormat,
+} from "@/lib/production-kanban/pdf-format";
 
 interface ProductionKanbanActionsProps {
   cardId: string;
@@ -20,12 +35,21 @@ export default function ProductionKanbanActions({
 }: ProductionKanbanActionsProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPdfFormat, setSelectedPdfFormat] =
+    useState<ProductionKanbanPdfFormat>(DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT);
+  const selectedPdfFormatLabel =
+    getProductionKanbanPdfFormatLabel(selectedPdfFormat);
+  const hasSelectedFormatPdf =
+    selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT ? hasPdf : false;
 
-  const getPdfUrl = async () => {
+  const getPdfUrl = async (format: ProductionKanbanPdfFormat) => {
     const res = await fetch("/api/generate-production-kanban-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productionKanbanCardIds: [cardId] }),
+      body: JSON.stringify({
+        productionKanbanCardIds: [cardId],
+        format,
+      }),
     });
 
     const { url, error: apiError } = await res.json();
@@ -41,40 +65,20 @@ export default function ProductionKanbanActions({
       throw new Error("PDF URL not found in response.");
     }
 
-    router.refresh();
-    return url as string;
-  };
-
-  const handleGeneratePdf = async () => {
-    setIsLoading(true);
-    const toastId = toast.loading(`Generating PDF for "${partNo}"...`);
-
-    try {
-      const url = await getPdfUrl();
-      toast.success("Production Kanban PDF ready.", {
-        id: toastId,
-        description: "Click the button to view the duplex PDF.",
-        action: (
-          <Button variant="outline" size="sm" onClick={() => window.open(url, "_blank")}>
-            View PDF
-          </Button>
-        ),
-        duration: 15000,
-      });
-    } catch (error: any) {
-      console.error("Error generating Production Kanban PDF:", error);
-      toast.error(`Failed to generate PDF: ${error.message}`, { id: toastId });
-    } finally {
-      setIsLoading(false);
+    if (format === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT) {
+      router.refresh();
     }
+    return url as string;
   };
 
   const handleDownloadPdf = async () => {
     setIsLoading(true);
-    const toastId = toast.loading(`Getting PDF for "${partNo}"...`);
+    const toastId = toast.loading(
+      `${hasSelectedFormatPdf ? "Getting" : "Generating"} ${selectedPdfFormatLabel} PDF for "${partNo}"...`
+    );
 
     try {
-      const url = await getPdfUrl();
+      const url = await getPdfUrl(selectedPdfFormat);
       window.open(url, "_blank");
       toast.success("Opening PDF", { id: toastId });
     } catch (error: any) {
@@ -87,11 +91,19 @@ export default function ProductionKanbanActions({
 
   const handlePrintPdf = async () => {
     setIsLoading(true);
-    const toastId = toast.loading(`Preparing print for "${partNo}"...`);
+    const toastId = toast.loading(
+      `Preparing ${selectedPdfFormatLabel} print for "${partNo}"...`
+    );
 
     try {
-      const url = await getPdfUrl();
-      await printPdfFromUrl(url, `${partNo}.pdf`);
+      const url = await getPdfUrl(selectedPdfFormat);
+      const fileName =
+        selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+          ? `${partNo}.pdf`
+          : `${partNo}-${getProductionKanbanPdfFormatToken(
+              selectedPdfFormat
+            )}.pdf`;
+      await printPdfFromUrl(url, fileName);
       toast.success("Print window opened.", { id: toastId });
     } catch (error: any) {
       console.error("Error printing Production Kanban PDF:", error);
@@ -102,24 +114,44 @@ export default function ProductionKanbanActions({
   };
 
   return (
-    <div className="flex items-center gap-2">
-      {hasPdf ? (
-        <>
-          <Button variant="outline" onClick={handleDownloadPdf} disabled={isLoading}>
-            <Download className="mr-2 h-4 w-4" />
-            {isLoading ? "Loading..." : "Download PDF"}
-          </Button>
-          <Button variant="outline" onClick={handlePrintPdf} disabled={isLoading}>
-            <Printer className="mr-2 h-4 w-4" />
-            {isLoading ? "Preparing..." : "Print PDF"}
-          </Button>
-        </>
-      ) : (
-        <Button variant="outline" onClick={handleGeneratePdf} disabled={isLoading}>
-          <FileText className="mr-2 h-4 w-4" />
-          {isLoading ? "Generating..." : "Generate PDF"}
-        </Button>
-      )}
+    <div className="flex flex-wrap items-center gap-2">
+      <Select
+        value={selectedPdfFormat}
+        onValueChange={(value) =>
+          setSelectedPdfFormat(normalizeProductionKanbanPdfFormat(value))
+        }
+      >
+        <SelectTrigger
+          className="w-[140px]"
+          aria-label="Select Production Kanban PDF format"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PRODUCTION_KANBAN_PDF_FORMAT_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button variant="outline" onClick={handleDownloadPdf} disabled={isLoading}>
+        <Download className="mr-2 h-4 w-4" />
+        {isLoading
+          ? "Loading..."
+          : hasSelectedFormatPdf
+            ? "Download PDF"
+            : "Generate & Download"}
+      </Button>
+      <Button variant="outline" onClick={handlePrintPdf} disabled={isLoading}>
+        <Printer className="mr-2 h-4 w-4" />
+        {isLoading
+          ? "Preparing..."
+          : hasSelectedFormatPdf
+            ? "Print PDF"
+            : "Generate & Print"}
+      </Button>
     </div>
   );
 }

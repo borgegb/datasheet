@@ -19,13 +19,20 @@ interface KanbanCard {
   organization_id: string;
 }
 
+interface BuildKanbanPdfOptions {
+  templateName?: string;
+}
+
 export async function buildKanbanPdf(
-  kanbanCards: KanbanCard[]
+  kanbanCards: KanbanCard[],
+  options: BuildKanbanPdfOptions = {}
 ): Promise<Uint8Array> {
   console.log(`Building PDF for ${kanbanCards.length} kanban cards`);
 
   // Load template based on header color (use first card's color, default to red)
-  const headerColor = normalizeKanbanHeaderColor(kanbanCards[0]?.header_color);
+  const headerColor =
+    options.templateName ??
+    normalizeKanbanHeaderColor(kanbanCards[0]?.header_color);
   const templateData = (
     await import(`../../../pdf/template/kanban/template-${headerColor}.json`)
   ).default;

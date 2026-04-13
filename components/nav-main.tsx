@@ -47,6 +47,11 @@ const mainNavItems = [
     icon: TagIcon,
   },
   {
+    title: "Production Kanban",
+    href: "/dashboard/production-kanban",
+    icon: TagIcon,
+  },
+  {
     title: "Certifications",
     href: "/dashboard/certifications",
     icon: FileTextIcon,

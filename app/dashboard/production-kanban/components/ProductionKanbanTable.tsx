@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,7 @@ import {
   Edit,
   Eye,
   FileText,
+  Loader2,
   MoreHorizontal,
   Printer,
   Search,
@@ -78,11 +80,17 @@ export default function ProductionKanbanTable({
   const [generatedPdfCardIds, setGeneratedPdfCardIds] = useState(
     () => new Set<string>()
   );
+  const [selectedCardIds, setSelectedCardIds] = useState(() => new Set<string>());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
   const [isRoutePending, startRouteTransition] = useTransition();
 
   useEffect(() => {
     setSearchTerm(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setSelectedCardIds(new Set());
+  }, [cards]);
 
   useEffect(() => {
     const normalizedSearch = searchTerm.trim();
@@ -230,26 +238,154 @@ export default function ProductionKanbanTable({
     }
   };
 
+  const handleToggleCardSelection = (cardId: string, checked: boolean) => {
+    setSelectedCardIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (checked) {
+        nextIds.add(cardId);
+      } else {
+        nextIds.delete(cardId);
+      }
+      return nextIds;
+    });
+  };
+
+  const handleToggleAllVisibleCards = (checked: boolean) => {
+    if (!checked) {
+      setSelectedCardIds(new Set());
+      return;
+    }
+
+    setSelectedCardIds(new Set(cards.map((card) => card.id)));
+  };
+
+  const getDownloadFileName = (contentDisposition: string | null) => {
+    if (!contentDisposition) {
+      return `production-kanban-${new Date().toISOString().slice(0, 10)}.zip`;
+    }
+
+    const match = contentDisposition.match(/filename="?([^"]+)"?/i);
+    return (
+      match?.[1] ||
+      `production-kanban-${new Date().toISOString().slice(0, 10)}.zip`
+    );
+  };
+
+  const handleBulkDownload = async () => {
+    const selectedIds = cards
+      .filter((card) => selectedCardIds.has(card.id))
+      .map((card) => card.id);
+
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    setIsBulkDownloading(true);
+    const toastId = toast.loading(
+      `Preparing ${selectedIds.length} Production Kanban PDF${
+        selectedIds.length === 1 ? "" : "s"
+      }...`
+    );
+
+    try {
+      const res = await fetch("/api/download-production-kanban-pdfs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productionKanbanCardIds: selectedIds }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({
+          error: "Failed to download selected Production Kanban PDFs.",
+        }));
+        throw new Error(
+          errorData.error || "Failed to download selected PDFs."
+        );
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = getDownloadFileName(
+        res.headers.get("Content-Disposition")
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      toast.success("Bulk download started.", { id: toastId });
+      setSelectedCardIds(new Set());
+    } catch (error: any) {
+      console.error(
+        "Error downloading selected Production Kanban PDFs:",
+        error
+      );
+      toast.error(`Failed to download selected PDFs: ${error.message}`, {
+        id: toastId,
+      });
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+
   const showingFrom = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const showingTo = totalCount === 0 ? 0 : Math.min(page * pageSize, totalCount);
+  const selectedCount = selectedCardIds.size;
+  const allVisibleCardsSelected =
+    cards.length > 0 && cards.every((card) => selectedCardIds.has(card.id));
+  const someVisibleCardsSelected = cards.some((card) =>
+    selectedCardIds.has(card.id)
+  );
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          aria-label="Search Production Kanban cards"
-          className="pl-9"
-          placeholder="Search Production Kanban..."
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-        />
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label="Search Production Kanban cards"
+            className="pl-9"
+            placeholder="Search Production Kanban..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleBulkDownload}
+            disabled={selectedCount === 0 || isBulkDownloading}
+          >
+            {isBulkDownloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Download Selected
+            {selectedCount > 0 ? ` (${selectedCount})` : ""}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[48px]">
+                <Checkbox
+                  checked={
+                    allVisibleCardsSelected ||
+                    (someVisibleCardsSelected && "indeterminate")
+                  }
+                  onCheckedChange={(checked) =>
+                    handleToggleAllVisibleCards(checked === true)
+                  }
+                  aria-label="Select all Production Kanban cards on this page"
+                />
+              </TableHead>
               <TableHead>Part No</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Location</TableHead>
@@ -261,7 +397,7 @@ export default function ProductionKanbanTable({
           <TableBody>
             {cards.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   {searchQuery
                     ? "No Production Kanban cards match your search."
                     : "No Production Kanban cards found."}
@@ -272,9 +408,22 @@ export default function ProductionKanbanTable({
                 const hasPdf =
                   Boolean(card.pdf_storage_path) ||
                   generatedPdfCardIds.has(card.id);
+                const isSelected = selectedCardIds.has(card.id);
 
                 return (
-                  <TableRow key={card.id}>
+                  <TableRow
+                    key={card.id}
+                    data-state={isSelected ? "selected" : undefined}
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) =>
+                          handleToggleCardSelection(card.id, checked === true)
+                        }
+                        aria-label={`Select ${card.part_no}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{card.part_no}</TableCell>
                     <TableCell className="max-w-[240px] truncate">
                       {card.description || (

@@ -4,24 +4,47 @@ function ensureBrowser(): void {
   }
 }
 
+function openPdfPopup(
+  fileName = "document.pdf",
+  loadingMessage = "Preparing PDF..."
+): Window {
+  ensureBrowser();
+
+  const popupWindow = window.open("", "_blank");
+  if (!popupWindow) {
+    throw new Error("Pop-up blocked. Please allow pop-ups and try again.");
+  }
+
+  popupWindow.document.title = fileName;
+  popupWindow.document.body.innerHTML = `
+    <div style="font-family: sans-serif; padding: 24px; color: #111827;">
+      ${loadingMessage}
+    </div>
+  `;
+
+  return popupWindow;
+}
+
 export async function printPdfBlob(
   blob: Blob,
-  fileName = "document.pdf"
+  fileName = "document.pdf",
+  popupWindow?: Window | null
 ): Promise<void> {
   ensureBrowser();
 
   const pdfUrl = URL.createObjectURL(blob);
-  const printWindow = window.open(pdfUrl, "_blank");
+  const printWindow = popupWindow ?? openPdfPopup(fileName);
 
-  if (!printWindow) {
+  if (printWindow.closed) {
     URL.revokeObjectURL(pdfUrl);
-    throw new Error("Pop-up blocked. Please allow pop-ups and try again.");
+    throw new Error("Print window was closed before the PDF could open.");
   }
 
   const cleanup = () => {
     URL.revokeObjectURL(pdfUrl);
   };
 
+  printWindow.location.href = pdfUrl;
   printWindow.addEventListener("beforeunload", cleanup, { once: true });
 
   const tryPrint = () => {
@@ -51,12 +74,42 @@ export async function printPdfFromUrl(
   fileName = "document.pdf"
 ): Promise<void> {
   ensureBrowser();
+  const printWindow = openPdfPopup(fileName);
+
+  try {
+    const response = await fetch(pdfUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to load PDF for printing (${response.status}).`);
+    }
+
+    const blob = await response.blob();
+    await printPdfBlob(blob, fileName, printWindow);
+  } catch (error) {
+    if (!printWindow.closed) {
+      printWindow.close();
+    }
+    throw error;
+  }
+}
+
+export async function downloadPdfFromUrl(
+  pdfUrl: string,
+  fileName = "document.pdf"
+): Promise<void> {
+  ensureBrowser();
 
   const response = await fetch(pdfUrl);
   if (!response.ok) {
-    throw new Error(`Failed to load PDF for printing (${response.status}).`);
+    throw new Error(`Failed to load PDF for download (${response.status}).`);
   }
 
   const blob = await response.blob();
-  await printPdfBlob(blob, fileName);
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
 }

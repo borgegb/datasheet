@@ -4,7 +4,10 @@ import React, { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Printer } from "lucide-react";
 import { toast } from "sonner";
-import { printPdfFromUrl } from "@/lib/client/print-pdf";
+import {
+  downloadPdfFromUrl,
+  printPdfFromUrl,
+} from "@/lib/client/print-pdf";
 
 interface KanbanCardActionsProps {
   cardId: string;
@@ -101,15 +104,14 @@ export default function KanbanCardActions({
         }
 
         if (url) {
-          toast.success("Opening PDF", { id: toastId });
-          // Open PDF in new tab
-          window.open(url, "_blank");
+          await downloadPdfFromUrl(url, `${partNo}.pdf`);
+          toast.success("Download started.", { id: toastId });
         } else {
           throw new Error("PDF URL not found in response.");
         }
       } catch (error: any) {
         console.error("Error getting kanban PDF:", error);
-        toast.error(`Failed to get PDF: ${error.message}`, {
+        toast.error(`Failed to download PDF: ${error.message}`, {
           id: toastId,
         });
       } finally {

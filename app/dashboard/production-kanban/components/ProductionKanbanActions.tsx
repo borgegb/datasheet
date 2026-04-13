@@ -12,7 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { printPdfFromUrl } from "@/lib/client/print-pdf";
+import {
+  downloadPdfFromUrl,
+  printPdfFromUrl,
+} from "@/lib/client/print-pdf";
 import {
   DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
   getProductionKanbanPdfFormatLabel,
@@ -79,11 +82,17 @@ export default function ProductionKanbanActions({
 
     try {
       const url = await getPdfUrl(selectedPdfFormat);
-      window.open(url, "_blank");
-      toast.success("Opening PDF", { id: toastId });
+      const fileName =
+        selectedPdfFormat === DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT
+          ? `${partNo}.pdf`
+          : `${partNo}-${getProductionKanbanPdfFormatToken(
+              selectedPdfFormat
+            )}.pdf`;
+      await downloadPdfFromUrl(url, fileName);
+      toast.success("Download started.", { id: toastId });
     } catch (error: any) {
       console.error("Error opening Production Kanban PDF:", error);
-      toast.error(`Failed to open PDF: ${error.message}`, { id: toastId });
+      toast.error(`Failed to download PDF: ${error.message}`, { id: toastId });
     } finally {
       setIsLoading(false);
     }

@@ -11,6 +11,7 @@ import {
   getAllProductionKanbanPdfStoragePaths,
   productionKanbanPdfExists,
 } from "@/lib/production-kanban/pdf-server";
+import { PRODUCTION_KANBAN_FIXED_FOOTER_CODE } from "@/lib/production-kanban/constants";
 
 async function getUserOrgId(
   supabase: Awaited<ReturnType<typeof createServerActionClient>>
@@ -59,8 +60,7 @@ function normalizeProductionKanbanCardRecord(
 ): ProductionKanbanCard {
   return {
     ...record,
-    footer_code:
-      typeof record?.footer_code === "string" ? record.footer_code : "",
+    footer_code: PRODUCTION_KANBAN_FIXED_FOOTER_CODE,
     back_rows: normalizeProductionKanbanBackRows(record?.back_rows),
   };
 }
@@ -152,10 +152,6 @@ export async function saveProductionKanbanCard(
 
   const editingCardId = formData.get("editingCardId") as string | null;
   const backRows = safeParseBackRows(formData.get("backRows"));
-  const footerCode =
-    typeof formData.get("footerCode") === "string"
-      ? (formData.get("footerCode") as string).trim().slice(0, 48)
-      : "";
 
   const productionKanbanCardData = {
     part_no:
@@ -182,7 +178,7 @@ export async function saveProductionKanbanCard(
     image_path: formData.get("imagePath") as string | null,
     organization_id: organizationId,
     back_rows: backRows,
-    footer_code: footerCode,
+    footer_code: PRODUCTION_KANBAN_FIXED_FOOTER_CODE,
   };
 
   if (!productionKanbanCardData.part_no || !productionKanbanCardData.location) {

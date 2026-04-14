@@ -8,6 +8,7 @@ import {
   DEFAULT_PRODUCTION_KANBAN_PDF_FORMAT,
   type ProductionKanbanPdfFormat,
 } from "@/lib/production-kanban/pdf-format";
+import { PRODUCTION_KANBAN_FIXED_FOOTER_CODE } from "@/lib/production-kanban/constants";
 
 interface ProductionKanbanPdfCard {
   id: string;
@@ -239,7 +240,7 @@ async function buildBackPagePdf(card: ProductionKanbanPdfCard) {
 
   drawCellText({
     page,
-    text: card.footer_code,
+    text: PRODUCTION_KANBAN_FIXED_FOOTER_CODE,
     x: contentX,
     y: contentY,
     width: contentWidth,

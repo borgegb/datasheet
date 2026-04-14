@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function getUserOrganizationId(): Promise<string | null> {
+async function getUserProfileContext(): Promise<{
+  organization_id: string | null;
+  role: string | null;
+} | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -11,9 +14,14 @@ export async function getUserOrganizationId(): Promise<string | null> {
   if (!user) return null;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("id", user.id)
     .single();
+  return profile ?? null;
+}
+
+export async function getUserOrganizationId(): Promise<string | null> {
+  const profile = await getUserProfileContext();
   return profile?.organization_id ?? null;
 }
 
@@ -47,8 +55,16 @@ export async function fetchCertificationsForOrg() {
 
 export async function deleteCertification(id: string) {
   const supabase = await createClient();
-  const orgId = await getUserOrganizationId();
+  const profile = await getUserProfileContext();
+  const orgId = profile?.organization_id ?? null;
+  const userRole = profile?.role ?? "viewer";
+
   if (!orgId) return { error: { message: "No organization" } };
+  if (userRole === "viewer") {
+    return {
+      error: { message: "You do not have permission to delete certifications" },
+    };
+  }
 
   // Soft-validate ownership
   const { data: row } = await supabase

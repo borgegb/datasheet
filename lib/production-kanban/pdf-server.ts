@@ -13,6 +13,7 @@ import {
   getProductionKanbanPdfFormatToken,
   type ProductionKanbanPdfFormat,
 } from "@/lib/production-kanban/pdf-format";
+import { PRODUCTION_KANBAN_FIXED_FOOTER_CODE } from "@/lib/production-kanban/constants";
 
 export interface ProductionKanbanPdfCard {
   id: string;
@@ -91,8 +92,7 @@ export async function getAuthenticatedProductionKanbanRouteContext(): Promise<Pr
 function normalizeProductionKanbanPdfCard(record: any): ProductionKanbanPdfCard {
   return {
     ...record,
-    footer_code:
-      typeof record?.footer_code === "string" ? record.footer_code : "",
+    footer_code: PRODUCTION_KANBAN_FIXED_FOOTER_CODE,
     back_rows: normalizeProductionKanbanBackRows(record?.back_rows),
   };
 }

@@ -524,7 +524,7 @@ export default function ProductionKanbanTable({
                       )}
                     </TableCell>
                     <TableCell>{card.location}</TableCell>
-                    <TableCell>{card.footer_code || "-"}</TableCell>
+                    <TableCell>{card.footer_code}</TableCell>
                     <TableCell>
                       {card.updated_at
                         ? new Date(card.updated_at).toLocaleDateString()

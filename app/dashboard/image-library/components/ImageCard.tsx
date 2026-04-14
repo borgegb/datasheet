@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ImageIcon, FileImage, Package } from "lucide-react";
+import { ClipboardList, ImageIcon, FileImage, Package } from "lucide-react";
 import { ImageItem } from "../types";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +48,8 @@ export default function ImageCard({
         return <Package className="h-3 w-3" />;
       case "kanban_cards":
         return <FileImage className="h-3 w-3" />;
+      case "production_kanban_cards":
+        return <ClipboardList className="h-3 w-3" />;
       case "catalogs":
         return <ImageIcon className="h-3 w-3" />;
     }
@@ -59,6 +61,8 @@ export default function ImageCard({
         return "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20";
       case "kanban_cards":
         return "bg-green-500/10 text-green-600 hover:bg-green-500/20";
+      case "production_kanban_cards":
+        return "bg-amber-500/10 text-amber-700 hover:bg-amber-500/20";
       case "catalogs":
         return "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20";
     }
@@ -99,7 +103,7 @@ export default function ImageCard({
             className={cn("text-xs capitalize", getSourceColor())}
           >
             <span className="mr-1">{getSourceIcon()}</span>
-            {image.source.replace("_", " ")}
+            {image.source.replaceAll("_", " ")}
           </Badge>
 
           <p className="text-xs text-muted-foreground">

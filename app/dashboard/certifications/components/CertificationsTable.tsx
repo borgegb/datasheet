@@ -124,7 +124,7 @@ export default function CertificationsTable({ initialData }: Props) {
                         >
                           <Download className="mr-2 h-4 w-4" /> Open PDF
                         </DropdownMenuItem>
-                        {userRole === "owner" && (
+                        {userRole !== "viewer" && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

@@ -3,7 +3,7 @@ export interface ImageItem {
   id: string;
   path: string;
   url?: string; // Signed URL for display
-  source: 'products' | 'kanban_cards' | 'catalogs';
+  source: 'products' | 'kanban_cards' | 'production_kanban_cards' | 'catalogs';
   sourceId: string; // ID of the product/card/catalog
   sourceName: string; // Name of the product/card/catalog
   uploadedAt: string;
@@ -16,7 +16,7 @@ export interface ImageItem {
 }
 
 export interface ImageFilters {
-  source?: 'all' | 'products' | 'kanban_cards' | 'catalogs';
+  source?: 'all' | 'products' | 'kanban_cards' | 'production_kanban_cards' | 'catalogs';
   searchQuery?: string;
   dateRange?: {
     start?: Date;

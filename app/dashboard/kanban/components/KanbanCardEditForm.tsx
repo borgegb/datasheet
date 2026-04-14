@@ -152,7 +152,7 @@ export default function KanbanCardEditForm({
       yellow: "bg-yellow-400",
       blue: "bg-blue-600",
       purple: "bg-purple-600",
-      brown: "bg-amber-700",
+      brown: "bg-[#6B3F16]",
       pink: "bg-pink-500",
       teal: "bg-teal-600",
       cyan: "bg-cyan-500",

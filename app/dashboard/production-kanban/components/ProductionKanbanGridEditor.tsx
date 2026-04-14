@@ -11,23 +11,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ProductionKanbanBackRow } from "@/lib/production-kanban/back-rows";
+import { PRODUCTION_KANBAN_FIXED_FOOTER_CODE } from "@/lib/production-kanban/constants";
 
 interface ProductionKanbanGridEditorProps {
   rows: ProductionKanbanBackRow[];
-  footerCode: string;
   onRowChange: (
     rowIndex: number,
     field: keyof ProductionKanbanBackRow,
     value: string
   ) => void;
-  onFooterCodeChange: (value: string) => void;
 }
 
 export default function ProductionKanbanGridEditor({
   rows,
-  footerCode,
   onRowChange,
-  onFooterCodeChange,
 }: ProductionKanbanGridEditorProps) {
   return (
     <div className="rounded-md border">
@@ -88,15 +85,8 @@ export default function ProductionKanbanGridEditor({
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={4} className="p-1">
-              <Input
-                aria-label="Footer code"
-                className="h-8 text-center"
-                name="footerCode"
-                placeholder="Footer code"
-                value={footerCode}
-                onChange={(event) => onFooterCodeChange(event.target.value)}
-              />
+            <TableCell colSpan={4} className="p-2 text-center font-medium">
+              {PRODUCTION_KANBAN_FIXED_FOOTER_CODE}
             </TableCell>
           </TableRow>
         </TableFooter>

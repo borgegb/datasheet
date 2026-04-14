@@ -3,6 +3,10 @@
 import Image from "next/image";
 import type { ProductionKanbanCard } from "../actions";
 import { normalizeProductionKanbanBackRows } from "@/lib/production-kanban/back-rows";
+import {
+  PRODUCTION_KANBAN_BROWN_HEX,
+  PRODUCTION_KANBAN_FIXED_FOOTER_CODE,
+} from "@/lib/production-kanban/constants";
 
 interface ProductionKanbanPreviewProps {
   card: ProductionKanbanCard;
@@ -18,7 +22,10 @@ export default function ProductionKanbanPreview({
       <div className="space-y-3">
         <p className="text-sm font-medium text-muted-foreground">Front</p>
         <div className="mx-auto max-w-md overflow-hidden border border-gray-200 bg-white shadow-sm">
-          <div className="bg-amber-700 py-6 text-center text-white">
+          <div
+            className="py-6 text-center text-white"
+            style={{ backgroundColor: PRODUCTION_KANBAN_BROWN_HEX }}
+          >
             <h1 className="text-4xl font-bold tracking-wide">KANBAN</h1>
           </div>
           <div className="flex min-h-[300px] w-full items-center justify-center bg-gray-50">
@@ -91,7 +98,9 @@ export default function ProductionKanbanPreview({
             </div>
           ))}
 
-          <div className="px-3 py-2 text-center text-sm">{card.footer_code}</div>
+          <div className="px-3 py-2 text-center text-sm">
+            {card.footer_code || PRODUCTION_KANBAN_FIXED_FOOTER_CODE}
+          </div>
         </div>
       </div>
     </div>

@@ -82,6 +82,9 @@ export default function ImageDetails({
       case "kanban_cards":
         url = `/dashboard/kanban/${image.sourceId}`;
         break;
+      case "production_kanban_cards":
+        url = `/dashboard/production-kanban/${image.sourceId}`;
+        break;
       case "catalogs":
         url = `/dashboard/catalogs/${image.sourceId}`;
         break;
@@ -143,7 +146,7 @@ export default function ImageDetails({
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Source</span>
                   <Badge variant="secondary" className="capitalize">
-                    {image.source.replace("_", " ")}
+                    {image.source.replaceAll("_", " ")}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">

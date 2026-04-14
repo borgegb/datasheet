@@ -28,7 +28,11 @@ interface ImageItem {
   id: string;
   path: string;
   url?: string;
-  source: "products" | "kanban_cards" | "catalogs";
+  source:
+    | "products"
+    | "kanban_cards"
+    | "production_kanban_cards"
+    | "catalogs";
   sourceName: string;
   uploadedAt: string;
 }
@@ -208,6 +212,8 @@ export default function ImageLibrarySheet({
         return "bg-blue-500/10 text-blue-600";
       case "kanban_cards":
         return "bg-green-500/10 text-green-600";
+      case "production_kanban_cards":
+        return "bg-amber-500/10 text-amber-700";
       case "catalogs":
         return "bg-purple-500/10 text-purple-600";
       default:
@@ -221,7 +227,7 @@ export default function ImageLibrarySheet({
         <SheetHeader className="px-6 py-4 border-b">
           <SheetTitle>Select Image from Library</SheetTitle>
           <SheetDescription>
-            Choose an image for your kanban card
+            Choose an image from your library
           </SheetDescription>
         </SheetHeader>
 
@@ -246,6 +252,9 @@ export default function ImageLibrarySheet({
                 <SelectItem value="all">All sources</SelectItem>
                 <SelectItem value="products">Products</SelectItem>
                 <SelectItem value="kanban_cards">Kanban</SelectItem>
+                <SelectItem value="production_kanban_cards">
+                  Production Kanban
+                </SelectItem>
                 <SelectItem value="catalogs">Catalogs</SelectItem>
               </SelectContent>
             </Select>
@@ -402,7 +411,7 @@ function ImageCard({
             variant="secondary"
             className={cn("text-xs capitalize", getSourceColor(image.source))}
           >
-            {image.source.replace("_", " ")}
+            {image.source.replaceAll("_", " ")}
           </Badge>
           <p className="text-xs text-muted-foreground">
             {new Date(image.uploadedAt).toLocaleDateString()}

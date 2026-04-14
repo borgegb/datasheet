@@ -45,6 +45,9 @@ export default function ImageFilters({
             <SelectItem value="all">All Sources</SelectItem>
             <SelectItem value="products">Products</SelectItem>
             <SelectItem value="kanban_cards">Kanban Cards</SelectItem>
+            <SelectItem value="production_kanban_cards">
+              Production Kanban
+            </SelectItem>
             <SelectItem value="catalogs">Catalogs</SelectItem>
           </SelectContent>
         </Select>

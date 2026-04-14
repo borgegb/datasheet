@@ -16,13 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dropzone,
-  DropzoneContent,
-  DropzoneEmptyState,
-} from "@/components/dropzone";
 import { createClient } from "@/lib/supabase/client";
-import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import {
   normalizeProductionKanbanBackRows,
   type ProductionKanbanBackRow,
@@ -32,6 +26,7 @@ import ImageLibrarySheet from "@/app/dashboard/kanban/components/ImageLibraryShe
 import { saveProductionKanbanCard } from "../actions";
 import type { ProductionKanbanCard } from "../actions";
 import ProductionKanbanGridEditor from "./ProductionKanbanGridEditor";
+import ProductionKanbanImageUpload from "./ProductionKanbanImageUpload";
 
 interface ProductionKanbanFormProps {
   initialData?: Partial<ProductionKanbanCard> | null;
@@ -49,7 +44,6 @@ interface ProductionKanbanFormValues {
   orderQuantity: string;
   preferredSupplier: string;
   leadTime: string;
-  footerCode: string;
 }
 
 export default function ProductionKanbanForm({
@@ -64,7 +58,6 @@ export default function ProductionKanbanForm({
     orderQuantity: initialData?.order_quantity?.toString() || "",
     preferredSupplier: initialData?.preferred_supplier || "",
     leadTime: initialData?.lead_time || "",
-    footerCode: initialData?.footer_code || "",
   });
   const [backRows, setBackRows] = useState(() =>
     normalizeProductionKanbanBackRows(initialData?.back_rows)
@@ -77,6 +70,8 @@ export default function ProductionKanbanForm({
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [hasPendingImageUpload, setHasPendingImageUpload] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const [saveState, saveFormAction, isSavePending] = useActionState(
     async (_prevState: any, formData: FormData) => {
@@ -235,30 +230,6 @@ export default function ProductionKanbanForm({
     fetchUserData();
   }, []);
 
-  const uploadProps = useSupabaseUpload({
-    bucketName: "datasheet-assets",
-    path: profile?.organization_id
-      ? `${profile.organization_id}/production-kanban/images/`
-      : undefined,
-    allowedMimeTypes: ["image/*"],
-    maxFiles: 1,
-  });
-
-  useEffect(() => {
-    if (
-      !uploadProps.loading &&
-      uploadProps.successes.length > 0 &&
-      profile?.organization_id
-    ) {
-      const lastSuccessFileName =
-        uploadProps.successes[uploadProps.successes.length - 1];
-      setUploadedFileName(lastSuccessFileName);
-      setUploadedImagePath(
-        `${profile.organization_id}/production-kanban/images/${lastSuccessFileName}`
-      );
-    }
-  }, [profile?.organization_id, uploadProps.loading, uploadProps.successes]);
-
   useEffect(() => {
     if (initialData?.image_path) {
       const filename = initialData.image_path.split("/").pop();
@@ -270,27 +241,42 @@ export default function ProductionKanbanForm({
     (imagePath: string, fileName: string) => {
       setUploadedImagePath(imagePath);
       setUploadedFileName(fileName);
+      setHasPendingImageUpload(false);
+    },
+    []
+  );
+
+  const handleImageUploaded = useCallback((imagePath: string, fileName: string) => {
+    setUploadedImagePath(imagePath);
+    setUploadedFileName(fileName);
+  }, []);
+
+  const handleImageUploadStateChange = useCallback(
+    ({
+      hasPendingUpload,
+      isUploading,
+    }: {
+      hasPendingUpload: boolean;
+      isUploading: boolean;
+    }) => {
+      setHasPendingImageUpload(hasPendingUpload);
+      setIsUploadingImage(isUploading);
     },
     []
   );
 
   const handleFormSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
-      const hasUnuploadedFiles =
-        uploadProps.files.length > 0 &&
-        uploadProps.successes.length === 0 &&
-        !uploadProps.loading;
-
-      if (hasUnuploadedFiles) {
+      if (hasPendingImageUpload) {
         event.preventDefault();
         toast.error("Please upload your image before saving the card", {
           description:
-            "Click the Upload button in the dropzone before submitting.",
+            "Upload or remove the selected image before submitting.",
           duration: 6000,
         });
       }
     },
-    [uploadProps.files.length, uploadProps.loading, uploadProps.successes.length]
+    [hasPendingImageUpload]
   );
 
   if (isLoadingData) {
@@ -419,37 +405,26 @@ export default function ProductionKanbanForm({
                     Library
                   </Button>
                 </div>
-                {profile?.organization_id ? (
-                  <Dropzone {...uploadProps} className="mt-1 border-border">
-                    <DropzoneEmptyState />
-                    <DropzoneContent />
-                  </Dropzone>
-                ) : (
-                  <div className="mt-1 flex h-32 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-muted">
-                    <p className="text-sm text-muted-foreground">
-                      Loading organization info...
-                    </p>
-                  </div>
-                )}
-                {uploadedFileName && (
-                  <div className="mt-2 text-sm text-green-600">
-                    Image "{uploadedFileName}" ready.
-                  </div>
-                )}
+                <ProductionKanbanImageUpload
+                  organizationId={profile?.organization_id}
+                  partNumber={formValues.partNo}
+                  currentFileName={uploadedFileName}
+                  onUploaded={handleImageUploaded}
+                  onUploadStateChange={handleImageUploadStateChange}
+                />
               </div>
 
               <div className="space-y-3">
                 <div>
                   <Label>Back Page Grid</Label>
                   <p className="text-sm text-muted-foreground">
-                    Enter the 18 Location and Qty pairs plus the footer code.
+                    Enter the 18 Location and Qty pairs. The footer code is fixed
+                    to L0050.
                   </p>
                 </div>
                 <ProductionKanbanGridEditor
                   rows={backRows}
-                  footerCode={formValues.footerCode}
                   onRowChange={handleBackRowChange}
-                  onFooterCodeChange={(value) => updateField("footerCode", value)}
                 />
               </div>
             </div>
@@ -468,13 +443,11 @@ export default function ProductionKanbanForm({
                 disabled={
                   isSavePending ||
                   isGeneratingPdf ||
-                  uploadProps.loading ||
-                  (uploadProps.files.length > 0 &&
-                    uploadProps.successes.length === 0 &&
-                    !uploadProps.loading)
+                  isUploadingImage ||
+                  hasPendingImageUpload
                 }
               >
-                {isSavePending || isGeneratingPdf ? (
+                {isSavePending || isGeneratingPdf || isUploadingImage ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
@@ -483,9 +456,9 @@ export default function ProductionKanbanForm({
                   ? "Saving..."
                   : isGeneratingPdf
                   ? "Generating PDF..."
-                  : uploadProps.files.length > 0 &&
-                    uploadProps.successes.length === 0 &&
-                    !uploadProps.loading
+                  : isUploadingImage
+                  ? "Uploading Image..."
+                  : hasPendingImageUpload
                   ? "Upload Image First"
                   : editingCardId
                   ? "Update Production Kanban"

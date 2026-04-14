@@ -4,6 +4,7 @@ import { ArrowLeft, Calendar, Edit, FileText, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { PRODUCTION_KANBAN_FIXED_FOOTER_CODE } from "@/lib/production-kanban/constants";
 import { fetchProductionKanbanCardById } from "../actions";
 import ProductionKanbanActions from "../components/ProductionKanbanActions";
 import ProductionKanbanPreview from "../components/ProductionKanbanPreview";
@@ -120,7 +121,7 @@ export default async function ProductionKanbanViewPage({
                 variant="outline"
                 className="border-amber-300 bg-amber-100 text-amber-800"
               >
-                Footer: {card.footer_code || "-"}
+                Footer: {card.footer_code || PRODUCTION_KANBAN_FIXED_FOOTER_CODE}
               </Badge>
             </div>
           </div>

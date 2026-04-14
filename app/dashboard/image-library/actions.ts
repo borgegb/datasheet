@@ -7,6 +7,7 @@
  * - Old products store images with user ID: {user_id}/images/{filename}
  * - New products should use organization ID: {organization_id}/images/{filename}
  * - Kanban uses: {organization_id}/kanban/images/{filename}
+ * - Production Kanban uses: {organization_id}/production-kanban/images/{filename}
  * - Catalogs use: organizations/{organization_id}/catalog_images/{filename}
  *
  * The generateSignedUrl function handles these different path structures.
@@ -62,7 +63,12 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
     }
 
     // Fetch images from all sources in parallel
-    const [productsResult, kanbanResult, catalogsResult] = await Promise.all([
+    const [
+      productsResult,
+      kanbanResult,
+      productionKanbanResult,
+      catalogsResult,
+    ] = await Promise.all([
       // Products images
       supabase
         .from("products")
@@ -77,6 +83,13 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
           "id, part_no, description, image_path, signature_path, created_at"
         )
         .eq("organization_id", organizationId),
+
+      // Production Kanban images
+      supabase
+        .from("production_kanban_cards")
+        .select("id, part_no, description, image_path, created_at")
+        .eq("organization_id", organizationId)
+        .not("image_path", "is", null),
 
       // Catalogs images
       supabase
@@ -129,6 +142,25 @@ export async function fetchImagesForLibrary(): Promise<ImageLibraryData> {
             source: "kanban_cards",
             sourceId: card.id,
             sourceName: `${card.part_no} - Signature`,
+            uploadedAt: card.created_at,
+            organizationId,
+          });
+        }
+      }
+    }
+
+    // Process Production Kanban images
+    if (productionKanbanResult.data) {
+      for (const card of productionKanbanResult.data) {
+        if (card.image_path) {
+          images.push({
+            id: `production-kanban-${card.id}`,
+            path: card.image_path,
+            source: "production_kanban_cards",
+            sourceId: card.id,
+            sourceName: `${card.part_no}${
+              card.description ? ` - ${card.description}` : ""
+            } (Production Kanban)`,
             uploadedAt: card.created_at,
             organizationId,
           });

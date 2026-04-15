@@ -27,7 +27,7 @@ export default async function ImageLibraryPage() {
         <h1 className="text-2xl font-semibold mb-2">Image Library</h1>
         <p className="text-muted-foreground">
           All images from your products, kanban cards, Production Kanban cards,
-          and catalogs in one place.
+          catalogs, and unlinked storage uploads in one place.
         </p>
       </div>
 

@@ -52,6 +52,8 @@ export default function ImageCard({
         return <ClipboardList className="h-3 w-3" />;
       case "catalogs":
         return <ImageIcon className="h-3 w-3" />;
+      case "storage_unlinked":
+        return <ImageIcon className="h-3 w-3" />;
     }
   };
 
@@ -65,6 +67,8 @@ export default function ImageCard({
         return "bg-amber-500/10 text-amber-700 hover:bg-amber-500/20";
       case "catalogs":
         return "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20";
+      case "storage_unlinked":
+        return "bg-slate-500/10 text-slate-700 hover:bg-slate-500/20";
     }
   };
 
@@ -103,7 +107,9 @@ export default function ImageCard({
             className={cn("text-xs capitalize", getSourceColor())}
           >
             <span className="mr-1">{getSourceIcon()}</span>
-            {image.source.replaceAll("_", " ")}
+            {image.source === "storage_unlinked"
+              ? "unlinked storage"
+              : image.source.replaceAll("_", " ")}
           </Badge>
 
           <p className="text-xs text-muted-foreground">

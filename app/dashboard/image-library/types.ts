@@ -1,9 +1,16 @@
+export type ImageSource =
+  | "products"
+  | "kanban_cards"
+  | "production_kanban_cards"
+  | "catalogs"
+  | "storage_unlinked";
+
 // Image types for the library
 export interface ImageItem {
   id: string;
   path: string;
   url?: string; // Signed URL for display
-  source: 'products' | 'kanban_cards' | 'production_kanban_cards' | 'catalogs';
+  source: ImageSource;
   sourceId: string; // ID of the product/card/catalog
   sourceName: string; // Name of the product/card/catalog
   uploadedAt: string;
@@ -16,7 +23,7 @@ export interface ImageItem {
 }
 
 export interface ImageFilters {
-  source?: 'all' | 'products' | 'kanban_cards' | 'production_kanban_cards' | 'catalogs';
+  source?: "all" | ImageSource;
   searchQuery?: string;
   dateRange?: {
     start?: Date;

@@ -49,6 +49,7 @@ export default function ImageFilters({
               Production Kanban
             </SelectItem>
             <SelectItem value="catalogs">Catalogs</SelectItem>
+            <SelectItem value="storage_unlinked">Unlinked Storage</SelectItem>
           </SelectContent>
         </Select>
         

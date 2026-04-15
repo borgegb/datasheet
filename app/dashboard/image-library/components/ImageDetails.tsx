@@ -88,6 +88,9 @@ export default function ImageDetails({
       case "catalogs":
         url = `/dashboard/catalogs/${image.sourceId}`;
         break;
+      case "storage_unlinked":
+        url = "";
+        break;
     }
 
     if (url) {
@@ -96,6 +99,8 @@ export default function ImageDetails({
   };
 
   if (!image) return null;
+
+  const hasSourceLink = image.source !== "storage_unlinked";
 
   return (
     <Sheet open={!!image} onOpenChange={(open) => !open && onClose()}>
@@ -146,7 +151,9 @@ export default function ImageDetails({
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Source</span>
                   <Badge variant="secondary" className="capitalize">
-                    {image.source.replaceAll("_", " ")}
+                    {image.source === "storage_unlinked"
+                      ? "unlinked storage"
+                      : image.source.replaceAll("_", " ")}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
@@ -185,9 +192,10 @@ export default function ImageDetails({
                 variant="outline"
                 className="flex-1"
                 onClick={handleOpenSource}
+                disabled={!hasSourceLink}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                View Source
+                {hasSourceLink ? "View Source" : "No Source"}
               </Button>
             </div>
           </div>

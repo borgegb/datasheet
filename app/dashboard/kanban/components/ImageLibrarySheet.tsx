@@ -32,7 +32,8 @@ interface ImageItem {
     | "products"
     | "kanban_cards"
     | "production_kanban_cards"
-    | "catalogs";
+    | "catalogs"
+    | "storage_unlinked";
   sourceName: string;
   uploadedAt: string;
 }
@@ -216,6 +217,8 @@ export default function ImageLibrarySheet({
         return "bg-amber-500/10 text-amber-700";
       case "catalogs":
         return "bg-purple-500/10 text-purple-600";
+      case "storage_unlinked":
+        return "bg-slate-500/10 text-slate-700";
       default:
         return "bg-gray-500/10 text-gray-600";
     }
@@ -256,6 +259,9 @@ export default function ImageLibrarySheet({
                   Production Kanban
                 </SelectItem>
                 <SelectItem value="catalogs">Catalogs</SelectItem>
+                <SelectItem value="storage_unlinked">
+                  Unlinked Storage
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -411,7 +417,9 @@ function ImageCard({
             variant="secondary"
             className={cn("text-xs capitalize", getSourceColor(image.source))}
           >
-            {image.source.replaceAll("_", " ")}
+            {image.source === "storage_unlinked"
+              ? "unlinked storage"
+              : image.source.replaceAll("_", " ")}
           </Badge>
           <p className="text-xs text-muted-foreground">
             {new Date(image.uploadedAt).toLocaleDateString()}

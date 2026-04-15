@@ -18,7 +18,7 @@ interface ImageCropperDialogProps {
 async function getCroppedBlob(
   image: HTMLImageElement,
   cropAreaPixels: { width: number; height: number; x: number; y: number },
-  fileType: string
+  outputType: string
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = cropAreaPixels.width;
@@ -43,8 +43,28 @@ async function getCroppedBlob(
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
       else reject(new Error("Canvas is empty"));
-    }, fileType || "image/jpeg");
+    }, outputType || "image/png");
   });
+}
+
+function getOutputImageType(fileType: string) {
+  if (fileType === "image/png" || fileType === "image/jpeg") {
+    return fileType;
+  }
+
+  return "image/png";
+}
+
+function getOutputImageFileName(fileName: string, outputType: string) {
+  const extension = outputType === "image/jpeg" ? ".jpg" : ".png";
+  const trimmedName = fileName.trim();
+  const lastDotIndex = trimmedName.lastIndexOf(".");
+
+  if (lastDotIndex === -1) {
+    return `${trimmedName || "image"}${extension}`;
+  }
+
+  return `${trimmedName.slice(0, lastDotIndex)}${extension}`;
 }
 
 export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
@@ -88,8 +108,10 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
   const handleSave = useCallback(async () => {
     if (!file || !croppedAreaPixels || !imgEl) return;
     try {
-      const blob = await getCroppedBlob(imgEl, croppedAreaPixels, file.type);
-      const croppedFile = new File([blob], file.name, { type: file.type });
+      const outputType = getOutputImageType(file.type);
+      const outputName = getOutputImageFileName(file.name, outputType);
+      const blob = await getCroppedBlob(imgEl, croppedAreaPixels, outputType);
+      const croppedFile = new File([blob], outputName, { type: outputType });
       onSave(croppedFile);
     } catch (err) {
       console.error("Crop failed", err);
@@ -161,4 +183,3 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
     </Dialog>
   );
 };
- 

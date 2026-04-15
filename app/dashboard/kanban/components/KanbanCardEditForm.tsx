@@ -25,6 +25,11 @@ import {
   normalizeKanbanHeaderColor,
   type KanbanHeaderColor,
 } from "@/lib/kanban/colors";
+import {
+  buildKanbanImagePath,
+  buildKanbanImageUploadDirectory,
+  createKanbanImageUploadKey,
+} from "@/lib/kanban/image-path";
 
 interface KanbanCardEditFormProps {
   initialData?: Partial<KanbanCard> | null;
@@ -63,6 +68,7 @@ export default function KanbanCardEditForm({
     initialData?.image_path || ""
   );
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [imageUploadKey] = useState(createKanbanImageUploadKey);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   // Form action
@@ -75,7 +81,10 @@ export default function KanbanCardEditForm({
   const uploadProps = useSupabaseUpload({
     bucketName: "datasheet-assets",
     path: profile?.organization_id
-      ? `${profile.organization_id}/kanban/images/`
+      ? buildKanbanImageUploadDirectory(
+          profile.organization_id,
+          imageUploadKey
+        )
       : undefined,
     allowedMimeTypes: ["image/*"],
     maxFiles: 1,
@@ -124,10 +133,19 @@ export default function KanbanCardEditForm({
       const lastSuccessFileName =
         uploadProps.successes[uploadProps.successes.length - 1];
       setUploadedFileName(lastSuccessFileName);
-      const fullPath = `${profile.organization_id}/kanban/images/${lastSuccessFileName}`;
+      const fullPath = buildKanbanImagePath(
+        profile.organization_id,
+        imageUploadKey,
+        lastSuccessFileName
+      );
       setUploadedImagePath(fullPath);
     }
-  }, [uploadProps.loading, uploadProps.successes, profile?.organization_id]);
+  }, [
+    imageUploadKey,
+    uploadProps.loading,
+    uploadProps.successes,
+    profile?.organization_id,
+  ]);
 
   // Extract filename from initial image path
   useEffect(() => {

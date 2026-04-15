@@ -6,7 +6,7 @@
  * Note: There's a legacy issue with product image paths:
  * - Old products store images with user ID: {user_id}/images/{filename}
  * - New products should use organization ID: {organization_id}/images/{filename}
- * - Kanban uses: {organization_id}/kanban/images/{filename}
+ * - Kanban uses: {organization_id}/kanban/images/{upload_key}/{filename}
  * - Production Kanban uses: {organization_id}/production-kanban/images/{filename}
  * - Catalogs use: organizations/{organization_id}/catalog_images/{filename}
  *

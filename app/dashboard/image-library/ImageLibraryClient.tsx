@@ -5,7 +5,8 @@ import { ImageLibraryData, ImageFilters, ImageItem } from "./types";
 import ImageGrid from "./components/ImageGrid";
 import ImageFiltersComponent from "./components/ImageFilters";
 import ImageDetails from "./components/ImageDetails";
-import { generateSignedUrl } from "./actions";
+import { deleteUnlinkedLibraryImage, generateSignedUrl } from "./actions";
+import { toast } from "sonner";
 
 interface ImageLibraryClientProps {
   initialData: ImageLibraryData;
@@ -14,7 +15,7 @@ interface ImageLibraryClientProps {
 export default function ImageLibraryClient({
   initialData,
 }: ImageLibraryClientProps) {
-  const [images] = useState<ImageItem[]>(initialData.images);
+  const [images, setImages] = useState<ImageItem[]>(initialData.images);
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [filteredImages, setFilteredImages] = useState<ImageItem[]>(
     initialData.images
@@ -68,6 +69,22 @@ export default function ImageLibraryClient({
       });
 
       return filtered;
+    },
+    []
+  );
+
+  const removeImageFromState = useCallback(
+    (imageId: string) => {
+      setImages((prev) => prev.filter((image) => image.id !== imageId));
+      setFilteredImages((prev) =>
+        prev.filter((image) => image.id !== imageId)
+      );
+      setImageUrls((prev) => {
+        const next = new Map(prev);
+        next.delete(imageId);
+        return next;
+      });
+      setSelectedImage((prev) => (prev?.id === imageId ? null : prev));
     },
     []
   );
@@ -202,6 +219,27 @@ export default function ImageLibraryClient({
     }
   };
 
+  const handleDeleteImage = useCallback(
+    async (image: ImageItem) => {
+      if (image.source !== "storage_unlinked") {
+        toast.error("Only unlinked storage images can be deleted.");
+        return { ok: false };
+      }
+
+      const result = await deleteUnlinkedLibraryImage(image.path);
+
+      if (result.error) {
+        toast.error(result.error);
+        return { ok: false };
+      }
+
+      toast.success("Image deleted from storage.");
+      removeImageFromState(image.id);
+      return { ok: true };
+    },
+    [removeImageFromState]
+  );
+
   if (initialData.error) {
     return (
       <div className="text-center py-8">
@@ -234,6 +272,7 @@ export default function ImageLibraryClient({
           image={selectedImage}
           onClose={() => setSelectedImage(null)}
           onLoadImage={loadImageUrl}
+          onDeleteImage={handleDeleteImage}
         />
       )}
     </div>

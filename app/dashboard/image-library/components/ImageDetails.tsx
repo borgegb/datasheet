@@ -3,6 +3,17 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -11,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Download, ExternalLink, Copy, Loader2 } from "lucide-react";
+import { Download, ExternalLink, Copy, Loader2, Trash2 } from "lucide-react";
 import { ImageItem } from "../types";
 import { toast } from "sonner";
 
@@ -19,15 +30,18 @@ interface ImageDetailsProps {
   image: ImageItem | null;
   onClose: () => void;
   onLoadImage: (image: ImageItem, fullRes?: boolean) => Promise<string | null>;
+  onDeleteImage: (image: ImageItem) => Promise<{ ok: boolean }>;
 }
 
 export default function ImageDetails({
   image,
   onClose,
   onLoadImage,
+  onDeleteImage,
 }: ImageDetailsProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const descriptionId = "image-details-description";
 
   useEffect(() => {
@@ -101,6 +115,23 @@ export default function ImageDetails({
   if (!image) return null;
 
   const hasSourceLink = image.source !== "storage_unlinked";
+  const canDelete = image.source === "storage_unlinked";
+
+  const handleDelete = async () => {
+    if (!image || !canDelete) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const result = await onDeleteImage(image);
+      if (result.ok) {
+        onClose();
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Sheet open={!!image} onOpenChange={(open) => !open && onClose()}>
@@ -198,6 +229,43 @@ export default function ImageDetails({
                 {hasSourceLink ? "View Source" : "No Source"}
               </Button>
             </div>
+
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {isDeleting ? "Deleting..." : "Delete Image"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete image from storage?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This only deletes unlinked storage images. If the file is
+                      linked to an item in the app, deletion will be blocked.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {isDeleting ? "Deleting..." : "Delete Image"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </SheetContent>

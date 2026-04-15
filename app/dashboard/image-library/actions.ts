@@ -27,7 +27,9 @@
  * ))
  */
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { ImageLibraryData } from "./types";
 import {
   fetchImageLibraryDataForOrganization,
@@ -39,6 +41,30 @@ import {
 const signedUrlCache: Map<string, { url: string; expiresAt: number }> =
   new Map();
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const STORAGE_BUCKET = "datasheet-assets";
+
+function createStorageAdminClient() {
+  const supabaseUrl =
+    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("Missing Supabase configuration for storage management.");
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+function getAllowedStoragePrefixes(organizationId: string) {
+  return [
+    `${organizationId}/kanban/images/`,
+    `${organizationId}/production-kanban/images/`,
+    `${organizationId}/images/`,
+    `organizations/${organizationId}/catalog_images/`,
+  ];
+}
 
 async function getUserOrgId() {
   return getImageLibraryOrganizationId();
@@ -244,6 +270,129 @@ export async function generateSignedUrl(
       error
     );
     return null;
+  }
+}
+
+async function countImageReferences(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  imagePath: string
+) {
+  const [
+    productRefs,
+    kanbanImageRefs,
+    kanbanSignatureRefs,
+    productionKanbanRefs,
+    catalogRefs,
+  ] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id", { head: true, count: "exact" })
+      .eq("organization_id", organizationId)
+      .eq("image_path", imagePath),
+
+    supabase
+      .from("kanban_cards")
+      .select("id", { head: true, count: "exact" })
+      .eq("organization_id", organizationId)
+      .eq("image_path", imagePath),
+
+    supabase
+      .from("kanban_cards")
+      .select("id", { head: true, count: "exact" })
+      .eq("organization_id", organizationId)
+      .eq("signature_path", imagePath),
+
+    supabase
+      .from("production_kanban_cards")
+      .select("id", { head: true, count: "exact" })
+      .eq("organization_id", organizationId)
+      .eq("image_path", imagePath),
+
+    supabase
+      .from("catalogs")
+      .select("id", { head: true, count: "exact" })
+      .eq("organization_id", organizationId)
+      .eq("image_path", imagePath),
+  ]);
+
+  const queries = [
+    productRefs,
+    kanbanImageRefs,
+    kanbanSignatureRefs,
+    productionKanbanRefs,
+    catalogRefs,
+  ];
+
+  for (const query of queries) {
+    if (query.error) {
+      throw new Error(query.error.message);
+    }
+  }
+
+  return (
+    (productRefs.count ?? 0) +
+    (kanbanImageRefs.count ?? 0) +
+    (kanbanSignatureRefs.count ?? 0) +
+    (productionKanbanRefs.count ?? 0) +
+    (catalogRefs.count ?? 0)
+  );
+}
+
+export async function deleteUnlinkedLibraryImage(imagePath: string) {
+  if (!imagePath || typeof imagePath !== "string") {
+    return { error: "Image path is required." };
+  }
+
+  const supabase = await createClient();
+  const organizationId = await getUserOrgId();
+
+  if (!organizationId) {
+    return { error: "Organization not found." };
+  }
+
+  const normalizedPath = imagePath.trim();
+  const isAllowedPath = getAllowedStoragePrefixes(organizationId).some(
+    (prefix) => normalizedPath.startsWith(prefix)
+  );
+
+  if (!isAllowedPath) {
+    return { error: "Only organization image assets can be deleted here." };
+  }
+
+  try {
+    const referenceCount = await countImageReferences(
+      supabase,
+      organizationId,
+      normalizedPath
+    );
+
+    if (referenceCount > 0) {
+      return {
+        error:
+          "This image is still linked to an item in the app and cannot be deleted from the library.",
+      };
+    }
+
+    const adminClient = createStorageAdminClient();
+    const { error: deleteError } = await adminClient.storage
+      .from(STORAGE_BUCKET)
+      .remove([normalizedPath]);
+
+    if (deleteError) {
+      return { error: deleteError.message };
+    }
+
+    signedUrlCache.delete(normalizedPath);
+    revalidatePath("/dashboard/image-library");
+
+    return { error: null };
+  } catch (error) {
+    console.error("Error deleting unlinked library image:", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "Failed to delete image.",
+    };
   }
 }
 

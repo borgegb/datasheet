@@ -4,6 +4,7 @@ export const maxDuration = 60;
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { buildCertificationPdf } from "@/lib/pdf/certifications/buildCertificationPdf";
+import { buildVm350DeclarationPdf } from "@/lib/pdf/certifications/buildVm350DeclarationPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { randomUUID } from "node:crypto";
 
@@ -52,10 +53,12 @@ export async function POST(
     const templateJson = await import(
       `@/pdf/template/certifications/${typeDef.slug}.json`
     );
-    const pdfBytes = await buildCertificationPdf(merged, {
-      template: templateJson.default,
-      variant: typeDef.slug as "hydrostatic-test" | "ec-vm-350-declaration",
-    });
+    const pdfBytes =
+      params.type === "ec-vm-350-declaration"
+        ? await buildVm350DeclarationPdf(merged, templateJson.default)
+        : await buildCertificationPdf(merged, {
+            template: templateJson.default,
+          });
 
     const iso = new Date().toISOString().replace(/[:.]/g, "-");
     const rid = randomUUID().slice(0, 8);

@@ -2,6 +2,7 @@ import { generate } from "@pdfme/generator";
 import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font } from "@pdfme/common";
 
@@ -46,10 +47,13 @@ type SupportedCertificationVariant =
   | "ec-vm-350-declaration";
 
 const VARIANT_BASE_PDF_ASSET_PATHS: Partial<
-  Record<SupportedCertificationVariant, string>
+  Record<SupportedCertificationVariant, URL>
 > = {
   "ec-vm-350-declaration":
-    "pdf/assets/certifications/ec-vm-350-declaration-base.pdf",
+    new URL(
+      "../../../pdf/assets/certifications/ec-vm-350-declaration-base.pdf",
+      import.meta.url
+    ),
 };
 
 type BuildOptions = {
@@ -74,6 +78,14 @@ async function readDataUri(
   return `data:${contentType};base64,${file.toString("base64")}`;
 }
 
+async function readDataUriFromAbsolutePath(
+  absolutePath: string,
+  contentType: string
+): Promise<string> {
+  const file = await fs.readFile(absolutePath);
+  return `data:${contentType};base64,${file.toString("base64")}`;
+}
+
 async function loadTemplate(
   options: BuildOptions
 ): Promise<TemplateWithAssetPath> {
@@ -95,11 +107,11 @@ async function materializeTemplate(
   variant: SupportedCertificationVariant
 ): Promise<Template> {
   const nextTemplate = cloneTemplate(template);
-  const variantBasePdfAssetPath = VARIANT_BASE_PDF_ASSET_PATHS[variant];
+  const variantBasePdfAssetUrl = VARIANT_BASE_PDF_ASSET_PATHS[variant];
 
-  if (variantBasePdfAssetPath) {
-    nextTemplate.basePdf = await readDataUri(
-      variantBasePdfAssetPath,
+  if (variantBasePdfAssetUrl) {
+    nextTemplate.basePdf = await readDataUriFromAbsolutePath(
+      fileURLToPath(variantBasePdfAssetUrl),
       "application/pdf"
     );
     delete nextTemplate.basePdfAssetPath;

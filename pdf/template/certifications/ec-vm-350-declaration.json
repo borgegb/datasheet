@@ -16,7 +16,6 @@
       }
     ]
   ],
-  "basePdfAssetPath": "pdf/assets/certifications/ec-vm-350-declaration-base.pdf",
   "basePdf": {
     "width": 210,
     "height": 297,

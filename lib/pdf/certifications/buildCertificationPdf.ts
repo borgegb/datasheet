@@ -2,9 +2,9 @@ import { generate } from "@pdfme/generator";
 import { text, image, line, rectangle, table } from "@pdfme/schemas";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font } from "@pdfme/common";
+import { EC_VM_350_DECLARATION_BASE_PDF_DATA_URI } from "./ec-vm-350-base-pdf";
 
 type HydrostaticCertificationData = {
   titleTop: string;
@@ -46,14 +46,10 @@ type SupportedCertificationVariant =
   | "hydrostatic-test"
   | "ec-vm-350-declaration";
 
-const VARIANT_BASE_PDF_ASSET_PATHS: Partial<
-  Record<SupportedCertificationVariant, URL>
+const VARIANT_BASE_PDF_DATA_URIS: Partial<
+  Record<SupportedCertificationVariant, string>
 > = {
-  "ec-vm-350-declaration":
-    new URL(
-      "../../../pdf/assets/certifications/ec-vm-350-declaration-base.pdf",
-      import.meta.url
-    ),
+  "ec-vm-350-declaration": EC_VM_350_DECLARATION_BASE_PDF_DATA_URI,
 };
 
 type BuildOptions = {
@@ -78,14 +74,6 @@ async function readDataUri(
   return `data:${contentType};base64,${file.toString("base64")}`;
 }
 
-async function readDataUriFromAbsolutePath(
-  absolutePath: string,
-  contentType: string
-): Promise<string> {
-  const file = await fs.readFile(absolutePath);
-  return `data:${contentType};base64,${file.toString("base64")}`;
-}
-
 async function loadTemplate(
   options: BuildOptions
 ): Promise<TemplateWithAssetPath> {
@@ -107,13 +95,10 @@ async function materializeTemplate(
   variant: SupportedCertificationVariant
 ): Promise<Template> {
   const nextTemplate = cloneTemplate(template);
-  const variantBasePdfAssetUrl = VARIANT_BASE_PDF_ASSET_PATHS[variant];
+  const variantBasePdfDataUri = VARIANT_BASE_PDF_DATA_URIS[variant];
 
-  if (variantBasePdfAssetUrl) {
-    nextTemplate.basePdf = await readDataUriFromAbsolutePath(
-      fileURLToPath(variantBasePdfAssetUrl),
-      "application/pdf"
-    );
+  if (variantBasePdfDataUri) {
+    nextTemplate.basePdf = variantBasePdfDataUri;
     delete nextTemplate.basePdfAssetPath;
   } else if (typeof nextTemplate.basePdfAssetPath === "string") {
     nextTemplate.basePdf = await readDataUri(

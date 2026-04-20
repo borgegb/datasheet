@@ -1,0 +1,27 @@
+{
+  "schemas": [
+    [
+      {
+        "type": "text",
+        "name": "serialNumber",
+        "content": "",
+        "position": { "x": 67, "y": 109.5 },
+        "width": 88,
+        "height": 5,
+        "fontName": "Roboto",
+        "fontSize": 10.5,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "fontColor": "#000000"
+      }
+    ]
+  ],
+  "basePdfAssetPath": "pdf/assets/certifications/ec-vm-350-declaration-base.pdf",
+  "basePdf": {
+    "width": 210,
+    "height": 297,
+    "padding": [0, 0, 0, 0],
+    "staticSchema": []
+  },
+  "pdfmeVersion": "5.4.1"
+}

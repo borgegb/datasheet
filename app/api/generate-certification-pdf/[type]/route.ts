@@ -54,6 +54,7 @@ export async function POST(
     );
     const pdfBytes = await buildCertificationPdf(merged, {
       template: templateJson.default,
+      variant: typeDef.slug as "hydrostatic-test" | "ec-vm-350-declaration",
     });
 
     const iso = new Date().toISOString().replace(/[:.]/g, "-");

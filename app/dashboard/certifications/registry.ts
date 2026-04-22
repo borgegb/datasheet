@@ -28,7 +28,6 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       equipmentDescription: "Varimount Compressor",
       model: "VM 350",
       serialNumber: "",
-      issueDate: "18 December 2025",
       manufacturer: "Applied Concepts Ltd.",
       manufacturerAddress:
         "Roscrea Rd, Birr, Co. Offaly, R42 XW08, Republic of Ireland.",

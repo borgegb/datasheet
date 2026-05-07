@@ -47,7 +47,9 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       signatoryTitle: "Managing Director",
     },
     schema: z.object({
-      serialNumber: z.string().min(1),
+      serialNumber: z
+        .string()
+        .regex(/^AP-\d{2}-\d{4}$/, "Serial Number must match AP-00-0000"),
     }),
     fieldLayout: [
       {

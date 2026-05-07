@@ -49,7 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveDatasheet, fetchCategories } from "../actions";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 // Define type for Category (if not already defined)
 interface Category {
@@ -102,11 +102,6 @@ export default function DatasheetGeneratorForm({
   editingProductId = null,
   selectedProduct,
 }: DatasheetGeneratorFormProps) {
-  // --- Get search params ---
-  const searchParams = useSearchParams();
-  const catalogIdFromUrl = searchParams.get("catalogId");
-  // -----------------------
-
   // --- State Initialization using initialData prop ---
   const [productTitle, setProductTitle] = useState(
     initialData?.product_title || ""
@@ -178,8 +173,7 @@ export default function DatasheetGeneratorForm({
 
   // --- Restore Catalog State ---
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>(
-    // Prioritize initialData, then URL param (for new sheets), then empty
-    initialData?.catalog_id || (editingProductId ? "" : catalogIdFromUrl) || ""
+    initialData?.catalog_id || ""
   );
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   // --- End Restore Catalog State ---
@@ -1082,26 +1076,20 @@ export default function DatasheetGeneratorForm({
   };
   // -------------------------------------------
 
-  // --- Restore useEffect to handle catalogIdFromUrl if needed ---
+  // Restore catalog selection from the URL for "Add Datasheet to Catalog".
   useEffect(() => {
-    // Only set from URL if we are NOT editing (no initialData.catalog_id)
-    // and a catalogId exists in the URL and is different from current state
-    if (
-      !editingProductId && // Check if editing
-      !initialData?.catalog_id &&
-      catalogIdFromUrl &&
-      catalogIdFromUrl !== selectedCatalogId
-    ) {
-      console.log("Setting catalog ID from URL param:", catalogIdFromUrl);
-      setSelectedCatalogId(catalogIdFromUrl);
+    if (editingProductId || initialData?.catalog_id) {
+      return;
     }
-  }, [
-    catalogIdFromUrl,
-    initialData?.catalog_id,
-    editingProductId,
-    selectedCatalogId,
-  ]);
-  // ------------------------------------------------------------
+
+    const catalogIdFromUrl = new URLSearchParams(window.location.search).get(
+      "catalogId"
+    );
+
+    if (catalogIdFromUrl) {
+      setSelectedCatalogId((current) => current || catalogIdFromUrl);
+    }
+  }, [initialData?.catalog_id, editingProductId]);
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -1134,6 +1122,7 @@ export default function DatasheetGeneratorForm({
             name="imagePath"
             value={uploadedImagePath || ""}
           />
+          <input type="hidden" name="catalogId" value={selectedCatalogId} />
 
           {/* --- Hidden input for selected category IDs --- */}
           <input
@@ -1892,7 +1881,6 @@ export default function DatasheetGeneratorForm({
               <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="catalog">Assign to Catalog</Label>
                 <Select
-                  name="catalogId" // Ensure name matches what saveDatasheet expects if using FormData directly
                   value={selectedCatalogId}
                   onValueChange={setSelectedCatalogId}
                   disabled={isLoadingData} // Use combined loading state

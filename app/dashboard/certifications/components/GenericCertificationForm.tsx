@@ -24,6 +24,135 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
+const VM350_SERIAL_PREFIX = "AP";
+
+function sanitizeSerialChunk(value: string, length: number) {
+  return value.replace(/\D/g, "").slice(0, length);
+}
+
+function splitVm350SerialNumber(value: string) {
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const withoutPrefix = normalized.startsWith(VM350_SERIAL_PREFIX)
+    ? normalized.slice(VM350_SERIAL_PREFIX.length)
+    : normalized;
+
+  return {
+    prefix: VM350_SERIAL_PREFIX,
+    middle: withoutPrefix.slice(0, 2),
+    suffix: withoutPrefix.slice(2, 6),
+  };
+}
+
+function buildVm350SerialNumber(middle: string, suffix: string) {
+  if (!middle && !suffix) return "";
+  return `${VM350_SERIAL_PREFIX}-${middle}-${suffix}`;
+}
+
+function DateField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (nextValue: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const dateObj = value ? new Date(value) : undefined;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          data-empty={!dateObj}
+          className="data-[empty=true]:text-muted-foreground w-full justify-between font-normal"
+        >
+          <span className="flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4" />
+            {dateObj ? format(dateObj, "PPP") : <span>Pick a date</span>}
+          </span>
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={dateObj}
+          captionLayout="dropdown"
+          onSelect={(date) => {
+            onChange(
+              date
+                ? new Date(
+                    Date.UTC(
+                      date.getFullYear(),
+                      date.getMonth(),
+                      date.getDate()
+                    )
+                  ).toISOString()
+                : ""
+            );
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function Vm350SerialNumberField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (nextValue: string) => void;
+}) {
+  const { prefix, middle, suffix } = splitVm350SerialNumber(value);
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={prefix}
+        readOnly
+        aria-label="Serial number prefix"
+        className="w-16 text-center font-mono"
+      />
+      <span className="text-muted-foreground">-</span>
+      <Input
+        value={middle}
+        inputMode="numeric"
+        maxLength={2}
+        aria-label="Serial number middle digits"
+        placeholder="00"
+        className="w-16 text-center font-mono"
+        onChange={(e) => {
+          onChange(
+            buildVm350SerialNumber(
+              sanitizeSerialChunk(e.target.value, 2),
+              suffix
+            )
+          );
+        }}
+      />
+      <span className="text-muted-foreground">-</span>
+      <Input
+        value={suffix}
+        inputMode="numeric"
+        maxLength={4}
+        aria-label="Serial number last digits"
+        placeholder="0000"
+        className="w-24 text-center font-mono"
+        onChange={(e) => {
+          onChange(
+            buildVm350SerialNumber(
+              middle,
+              sanitizeSerialChunk(e.target.value, 4)
+            )
+          );
+        }}
+      />
+    </div>
+  );
+}
+
 interface Props {
   typeSlug: string;
 }
@@ -161,6 +290,17 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       );
     }
 
+    if (typeSlug === "ec-vm-350-declaration" && f.name === "serialNumber") {
+      return (
+        <Vm350SerialNumberField
+          value={(form[f.name] as string) ?? ""}
+          onChange={(nextValue) =>
+            setForm((current) => ({ ...current, [f.name]: nextValue }))
+          }
+        />
+      );
+    }
+
     if (f.type === "select") {
       // Minimal select using native input to avoid extra deps
       return (
@@ -179,45 +319,14 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       );
     }
 
-    // Shadcn-style date picker for date fields
     if (f.type === "date") {
-      const iso = (form[f.name] as string) || "";
-      const dateObj = iso ? new Date(iso) : undefined;
-      const [open, setOpen] = React.useState(false);
       return (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              data-empty={!dateObj}
-              className="data-[empty=true]:text-muted-foreground w-[280px] justify-between font-normal"
-            >
-              <span className="flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                {dateObj ? format(dateObj, "PPP") : <span>Pick a date</span>}
-              </span>
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={dateObj}
-              captionLayout="dropdown"
-              onSelect={(d) => {
-                setForm((s) => ({
-                  ...s,
-                  [f.name]: d
-                    ? new Date(
-                        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
-                      ).toISOString()
-                    : "",
-                }));
-                setOpen(false);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+        <DateField
+          value={(form[f.name] as string) ?? ""}
+          onChange={(nextValue) =>
+            setForm((current) => ({ ...current, [f.name]: nextValue }))
+          }
+        />
       );
     }
 

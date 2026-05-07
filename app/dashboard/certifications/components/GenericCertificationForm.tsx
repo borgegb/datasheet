@@ -106,6 +106,24 @@ function Vm350SerialNumberField({
   onChange: (nextValue: string) => void;
 }) {
   const { prefix, middle, suffix } = splitVm350SerialNumber(value);
+  const middleInputRef = React.useRef<HTMLInputElement>(null);
+  const suffixInputRef = React.useRef<HTMLInputElement>(null);
+
+  const focusMiddleInput = () => {
+    middleInputRef.current?.focus();
+    middleInputRef.current?.setSelectionRange(
+      middleInputRef.current.value.length,
+      middleInputRef.current.value.length
+    );
+  };
+
+  const focusSuffixInput = () => {
+    suffixInputRef.current?.focus();
+    suffixInputRef.current?.setSelectionRange(
+      suffixInputRef.current.value.length,
+      suffixInputRef.current.value.length
+    );
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -117,6 +135,7 @@ function Vm350SerialNumberField({
       />
       <span className="text-muted-foreground">-</span>
       <Input
+        ref={middleInputRef}
         value={middle}
         inputMode="numeric"
         maxLength={2}
@@ -124,16 +143,25 @@ function Vm350SerialNumberField({
         placeholder="00"
         className="w-16 text-center font-mono"
         onChange={(e) => {
+          const nextMiddle = sanitizeSerialChunk(e.target.value, 2);
           onChange(
-            buildVm350SerialNumber(
-              sanitizeSerialChunk(e.target.value, 2),
-              suffix
-            )
+            buildVm350SerialNumber(nextMiddle, suffix)
           );
+
+          if (nextMiddle.length === 2) {
+            requestAnimationFrame(focusSuffixInput);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight" && middle.length === 2) {
+            e.preventDefault();
+            focusSuffixInput();
+          }
         }}
       />
       <span className="text-muted-foreground">-</span>
       <Input
+        ref={suffixInputRef}
         value={suffix}
         inputMode="numeric"
         maxLength={4}
@@ -147,6 +175,17 @@ function Vm350SerialNumberField({
               sanitizeSerialChunk(e.target.value, 4)
             )
           );
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Backspace" && suffix.length === 0) {
+            e.preventDefault();
+            focusMiddleInput();
+          }
+
+          if (e.key === "ArrowLeft" && e.currentTarget.selectionStart === 0) {
+            e.preventDefault();
+            focusMiddleInput();
+          }
         }}
       />
     </div>

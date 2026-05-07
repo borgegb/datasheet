@@ -11,8 +11,8 @@ import {
   Loader2,
   Calendar as CalendarIcon,
   ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
@@ -203,7 +203,6 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       <div className="p-6 text-destructive">Unknown certification type.</div>
     );
   }
-  const router = useRouter();
   const [form, setForm] = React.useState<Record<string, any>>(typeDef.defaults);
   const [productId, setProductId] = React.useState<string>("");
   const [productLabel, setProductLabel] = React.useState<string>("");
@@ -213,6 +212,9 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   >([]);
   const [isSearchingProducts, setIsSearchingProducts] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [generatedPdfUrl, setGeneratedPdfUrl] = React.useState<string | null>(
+    null
+  );
   const [organizationId, setOrganizationId] = React.useState<string | null>(
     null
   );
@@ -382,6 +384,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setGeneratedPdfUrl(null);
     try {
       // Lightweight validation for required fields present in schema
       const parse = typeDef.schema.safeParse(form);
@@ -405,6 +408,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to generate PDF");
       if (data?.url) {
+        setGeneratedPdfUrl(data.url);
         toast.success(`✅ ${typeDef.title} PDF generated!`, {
           description: "Click the button to open your generated PDF.",
           action: (
@@ -443,6 +447,30 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
               </div>
             ))}
           </div>
+          {generatedPdfUrl && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Certificate ready
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Open the latest generated {typeDef.title.toLowerCase()}.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => window.open(generatedPdfUrl, "_blank")}
+                >
+                  Open Certificate
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (

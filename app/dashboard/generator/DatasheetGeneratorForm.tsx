@@ -39,6 +39,7 @@ import {
   Plus,
   ArrowLeft,
   ArrowRight,
+  AlertCircle,
   Sparkles,
   Wand2,
   RefreshCw,
@@ -53,6 +54,7 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxValue,
+  useComboboxAnchor,
 } from "@/components/ui/combobox";
 import {
   Select,
@@ -299,6 +301,7 @@ export default function DatasheetGeneratorForm({
   const shouldSyncLoadedVariantColumnsRef = useRef(
     !editingProductId && !initialData
   );
+  const variantColumnComboboxAnchor = useComboboxAnchor();
   const router = useRouter();
 
   // --- Add flag to track form initialization ---
@@ -1089,6 +1092,12 @@ export default function DatasheetGeneratorForm({
       return;
     }
 
+    if (datasheetMode === "variant" && selectedVariantColumns.length === 0) {
+      e.preventDefault();
+      toast.error("Choose at least one variant information column before saving.");
+      return;
+    }
+
     // If no pending uploads, allow normal form submission
     // The form will automatically call saveFormAction
   };
@@ -1229,11 +1238,6 @@ export default function DatasheetGeneratorForm({
     const nextColumns = Array.isArray(value)
       ? (value as VariantColumnDefinition[])
       : [];
-
-    if (nextColumns.length === 0) {
-      toast.info("At least one variant column is required.");
-      return;
-    }
 
     if (nextColumns.length > MAX_VARIANT_COLUMNS) {
       toast.info(`Variant datasheets can use up to ${MAX_VARIANT_COLUMNS} columns.`);
@@ -1834,7 +1838,13 @@ export default function DatasheetGeneratorForm({
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label>Variant Information Columns</Label>
-                        <span className="text-xs text-muted-foreground">
+                        <span
+                          className={`text-xs ${
+                            selectedVariantColumns.length === 0
+                              ? "font-medium text-destructive"
+                              : "text-muted-foreground"
+                          }`}
+                        >
                           {variantColumnKeys.length}/{MAX_VARIANT_COLUMNS}
                         </span>
                       </div>
@@ -1845,7 +1855,11 @@ export default function DatasheetGeneratorForm({
                         onValueChange={handleVariantColumnsChange}
                         itemToStringValue={(column) => column.label}
                       >
-                        <ComboboxChips className="w-full">
+                        <ComboboxChips
+                          ref={variantColumnComboboxAnchor}
+                          aria-invalid={selectedVariantColumns.length === 0}
+                          className="w-full"
+                        >
                           <ComboboxValue>
                             {selectedVariantColumns.map((column) => (
                               <ComboboxChip key={column.key}>
@@ -1855,7 +1869,10 @@ export default function DatasheetGeneratorForm({
                           </ComboboxValue>
                           <ComboboxChipsInput placeholder="Add variant column" />
                         </ComboboxChips>
-                        <ComboboxContent>
+                        <ComboboxContent
+                          anchor={variantColumnComboboxAnchor}
+                          className="w-(--anchor-width) min-w-(--anchor-width)"
+                        >
                           <ComboboxEmpty>No columns found.</ComboboxEmpty>
                           <ComboboxList>
                             {(column) => {
@@ -1896,93 +1913,118 @@ export default function DatasheetGeneratorForm({
                         </Button>
                       </div>
                       <div className="overflow-x-auto rounded-md border">
-                        <div
-                          className="grid min-w-[720px] border-b bg-muted/50 text-sm font-medium"
-                          style={{
-                            gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
-                          }}
-                        >
-                          {selectedVariantColumns.map((column, columnIndex) => (
-                            <div
-                              key={column.key}
-                              className="group relative min-w-0 border-r px-2 py-1.5 last:border-r-0"
-                            >
-                              <div className="min-w-0">
-                                <span className="block truncate px-1">
-                                  {column.label}
-                                </span>
-                                <div className="pointer-events-none absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-sm bg-muted/95 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      moveVariantColumn(column.key, "left")
-                                    }
-                                    disabled={columnIndex === 0}
-                                    aria-label={`Move ${column.label} left`}
-                                    className="h-4 w-4 rounded-sm p-0"
-                                  >
-                                    <ArrowLeft className="h-2.5 w-2.5" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      moveVariantColumn(column.key, "right")
-                                    }
-                                    disabled={
-                                      columnIndex ===
-                                      selectedVariantColumns.length - 1
-                                    }
-                                    aria-label={`Move ${column.label} right`}
-                                    className="h-4 w-4 rounded-sm p-0"
-                                  >
-                                    <ArrowRight className="h-2.5 w-2.5" />
-                                  </Button>
-                                </div>
-                              </div>
+                        {selectedVariantColumns.length === 0 ? (
+                          <div className="flex min-h-32 items-start gap-3 bg-destructive/5 p-4 text-sm text-destructive">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <div className="space-y-1">
+                              <p className="font-medium">
+                                Choose at least one variant column.
+                              </p>
+                              <p className="text-muted-foreground">
+                                You can clear the old set first, then select up
+                                to five new columns before saving.
+                              </p>
                             </div>
-                          ))}
-                          <div className="px-2 py-2" />
-                        </div>
-                        {variantRows.map((row, rowIndex) => (
-                          <div
-                            key={row.id}
-                            className="grid min-w-[720px] border-b last:border-b-0"
-                            style={{
-                              gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
-                            }}
-                          >
-                            {selectedVariantColumns.map((column) => (
-                              <Input
-                                key={column.key}
-                                value={row.values[column.key] || ""}
-                                onChange={(event) =>
-                                  handleVariantCellChange(
-                                    rowIndex,
-                                    column.key,
-                                    event.target.value
-                                  )
-                                }
-                                placeholder={column.placeholder}
-                                className="h-10 rounded-none border-0 border-r shadow-none focus-visible:ring-1"
-                              />
-                            ))}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeVariantRow(rowIndex)}
-                              disabled={variantRows.length <= 1}
-                              aria-label="Remove variant row"
-                              className="h-10 rounded-none text-destructive hover:bg-destructive/10"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
                           </div>
-                        ))}
+                        ) : (
+                          <>
+                            <div
+                              className="grid min-w-[720px] border-b bg-muted/50 text-sm font-medium"
+                              style={{
+                                gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
+                              }}
+                            >
+                              {selectedVariantColumns.map(
+                                (column, columnIndex) => (
+                                  <div
+                                    key={column.key}
+                                    className="group relative min-w-0 border-r px-2 py-1.5 last:border-r-0"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="block truncate px-1">
+                                        {column.label}
+                                      </span>
+                                      <div className="pointer-events-none absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-sm bg-muted/95 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() =>
+                                            moveVariantColumn(
+                                              column.key,
+                                              "left"
+                                            )
+                                          }
+                                          disabled={columnIndex === 0}
+                                          aria-label={`Move ${column.label} left`}
+                                          className="h-4 w-4 rounded-sm p-0"
+                                        >
+                                          <ArrowLeft className="h-2.5 w-2.5" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() =>
+                                            moveVariantColumn(
+                                              column.key,
+                                              "right"
+                                            )
+                                          }
+                                          disabled={
+                                            columnIndex ===
+                                            selectedVariantColumns.length - 1
+                                          }
+                                          aria-label={`Move ${column.label} right`}
+                                          className="h-4 w-4 rounded-sm p-0"
+                                        >
+                                          <ArrowRight className="h-2.5 w-2.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              )}
+                              <div className="px-2 py-2" />
+                            </div>
+                            {variantRows.map((row, rowIndex) => (
+                              <div
+                                key={row.id}
+                                className="grid min-w-[720px] border-b last:border-b-0"
+                                style={{
+                                  gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
+                                }}
+                              >
+                                {selectedVariantColumns.map((column) => (
+                                  <Input
+                                    key={column.key}
+                                    value={row.values[column.key] || ""}
+                                    onChange={(event) =>
+                                      handleVariantCellChange(
+                                        rowIndex,
+                                        column.key,
+                                        event.target.value
+                                      )
+                                    }
+                                    placeholder={column.placeholder}
+                                    className="h-10 rounded-none border-0 border-r shadow-none focus-visible:ring-1"
+                                  />
+                                ))}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeVariantRow(rowIndex)}
+                                  disabled={variantRows.length <= 1}
+                                  aria-label="Remove variant row"
+                                  className="h-10 rounded-none text-destructive hover:bg-destructive/10"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

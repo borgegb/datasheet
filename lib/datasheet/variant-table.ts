@@ -136,6 +136,10 @@ export function normalizeVariantColumns(
   columns: unknown,
   availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
 ): VariantColumnDefinition[] {
+  if (Array.isArray(columns) && columns.length === 0) {
+    return [];
+  }
+
   const source = Array.isArray(columns)
     ? columns
     : DEFAULT_VARIANT_COLUMN_KEYS;

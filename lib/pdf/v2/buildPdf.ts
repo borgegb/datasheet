@@ -5,9 +5,10 @@ import path from "node:path";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font, Plugin } from "@pdfme/common";
 import {
+  getVariantColumnDefinitions,
   getVariantTableHead,
   getVariantTableWidthPercentages,
-  normalizeVariantColumnKeys,
+  type VariantColumnDefinition,
   type VariantColumnKey,
 } from "../../datasheet/variant-table";
 
@@ -402,6 +403,7 @@ interface BuildPdfInput {
   irelandLogo?: string;
   specificationsTable: string[][]; // two-column body rows
   datasheetMode?: "standard" | "variant";
+  variantColumns?: VariantColumnDefinition[];
   variantColumnKeys?: VariantColumnKey[];
   variantTableRows?: string[][];
   keyFeaturesList?: Array<{ icon: string; text: string }>; // Add key features
@@ -415,14 +417,15 @@ interface BuildPdfInput {
 
 const applyVariantTableColumns = (
   template: Template,
-  columnKeys: VariantColumnKey[]
+  columns: unknown
 ): Template => {
-  const normalizedColumnKeys = normalizeVariantColumnKeys(columnKeys);
-  const head = getVariantTableHead(normalizedColumnKeys);
-  const headWidthPercentages =
-    getVariantTableWidthPercentages(normalizedColumnKeys);
+  const columnDefinitions = getVariantColumnDefinitions(columns);
+  const head = getVariantTableHead(columnDefinitions);
+  const headWidthPercentages = getVariantTableWidthPercentages(
+    columnDefinitions
+  );
   const alignment = Object.fromEntries(
-    normalizedColumnKeys.map((_, index) => [index, "left"])
+    columnDefinitions.map((_, index) => [index, "left"])
   );
 
   return {
@@ -486,7 +489,7 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   if (isVariantDatasheet) {
     template = applyVariantTableColumns(
       template,
-      input.variantColumnKeys || []
+      input.variantColumns || input.variantColumnKeys || []
     );
   }
 

@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation"; // If needed later
 import { createClient as createServerActionClient } from "@/lib/supabase/server";
 // --- Import Supabase client explicitly for admin client ---
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
+import type { VariantColumnDefinition } from "@/lib/datasheet/variant-table";
 // ---------------------------------------------------------
 
 // --- Action to get user's organization ID ---
@@ -32,6 +33,47 @@ async function getUserOrgId(
     return null;
   }
   return profile.organization_id;
+}
+
+async function getOwnerOrgId(
+  supabase: Awaited<ReturnType<typeof createServerActionClient>>
+): Promise<{ organizationId: string | null; error: { message: string } | null }> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return {
+      organizationId: null,
+      error: { message: "Authentication required." },
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, organization_id")
+    .eq("id", userData.user.id)
+    .single();
+
+  if (profileError || !profile) {
+    return {
+      organizationId: null,
+      error: { message: "User profile not found." },
+    };
+  }
+
+  if (profile.role !== "owner") {
+    return {
+      organizationId: null,
+      error: { message: "Only organization owners can manage variant columns." },
+    };
+  }
+
+  if (!profile.organization_id) {
+    return {
+      organizationId: null,
+      error: { message: "User organization context missing." },
+    };
+  }
+
+  return { organizationId: profile.organization_id, error: null };
 }
 
 // --- Action to Fetch Products ---
@@ -206,6 +248,259 @@ export async function fetchCategories() {
   return { data: data ?? [], error: null };
 }
 // ---                           ---
+
+export type OrganizationVariantColumn = VariantColumnDefinition & {
+  id: string;
+  displayOrder: number;
+  archivedAt: string | null;
+};
+
+type VariantColumnRow = {
+  id: string;
+  key: string;
+  label: string;
+  placeholder: string | null;
+  weight: number | string | null;
+  display_order: number | null;
+  archived_at: string | null;
+};
+
+const mapVariantColumnRow = (
+  row: VariantColumnRow
+): OrganizationVariantColumn => ({
+  id: row.id,
+  key: row.key,
+  label: row.label,
+  placeholder: row.placeholder || undefined,
+  weight: (() => {
+    const parsed =
+      typeof row.weight === "number"
+        ? row.weight
+        : Number.parseFloat(String(row.weight || 14));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 14;
+  })(),
+  displayOrder: row.display_order ?? 0,
+  archivedAt: row.archived_at,
+});
+
+export async function fetchVariantColumnsForOrg(
+  includeArchived = false
+): Promise<{
+  data: OrganizationVariantColumn[];
+  error: { message: string } | null;
+}> {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return { data: [], error: { message: "User organization not found." } };
+  }
+
+  const fetchRows = async () => {
+    let query = supabase
+      .from("variant_datasheet_columns")
+      .select("id, key, label, placeholder, weight, display_order, archived_at")
+      .eq("organization_id", organizationId);
+
+    if (!includeArchived) {
+      query = query.is("archived_at", null);
+    }
+
+    return query
+      .order("archived_at", { ascending: true, nullsFirst: true })
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
+  };
+
+  const { data, error } = await fetchRows();
+
+  if (error) {
+    console.error("Server Action Error (fetchVariantColumnsForOrg):", error);
+    return { data: [], error: { message: `Database error: ${error.message}` } };
+  }
+
+  return {
+    data: ((data || []) as VariantColumnRow[]).map(mapVariantColumnRow),
+    error: null,
+  };
+}
+
+export async function createVariantColumn(label: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+  const { organizationId, error: ownerError } = await getOwnerOrgId(supabase);
+
+  if (ownerError || !organizationId) {
+    return { error: ownerError || { message: "User organization not found." } };
+  }
+
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) {
+    return { error: { message: "Variant column name cannot be empty." } };
+  }
+
+  const { data: existingColumns, error: orderError } = await supabase
+    .from("variant_datasheet_columns")
+    .select("display_order")
+    .eq("organization_id", organizationId)
+    .order("display_order", { ascending: false })
+    .limit(1);
+
+  if (orderError) {
+    return { error: { message: `Database error: ${orderError.message}` } };
+  }
+
+  const maxDisplayOrder = existingColumns?.[0]?.display_order || 0;
+
+  const { data, error } = await supabase
+    .from("variant_datasheet_columns")
+    .insert({
+      organization_id: organizationId,
+      key: `custom_${randomUUID()}`,
+      label: trimmedLabel,
+      placeholder: trimmedLabel,
+      weight: 14,
+      display_order: maxDisplayOrder + 10,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Server Action Error (createVariantColumn):", error);
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator");
+  return { data, error: null };
+}
+
+export async function updateVariantColumn(columnId: string, label: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+  const { organizationId, error: ownerError } = await getOwnerOrgId(supabase);
+
+  if (ownerError || !organizationId) {
+    return { error: ownerError || { message: "User organization not found." } };
+  }
+
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) {
+    return { error: { message: "Variant column name cannot be empty." } };
+  }
+
+  const { data, error } = await supabase
+    .from("variant_datasheet_columns")
+    .update({
+      label: trimmedLabel,
+      placeholder: trimmedLabel,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", columnId)
+    .eq("organization_id", organizationId)
+    .is("archived_at", null)
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Server Action Error (updateVariantColumn):", error);
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator");
+  return { data, error: null };
+}
+
+export async function archiveVariantColumn(columnId: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+  const { organizationId, error: ownerError } = await getOwnerOrgId(supabase);
+
+  if (ownerError || !organizationId) {
+    return { error: ownerError || { message: "User organization not found." } };
+  }
+
+  const { data: targetColumn, error: targetError } = await supabase
+    .from("variant_datasheet_columns")
+    .select("archived_at")
+    .eq("id", columnId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (targetError) {
+    console.error("Server Action Error (archiveVariantColumn):", targetError);
+    return { error: { message: `Database error: ${targetError.message}` } };
+  }
+
+  if (targetColumn.archived_at) {
+    return { error: null };
+  }
+
+  const { count: activeColumnCount, error: countError } = await supabase
+    .from("variant_datasheet_columns")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .is("archived_at", null);
+
+  if (countError) {
+    console.error("Server Action Error (archiveVariantColumn):", countError);
+    return { error: { message: `Database error: ${countError.message}` } };
+  }
+
+  if ((activeColumnCount || 0) <= 1) {
+    return {
+      error: { message: "At least one active variant column is required." },
+    };
+  }
+
+  const { error } = await supabase
+    .from("variant_datasheet_columns")
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", columnId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("Server Action Error (archiveVariantColumn):", error);
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator");
+  return { error: null };
+}
+
+export async function restoreVariantColumn(columnId: string) {
+  "use server";
+  const supabase = await createServerActionClient();
+  const { organizationId, error: ownerError } = await getOwnerOrgId(supabase);
+
+  if (ownerError || !organizationId) {
+    return { error: ownerError || { message: "User organization not found." } };
+  }
+
+  const { error } = await supabase
+    .from("variant_datasheet_columns")
+    .update({
+      archived_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", columnId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("Server Action Error (restoreVariantColumn):", error);
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/generator");
+  return { error: null };
+}
 
 // --- ADD createCategory action ---
 export async function createCategory(categoryName: string) {

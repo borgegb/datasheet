@@ -37,10 +37,23 @@ import {
   Eye,
   X,
   Plus,
+  ArrowLeft,
+  ArrowRight,
   Sparkles,
   Wand2,
   RefreshCw,
 } from "lucide-react";
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import {
   Select,
   SelectContent,
@@ -48,7 +61,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveDatasheet, fetchCategories } from "../actions";
+import {
+  saveDatasheet,
+  fetchCategories,
+  fetchVariantColumnsForOrg,
+} from "../actions";
 import { useRouter } from "next/navigation";
 import {
   DEFAULT_VARIANT_COLUMN_KEYS,
@@ -58,8 +75,10 @@ import {
   VARIANT_TABLE_COLUMN_OPTIONS,
   coerceSpecRows,
   coerceVariantRows,
-  normalizeVariantColumnKeys,
+  getVariantColumnDefinitions,
+  normalizeVariantColumns,
   parseDatasheetTablePayload,
+  type VariantColumnDefinition,
   type VariantColumnKey,
 } from "@/lib/datasheet/variant-table";
 
@@ -154,6 +173,37 @@ const variantRowsForForm = (rows: unknown): VariantFormRow[] => {
   }));
 };
 
+const mergeVariantColumnOptions = (
+  baseColumns: VariantColumnDefinition[],
+  columnsToMerge: VariantColumnDefinition[]
+): VariantColumnDefinition[] => {
+  const mergedColumns = [...baseColumns];
+  const mergedKeys = new Set(mergedColumns.map((column) => column.key));
+
+  for (const column of columnsToMerge) {
+    if (!mergedKeys.has(column.key)) {
+      mergedColumns.push(column);
+      mergedKeys.add(column.key);
+    }
+  }
+
+  return mergedColumns;
+};
+
+const getDefaultVariantColumnKeysForOptions = (
+  availableColumns: VariantColumnDefinition[]
+): VariantColumnKey[] =>
+  normalizeVariantColumns(DEFAULT_VARIANT_COLUMN_KEYS, availableColumns).map(
+    (column) => column.key
+  );
+
+const variantColumnKeysMatch = (
+  keys: VariantColumnKey[],
+  expectedKeys: readonly VariantColumnKey[]
+): boolean =>
+  keys.length === expectedKeys.length &&
+  keys.every((key, index) => key === expectedKeys[index]);
+
 export default function DatasheetGeneratorForm({
   initialData = null,
   editingProductId = null,
@@ -172,6 +222,9 @@ export default function DatasheetGeneratorForm({
   const [datasheetMode, setDatasheetMode] =
     useState<DatasheetMode>("standard");
   const [specs, setSpecs] = useState<SpecFormRow[]>(createEmptySpecRows());
+  const [variantColumnOptions, setVariantColumnOptions] = useState<
+    VariantColumnDefinition[]
+  >([]);
   const [variantColumnKeys, setVariantColumnKeys] =
     useState<VariantColumnKey[]>(DEFAULT_VARIANT_COLUMN_KEYS);
   const [variantRows, setVariantRows] = useState<VariantFormRow[]>(
@@ -243,6 +296,9 @@ export default function DatasheetGeneratorForm({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const shouldSyncLoadedVariantColumnsRef = useRef(
+    !editingProductId && !initialData
+  );
   const router = useRouter();
 
   // --- Add flag to track form initialization ---
@@ -520,7 +576,11 @@ export default function DatasheetGeneratorForm({
     }
 
     setDatasheetMode("standard");
-    setVariantColumnKeys(DEFAULT_VARIANT_COLUMN_KEYS);
+    setVariantColumnKeys(
+      variantColumnOptions.length > 0
+        ? getDefaultVariantColumnKeysForOptions(variantColumnOptions)
+        : DEFAULT_VARIANT_COLUMN_KEYS
+    );
     setVariantRows(createEmptyVariantRows());
 
     // Clear image and other fields that don't have mappings
@@ -541,6 +601,7 @@ export default function DatasheetGeneratorForm({
       // Reset states related to loading
       setAvailableCategories([]); // Reset categories
       setCatalogs([]); // Reset catalogs too
+      setVariantColumnOptions([]);
       setProfile(null);
       setUser(null);
 
@@ -601,6 +662,34 @@ export default function DatasheetGeneratorForm({
         setAvailableCategories([]);
       } else {
         setAvailableCategories(categoryData || []);
+      }
+
+      const { data: variantColumns, error: variantColumnsError } =
+        await fetchVariantColumnsForOrg();
+      if (!isMounted) return;
+      if (variantColumnsError) {
+        console.error("Error fetching variant columns:", variantColumnsError);
+        toast.error("Failed to load variant columns.");
+        setVariantColumnOptions(VARIANT_TABLE_COLUMN_OPTIONS);
+      } else {
+        const fetchedVariantColumns =
+          variantColumns.map((column) => ({
+            key: column.key,
+            label: column.label,
+            weight: column.weight,
+            placeholder: column.placeholder,
+          }));
+
+        setVariantColumnOptions((currentOptions) =>
+          mergeVariantColumnOptions(fetchedVariantColumns, currentOptions)
+        );
+        if (shouldSyncLoadedVariantColumnsRef.current) {
+          setVariantColumnKeys((currentKeys) =>
+            variantColumnKeysMatch(currentKeys, DEFAULT_VARIANT_COLUMN_KEYS)
+              ? getDefaultVariantColumnKeysForOptions(fetchedVariantColumns)
+              : currentKeys
+          );
+        }
       }
 
       setIsLoadingData(false); // Finish loading
@@ -718,10 +807,18 @@ export default function DatasheetGeneratorForm({
         );
 
         if (tablePayload.tableMode === "variant") {
+          const parsedVariantColumns = normalizeVariantColumns(
+            tablePayload.variantColumns,
+            VARIANT_TABLE_COLUMN_OPTIONS
+          );
+
           setDatasheetMode("variant");
           setSpecs(specRowsForForm(tablePayload.specifications));
+          setVariantColumnOptions((currentOptions) =>
+            mergeVariantColumnOptions(currentOptions, parsedVariantColumns)
+          );
           setVariantColumnKeys(
-            normalizeVariantColumnKeys(tablePayload.variantColumns)
+            parsedVariantColumns.map((column) => column.key)
           );
           setVariantRows(variantRowsForForm(tablePayload.variantRows));
         } else {
@@ -1128,26 +1225,46 @@ export default function DatasheetGeneratorForm({
     setSpecs(newSpecs);
   };
 
-  const handleVariantColumnChange = (
+  const handleVariantColumnsChange = (value: unknown) => {
+    const nextColumns = Array.isArray(value)
+      ? (value as VariantColumnDefinition[])
+      : [];
+
+    if (nextColumns.length === 0) {
+      toast.info("At least one variant column is required.");
+      return;
+    }
+
+    if (nextColumns.length > MAX_VARIANT_COLUMNS) {
+      toast.info(`Variant datasheets can use up to ${MAX_VARIANT_COLUMNS} columns.`);
+    }
+
+    setVariantColumnKeys(
+      nextColumns.slice(0, MAX_VARIANT_COLUMNS).map((column) => column.key)
+    );
+  };
+
+  const moveVariantColumn = (
     columnKey: VariantColumnKey,
-    checked: boolean
+    direction: "left" | "right"
   ) => {
     setVariantColumnKeys((currentKeys) => {
-      if (checked) {
-        const withColumn = [...currentKeys, columnKey];
-        const orderedKeys = VARIANT_TABLE_COLUMN_OPTIONS.map(
-          (column) => column.key
-        ).filter((key) => withColumn.includes(key));
+      const currentIndex = currentKeys.indexOf(columnKey);
+      if (currentIndex === -1) return currentKeys;
 
-        return orderedKeys.slice(0, MAX_VARIANT_COLUMNS);
-      }
-
-      if (currentKeys.length === 1) {
-        toast.info("At least one variant column is required.");
+      const targetIndex =
+        direction === "left" ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= currentKeys.length) {
         return currentKeys;
       }
 
-      return currentKeys.filter((key) => key !== columnKey);
+      const reorderedKeys = [...currentKeys];
+      [reorderedKeys[currentIndex], reorderedKeys[targetIndex]] = [
+        reorderedKeys[targetIndex],
+        reorderedKeys[currentIndex],
+      ];
+
+      return reorderedKeys;
     });
   };
 
@@ -1224,8 +1341,9 @@ export default function DatasheetGeneratorForm({
     }
   }, [initialData?.catalog_id, editingProductId]);
 
-  const selectedVariantColumns = VARIANT_TABLE_COLUMN_OPTIONS.filter((column) =>
-    variantColumnKeys.includes(column.key)
+  const selectedVariantColumns = getVariantColumnDefinitions(
+    variantColumnKeys,
+    variantColumnOptions
   );
   const techSpecsFormValue = JSON.stringify(
     datasheetMode === "variant"
@@ -1233,7 +1351,14 @@ export default function DatasheetGeneratorForm({
           version: 2,
           tableMode: "variant",
           specifications: specs.map(({ label, value }) => ({ label, value })),
-          variantColumns: variantColumnKeys,
+          variantColumns: selectedVariantColumns.map(
+            ({ key, label, weight, placeholder }) => ({
+              key,
+              label,
+              weight,
+              placeholder,
+            })
+          ),
           variantRows: variantRows.map(({ values }) => ({ values })),
         }
       : specs.map(({ label, value }) => ({ label, value }))
@@ -1713,41 +1838,48 @@ export default function DatasheetGeneratorForm({
                           {variantColumnKeys.length}/{MAX_VARIANT_COLUMNS}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {VARIANT_TABLE_COLUMN_OPTIONS.map((column) => {
-                          const checked = variantColumnKeys.includes(
-                            column.key
-                          );
-                          const disabled =
-                            !checked &&
-                            variantColumnKeys.length >= MAX_VARIANT_COLUMNS;
-
-                          return (
-                            <div
-                              key={column.key}
-                              className="flex items-center space-x-2"
-                            >
-                              <Checkbox
-                                id={`variant-column-${column.key}`}
-                                checked={checked}
-                                disabled={disabled}
-                                onCheckedChange={(value) =>
-                                  handleVariantColumnChange(
-                                    column.key,
-                                    Boolean(value)
-                                  )
-                                }
-                              />
-                              <Label
-                                htmlFor={`variant-column-${column.key}`}
-                                className="cursor-pointer font-normal"
-                              >
+                      <Combobox
+                        items={variantColumnOptions}
+                        multiple
+                        value={selectedVariantColumns}
+                        onValueChange={handleVariantColumnsChange}
+                        itemToStringValue={(column) => column.label}
+                      >
+                        <ComboboxChips className="w-full">
+                          <ComboboxValue>
+                            {selectedVariantColumns.map((column) => (
+                              <ComboboxChip key={column.key}>
                                 {column.label}
-                              </Label>
-                            </div>
-                          );
-                        })}
-                      </div>
+                              </ComboboxChip>
+                            ))}
+                          </ComboboxValue>
+                          <ComboboxChipsInput placeholder="Add variant column" />
+                        </ComboboxChips>
+                        <ComboboxContent>
+                          <ComboboxEmpty>No columns found.</ComboboxEmpty>
+                          <ComboboxList>
+                            {(column) => {
+                              const isSelected = variantColumnKeys.includes(
+                                column.key
+                              );
+                              const isDisabled =
+                                !isSelected &&
+                                variantColumnKeys.length >=
+                                  MAX_VARIANT_COLUMNS;
+
+                              return (
+                                <ComboboxItem
+                                  key={column.key}
+                                  value={column}
+                                  disabled={isDisabled}
+                                >
+                                  {column.label}
+                                </ComboboxItem>
+                              );
+                            }}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
                     </div>
 
                     <div className="space-y-3">
@@ -1770,12 +1902,47 @@ export default function DatasheetGeneratorForm({
                             gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
                           }}
                         >
-                          {selectedVariantColumns.map((column) => (
+                          {selectedVariantColumns.map((column, columnIndex) => (
                             <div
                               key={column.key}
-                              className="border-r px-3 py-2 last:border-r-0"
+                              className="min-w-0 border-r px-2 py-1.5 last:border-r-0"
                             >
-                              {column.label}
+                              <div className="flex min-w-0 items-center justify-between gap-1">
+                                <span className="truncate px-1">
+                                  {column.label}
+                                </span>
+                                <div className="flex shrink-0 items-center gap-0.5">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      moveVariantColumn(column.key, "left")
+                                    }
+                                    disabled={columnIndex === 0}
+                                    aria-label={`Move ${column.label} left`}
+                                    className="h-7 w-7 rounded-sm"
+                                  >
+                                    <ArrowLeft className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      moveVariantColumn(column.key, "right")
+                                    }
+                                    disabled={
+                                      columnIndex ===
+                                      selectedVariantColumns.length - 1
+                                    }
+                                    aria-label={`Move ${column.label} right`}
+                                    className="h-7 w-7 rounded-sm"
+                                  >
+                                    <ArrowRight className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           ))}
                           <div className="px-2 py-2" />

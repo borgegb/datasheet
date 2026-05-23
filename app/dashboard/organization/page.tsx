@@ -1,14 +1,12 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/server";
-import { fetchOrgMembers, fetchCategories } from "../actions";
+import {
+  fetchOrgMembers,
+  fetchCategories,
+  fetchVariantColumnsForOrg,
+} from "../actions";
 import OrganizationClient from "./OrganizationClient";
 import { redirect } from "next/navigation";
-
-// Define a simple type for Category if not already defined elsewhere for props
-interface Category {
-  id: string;
-  name: string;
-}
 
 export default async function OrganizationPage() {
   const supabase = await createClient();
@@ -32,6 +30,8 @@ export default async function OrganizationPage() {
   const { data: categoriesData, error: categoriesError } =
     await fetchCategories();
   // ----------------------
+  const { data: variantColumnsData, error: variantColumnsError } =
+    await fetchVariantColumnsForOrg(true);
 
   if (profileError || !profile) {
     console.error("Error fetching user profile for org page:", profileError);
@@ -40,8 +40,10 @@ export default async function OrganizationPage() {
         userRole={null}
         initialMembers={[]}
         initialCategories={[]} // Pass empty array
+        initialVariantColumns={variantColumnsData || []}
         errorMsg="Failed to load user profile."
         categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
+        variantColumnsErrorMsg={variantColumnsError?.message}
       />
     );
   }
@@ -53,8 +55,10 @@ export default async function OrganizationPage() {
         userRole={profile.role}
         initialMembers={[]}
         initialCategories={categoriesData || []} // Pass fetched categories
+        initialVariantColumns={variantColumnsData || []}
         errorMsg="You do not seem to belong to an organization."
         categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
+        variantColumnsErrorMsg={variantColumnsError?.message}
       />
     );
   }
@@ -69,8 +73,10 @@ export default async function OrganizationPage() {
         userRole={profile.role}
         initialMembers={[]}
         initialCategories={categoriesData || []} // Pass fetched categories
+        initialVariantColumns={variantColumnsData || []}
         errorMsg={`Failed to load organization members: ${membersError.message}`}
         categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
+        variantColumnsErrorMsg={variantColumnsError?.message}
       />
     );
   }
@@ -80,7 +86,9 @@ export default async function OrganizationPage() {
       userRole={profile.role || "member"} // Pass user's role
       initialMembers={members || []} // Pass fetched members
       initialCategories={categoriesData || []} // Pass fetched categories
+      initialVariantColumns={variantColumnsData || []}
       categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
+      variantColumnsErrorMsg={variantColumnsError?.message}
     />
   );
 }

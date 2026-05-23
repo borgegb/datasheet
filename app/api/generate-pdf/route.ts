@@ -241,7 +241,7 @@ export async function POST(req: Request) {
         }));
       })(),
       specificationsTable,
-      variantColumnKeys:
+      variantColumns:
         tablePayload.tableMode === "variant"
           ? tablePayload.variantColumns
           : undefined,

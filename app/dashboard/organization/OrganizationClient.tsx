@@ -19,9 +19,22 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  createVariantColumn,
+  updateVariantColumn,
+  archiveVariantColumn,
+  restoreVariantColumn,
 } from "../actions";
+import type { OrganizationVariantColumn } from "../actions";
 import { toast } from "sonner";
-import { Mail, Loader2, PlusCircle, EditIcon, TrashIcon } from "lucide-react";
+import {
+  Mail,
+  Loader2,
+  PlusCircle,
+  EditIcon,
+  TrashIcon,
+  ArchiveIcon,
+  RotateCcw,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -56,25 +69,31 @@ interface OrganizationClientProps {
   userRole: string | null;
   initialMembers: OrgMember[];
   initialCategories: Category[]; // Add new prop
+  initialVariantColumns: OrganizationVariantColumn[];
   errorMsg?: string;
   categoriesErrorMsg?: string; // Add new prop
+  variantColumnsErrorMsg?: string;
 }
 
 export default function OrganizationClient({
   userRole,
   initialMembers,
   initialCategories, // Destructure new prop
+  initialVariantColumns,
   errorMsg,
   categoriesErrorMsg, // Destructure new prop
+  variantColumnsErrorMsg,
 }: OrganizationClientProps) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member"); // State for selected role
   const [newCategoryName, setNewCategoryName] = useState(""); // State for new category name
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [newVariantColumnName, setNewVariantColumnName] = useState("");
+  const [isVariantColumnDialogOpen, setIsVariantColumnDialogOpen] =
+    useState(false);
   
   // State for current user info
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   // Fetch current user
   useEffect(() => {
@@ -84,7 +103,6 @@ export default function OrganizationClient({
       if (userData.user) {
         setCurrentUser(userData.user);
       }
-      setIsLoadingUser(false);
     };
     
     fetchCurrentUser();
@@ -95,6 +113,11 @@ export default function OrganizationClient({
     useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
+  const [isVariantColumnEditDialogOpen, setIsVariantColumnEditDialogOpen] =
+    useState(false);
+  const [editingVariantColumn, setEditingVariantColumn] =
+    useState<OrganizationVariantColumn | null>(null);
+  const [editVariantColumnName, setEditVariantColumnName] = useState("");
   // -------------------------------------
 
   // Use useActionState for the invite form
@@ -127,7 +150,7 @@ export default function OrganizationClient({
   );
 
   // --- useActionState for Create Category form ---
-  const [categoryCreateState, submitCreateCategory, isCategoryCreatePending] =
+  const [, submitCreateCategory, isCategoryCreatePending] =
     useActionState(
       async (
         prevState: { error: string | null } | null,
@@ -140,7 +163,7 @@ export default function OrganizationClient({
           return { error: "Category name is required." };
         }
 
-        const { data, error } = await createCategory(categoryName.trim());
+        const { error } = await createCategory(categoryName.trim());
         if (error) {
           toast.error(`Failed to create category: ${error.message}`);
           return { error: error.message };
@@ -157,7 +180,7 @@ export default function OrganizationClient({
   // --- End Create Category Action State ---
 
   // --- useActionState for Update Category form ---
-  const [categoryUpdateState, submitUpdateCategory, isCategoryUpdatePending] =
+  const [, submitUpdateCategory, isCategoryUpdatePending] =
     useActionState(
       async (
         prevState: { error: string | null } | null,
@@ -189,6 +212,71 @@ export default function OrganizationClient({
     );
   // --- End Update Category Action State ---
 
+  const [
+    variantColumnCreateState,
+    submitCreateVariantColumn,
+    isVariantColumnCreatePending,
+  ] = useActionState(
+    async (
+      prevState: { error: string | null } | null,
+      formData: FormData
+    ) => {
+      const columnName = formData.get("variantColumnName") as string;
+      if (!columnName.trim()) {
+        toast.warning("Variant column name cannot be empty.");
+        return { error: "Variant column name is required." };
+      }
+
+      const { error } = await createVariantColumn(columnName.trim());
+      if (error) {
+        toast.error(`Failed to create variant column: ${error.message}`);
+        return { error: error.message };
+      }
+
+      toast.success(`Variant column "${columnName.trim()}" created!`);
+      setNewVariantColumnName("");
+      setIsVariantColumnDialogOpen(false);
+      return { error: null };
+    },
+    null
+  );
+
+  const [
+    variantColumnUpdateState,
+    submitUpdateVariantColumn,
+    isVariantColumnUpdatePending,
+  ] = useActionState(
+    async (
+      prevState: { error: string | null } | null,
+      formData: FormData
+    ) => {
+      const columnName = formData.get("editVariantColumnName") as string;
+      if (!editingVariantColumn) {
+        toast.error("No variant column selected for editing.");
+        return { error: "No variant column selected." };
+      }
+      if (!columnName.trim()) {
+        toast.warning("Variant column name cannot be empty.");
+        return { error: "Variant column name is required." };
+      }
+
+      const { error } = await updateVariantColumn(
+        editingVariantColumn.id,
+        columnName.trim()
+      );
+      if (error) {
+        toast.error(`Failed to update variant column: ${error.message}`);
+        return { error: error.message };
+      }
+
+      toast.success(`Variant column "${columnName.trim()}" updated!`);
+      setIsVariantColumnEditDialogOpen(false);
+      setEditingVariantColumn(null);
+      return { error: null };
+    },
+    null
+  );
+
   // --- Delete Category Handler ---
   const handleDeleteCategory = async (
     categoryId: string,
@@ -213,6 +301,55 @@ export default function OrganizationClient({
     }
   };
   // -----------------------------
+
+  const handleArchiveVariantColumn = async (
+    columnId: string,
+    columnName: string
+  ) => {
+    const archiveToastId = toast.loading(
+      `Archiving variant column "${columnName}"...`
+    );
+
+    const result = await archiveVariantColumn(columnId);
+
+    toast.dismiss(archiveToastId);
+
+    if (result.error) {
+      toast.error(
+        `Failed to archive variant column "${columnName}": ${result.error.message}`
+      );
+    } else {
+      toast.success(`Variant column "${columnName}" archived.`);
+    }
+  };
+
+  const handleRestoreVariantColumn = async (
+    columnId: string,
+    columnName: string
+  ) => {
+    const restoreToastId = toast.loading(
+      `Restoring variant column "${columnName}"...`
+    );
+
+    const result = await restoreVariantColumn(columnId);
+
+    toast.dismiss(restoreToastId);
+
+    if (result.error) {
+      toast.error(
+        `Failed to restore variant column "${columnName}": ${result.error.message}`
+      );
+    } else {
+      toast.success(`Variant column "${columnName}" restored.`);
+    }
+  };
+
+  const activeVariantColumns = initialVariantColumns.filter(
+    (column) => !column.archivedAt
+  );
+  const archivedVariantColumns = initialVariantColumns.filter(
+    (column) => column.archivedAt
+  );
 
   // Display initial error if fetching failed on server
   if (errorMsg) {
@@ -428,8 +565,8 @@ export default function OrganizationClient({
                             </AlertDialogTitle>
                             <AlertDialogDescription>
                               This action cannot be undone. This will
-                              permanently delete the category "
-                              <strong>{category.name}</strong>". If products are
+                              permanently delete{" "}
+                              <strong>{category.name}</strong>. If products are
                               using this category, deletion might fail or
                               products might be affected.
                             </AlertDialogDescription>
@@ -457,6 +594,192 @@ export default function OrganizationClient({
       )}
       {/* --- End Manage Categories Section --- */}
 
+      {userRole === "owner" && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Variant Datasheet Columns</CardTitle>
+              <CardDescription>
+                Manage the column headers available in the variant datasheet
+                selector.
+              </CardDescription>
+            </div>
+            <Dialog
+              open={isVariantColumnDialogOpen}
+              onOpenChange={setIsVariantColumnDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Create Column
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create Variant Column</DialogTitle>
+                  <DialogDescription>
+                    Add a column header that can be selected in variant
+                    datasheets.
+                  </DialogDescription>
+                </DialogHeader>
+                <form action={submitCreateVariantColumn}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="variant-column-name" className="text-right">
+                        Name
+                      </Label>
+                      <Input
+                        id="variant-column-name"
+                        name="variantColumnName"
+                        value={newVariantColumnName}
+                        onChange={(event) =>
+                          setNewVariantColumnName(event.target.value)
+                        }
+                        className="col-span-3"
+                        placeholder="e.g., Bore Size"
+                        required
+                        disabled={isVariantColumnCreatePending}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button
+                        variant="outline"
+                        disabled={isVariantColumnCreatePending}
+                      >
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    <Button
+                      type="submit"
+                      disabled={isVariantColumnCreatePending}
+                    >
+                      {isVariantColumnCreatePending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      {isVariantColumnCreatePending
+                        ? "Creating..."
+                        : "Create Column"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+                {variantColumnCreateState?.error && (
+                  <p className="text-sm text-destructive">
+                    {variantColumnCreateState.error}
+                  </p>
+                )}
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {variantColumnsErrorMsg && (
+              <p className="text-sm text-destructive">
+                Error loading variant columns: {variantColumnsErrorMsg}
+              </p>
+            )}
+            {!variantColumnsErrorMsg && activeVariantColumns.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No active variant columns created yet.
+              </p>
+            )}
+            {!variantColumnsErrorMsg && activeVariantColumns.length > 0 && (
+              <ul className="space-y-2">
+                {activeVariantColumns.map((column) => (
+                  <li
+                    key={column.id}
+                    className="flex items-center justify-between rounded-md border p-3 text-sm"
+                  >
+                    <span>{column.label}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setEditingVariantColumn(column);
+                          setEditVariantColumnName(column.label);
+                          setIsVariantColumnEditDialogOpen(true);
+                        }}
+                        title="Edit variant column"
+                      >
+                        <EditIcon className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={activeVariantColumns.length <= 1}
+                            title={
+                              activeVariantColumns.length <= 1
+                                ? "At least one active variant column is required"
+                                : "Archive variant column"
+                            }
+                          >
+                            <ArchiveIcon className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Archive this variant column?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This removes{" "}
+                              <strong>{column.label}</strong> from new
+                              datasheet selections, but existing datasheets that
+                              already use it will still render.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() =>
+                                handleArchiveVariantColumn(
+                                  column.id,
+                                  column.label
+                                )
+                              }
+                            >
+                              Archive column
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {archivedVariantColumns.length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Archived Columns
+                </p>
+                <ul className="space-y-2">
+                  {archivedVariantColumns.map((column) => (
+                    <li
+                      key={column.id}
+                      className="flex items-center justify-between rounded-md border p-3 text-sm text-muted-foreground"
+                    >
+                      <span>{column.label}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleRestoreVariantColumn(column.id, column.label)
+                        }
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* --- Edit Category Dialog --- */}
       {editingCategory && (
         <Dialog
@@ -470,8 +793,8 @@ export default function OrganizationClient({
             <DialogHeader>
               <DialogTitle>Edit Category</DialogTitle>
               <DialogDescription>
-                Update the name for the category "
-                <strong>{editingCategory.name}</strong>".
+                Update the name for{" "}
+                <strong>{editingCategory.name}</strong>.
               </DialogDescription>
             </DialogHeader>
             {/* Use action state for the form */}
@@ -510,6 +833,70 @@ export default function OrganizationClient({
         </Dialog>
       )}
       {/* ----------------------------- */}
+
+      {editingVariantColumn && (
+        <Dialog
+          open={isVariantColumnEditDialogOpen}
+          onOpenChange={(isOpen) => {
+            setIsVariantColumnEditDialogOpen(isOpen);
+            if (!isOpen) setEditingVariantColumn(null);
+          }}
+        >
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Variant Column</DialogTitle>
+              <DialogDescription>
+                Update the label for{" "}
+                <strong>{editingVariantColumn.label}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+            <form action={submitUpdateVariantColumn}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label
+                    htmlFor="edit-variant-column-name"
+                    className="text-right"
+                  >
+                    Name
+                  </Label>
+                  <Input
+                    id="edit-variant-column-name"
+                    name="editVariantColumnName"
+                    value={editVariantColumnName}
+                    onChange={(event) =>
+                      setEditVariantColumnName(event.target.value)
+                    }
+                    className="col-span-3"
+                    required
+                    disabled={isVariantColumnUpdatePending}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button
+                    variant="outline"
+                    disabled={isVariantColumnUpdatePending}
+                  >
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={isVariantColumnUpdatePending}>
+                  {isVariantColumnUpdatePending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {isVariantColumnUpdatePending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+            {variantColumnUpdateState?.error && (
+              <p className="text-sm text-destructive">
+                {variantColumnUpdateState.error}
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

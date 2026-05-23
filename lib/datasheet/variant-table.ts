@@ -1,4 +1,12 @@
-export const VARIANT_TABLE_COLUMN_OPTIONS = [
+export type VariantColumnDefinition = {
+  key: string;
+  label: string;
+  weight: number;
+  placeholder?: string;
+  archivedAt?: string | null;
+};
+
+export const VARIANT_TABLE_COLUMN_OPTIONS: VariantColumnDefinition[] = [
   {
     key: "productCode",
     label: "Product Code",
@@ -31,10 +39,9 @@ export const VARIANT_TABLE_COLUMN_OPTIONS = [
   { key: "hoseSize", label: "Hose Size", weight: 14, placeholder: "1/2 in" },
   { key: "inlet", label: "Inlet", weight: 12, placeholder: "1/2 in" },
   { key: "outlet", label: "Outlet", weight: 12, placeholder: "70 mm" },
-] as const;
+];
 
-export type VariantColumnKey =
-  (typeof VARIANT_TABLE_COLUMN_OPTIONS)[number]["key"];
+export type VariantColumnKey = string;
 
 export type StandardSpecRow = {
   label: string;
@@ -54,7 +61,7 @@ export type VariantDatasheetTablePayload = {
   version: 2;
   tableMode: "variant";
   specifications: StandardSpecRow[];
-  variantColumns: VariantColumnKey[];
+  variantColumns: VariantColumnDefinition[];
   variantRows: VariantTableRow[];
 };
 
@@ -71,61 +78,140 @@ export const DEFAULT_VARIANT_COLUMN_KEYS: VariantColumnKey[] = [
 ];
 
 export const DEFAULT_VARIANT_ROW_COUNT = 6;
-export const MAX_VARIANT_COLUMNS = 6;
+export const MAX_VARIANT_COLUMNS = 5;
 export const MAX_VARIANT_ROWS = 6;
 
-const columnOptionsByKey = new Map(
-  VARIANT_TABLE_COLUMN_OPTIONS.map((column) => [column.key, column])
-);
+const normalizeColumnLabel = (label: unknown): string => {
+  const normalized = (label ?? "").toString().trim();
+  return normalized || "Variant Column";
+};
 
-export function normalizeVariantColumnKeys(
-  columnKeys: unknown
-): VariantColumnKey[] {
-  const source = Array.isArray(columnKeys)
-    ? columnKeys
+const normalizeColumnWeight = (weight: unknown): number => {
+  const parsed =
+    typeof weight === "number" ? weight : Number.parseFloat(String(weight));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 14;
+};
+
+export function normalizeVariantColumnDefinition(
+  column: unknown,
+  availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
+): VariantColumnDefinition | null {
+  if (typeof column === "string") {
+    return (
+      availableColumns.find((availableColumn) => availableColumn.key === column) ||
+      null
+    );
+  }
+
+  if (!column || typeof column !== "object") {
+    return null;
+  }
+
+  const candidate = column as Record<string, unknown>;
+  const key = (candidate.key ?? candidate.id ?? "").toString().trim();
+  if (!key) return null;
+
+  const fallbackColumn = availableColumns.find(
+    (availableColumn) => availableColumn.key === key
+  );
+
+  return {
+    key,
+    label: normalizeColumnLabel(candidate.label ?? fallbackColumn?.label),
+    weight: normalizeColumnWeight(candidate.weight ?? fallbackColumn?.weight),
+    placeholder:
+      (candidate.placeholder ?? fallbackColumn?.placeholder ?? "")
+        .toString()
+        .trim() || undefined,
+    archivedAt:
+      typeof candidate.archivedAt === "string"
+        ? candidate.archivedAt
+        : typeof candidate.archived_at === "string"
+        ? candidate.archived_at
+        : fallbackColumn?.archivedAt ?? null,
+  };
+}
+
+export function normalizeVariantColumns(
+  columns: unknown,
+  availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
+): VariantColumnDefinition[] {
+  const source = Array.isArray(columns)
+    ? columns
     : DEFAULT_VARIANT_COLUMN_KEYS;
 
-  const selected = source.filter((key): key is VariantColumnKey => {
-    return (
-      typeof key === "string" &&
-      columnOptionsByKey.has(key as VariantColumnKey)
+  const selected: VariantColumnDefinition[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const column of source) {
+    const normalizedColumn = normalizeVariantColumnDefinition(
+      column,
+      availableColumns
     );
-  });
 
-  const unique = Array.from(new Set(selected));
-  const normalized = unique.length > 0 ? unique : DEFAULT_VARIANT_COLUMN_KEYS;
+    if (!normalizedColumn || seenKeys.has(normalizedColumn.key)) {
+      continue;
+    }
 
-  return normalized.slice(0, MAX_VARIANT_COLUMNS);
+    selected.push(normalizedColumn);
+    seenKeys.add(normalizedColumn.key);
+  }
+
+  if (selected.length === 0) {
+    return availableColumns.slice(0, MAX_VARIANT_COLUMNS);
+  }
+
+  return selected.slice(0, MAX_VARIANT_COLUMNS);
 }
 
-export function getVariantColumnDefinitions(columnKeys: VariantColumnKey[]) {
-  return normalizeVariantColumnKeys(columnKeys).map((key) => {
-    return columnOptionsByKey.get(key)!;
-  });
+export function normalizeVariantColumnKeys(
+  columnKeys: unknown,
+  availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
+): VariantColumnKey[] {
+  return normalizeVariantColumns(columnKeys, availableColumns).map(
+    (column) => column.key
+  );
 }
 
-export function getVariantTableHead(columnKeys: VariantColumnKey[]): string[] {
-  return getVariantColumnDefinitions(columnKeys).map((column) => column.label);
+export function getVariantColumnDefinitions(
+  columns: unknown,
+  availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
+): VariantColumnDefinition[] {
+  return normalizeVariantColumns(columns, availableColumns);
+}
+
+export function getVariantTableHead(
+  columns: unknown,
+  availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
+): string[] {
+  return getVariantColumnDefinitions(columns, availableColumns).map(
+    (column) => column.label
+  );
 }
 
 export function getVariantTableWidthPercentages(
-  columnKeys: VariantColumnKey[]
+  columns: unknown,
+  availableColumns: VariantColumnDefinition[] = VARIANT_TABLE_COLUMN_OPTIONS
 ): number[] {
-  const columns = getVariantColumnDefinitions(columnKeys);
-  const totalWeight = columns.reduce((total, column) => {
+  const columnDefinitions = getVariantColumnDefinitions(
+    columns,
+    availableColumns
+  );
+  const totalWeight = columnDefinitions.reduce((total, column) => {
     return total + column.weight;
   }, 0);
 
-  return columns.map((column, index) => {
+  return columnDefinitions.map((column, index) => {
     const value = (column.weight / totalWeight) * 100;
-    return index === columns.length - 1
+    return index === columnDefinitions.length - 1
       ? Number(
           (
             100 -
-            columns
+            columnDefinitions
               .slice(0, -1)
               .reduce(
-                (total, previous) => total + (previous.weight / totalWeight) * 100,
+                (total, previous) =>
+                  total + (previous.weight / totalWeight) * 100,
                 0
               )
           ).toFixed(2)
@@ -166,8 +252,8 @@ export function coerceVariantRows(rows: unknown): VariantTableRow[] {
 
     const values: Partial<Record<VariantColumnKey, string>> = {};
 
-    for (const column of VARIANT_TABLE_COLUMN_OPTIONS) {
-      values[column.key] = (source[column.key] ?? "").toString();
+    for (const [key, value] of Object.entries(source)) {
+      values[key] = (value ?? "").toString();
     }
 
     return { values };
@@ -197,7 +283,7 @@ export function parseDatasheetTablePayload(raw: unknown): DatasheetTablePayload 
       version: 2,
       tableMode: "variant",
       specifications: coerceSpecRows(variantPayload.specifications),
-      variantColumns: normalizeVariantColumnKeys(
+      variantColumns: normalizeVariantColumns(
         variantPayload.variantColumns
       ),
       variantRows: coerceVariantRows(variantPayload.variantRows),
@@ -211,10 +297,10 @@ export function parseDatasheetTablePayload(raw: unknown): DatasheetTablePayload 
 }
 
 export function toVariantTableRows(
-  columnKeys: VariantColumnKey[],
+  columns: unknown,
   rows: VariantTableRow[]
 ): string[][] {
-  const normalizedColumnKeys = normalizeVariantColumnKeys(columnKeys);
+  const normalizedColumnKeys = normalizeVariantColumnKeys(columns);
   const tableRows = rows.map((row) => {
     return normalizedColumnKeys.map((key) => row.values[key] ?? "");
   });

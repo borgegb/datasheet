@@ -13,8 +13,11 @@ import { buildPdfV2 } from "../../../lib/pdf/v2/buildPdf";
 import {
   DEFAULT_PRODUCT_IMAGE_BASE64,
   getWarrantyText,
-  getShippingText,
 } from "../../../lib/pdf/_legacy/helpers_legacy";
+import {
+  parseDatasheetTablePayload,
+  toVariantTableRows,
+} from "@/lib/datasheet/variant-table";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -165,6 +168,27 @@ export async function POST(req: Request) {
       );
     }
 
+    const tablePayload = parseDatasheetTablePayload(
+      productDataFromSource.tech_specs
+    );
+
+    const specificationsTable = (() => {
+      // Convert parsed specification data to table rows
+      const dataRows = tablePayload.specifications.map((row) => [
+        row.label,
+        row.value,
+      ]);
+
+      // Always ensure exactly 5 rows - pad with empty rows if needed
+      const targetRowCount = 5;
+      while (dataRows.length < targetRowCount) {
+        dataRows.push(["", ""]);
+      }
+
+      // If somehow there are more than 5 rows, trim to 5
+      return dataRows.slice(0, targetRowCount);
+    })();
+
     // Build minimal input for header section for v2
     const headerInput = {
       appliedLogoBase64Data,
@@ -182,6 +206,7 @@ export async function POST(req: Request) {
       shippingHeading: "Shipping Information",
       shippingData: productDataFromSource.shipping_info || "",
       imageOrientation: productDataFromSource.image_orientation || "portrait",
+      datasheetMode: tablePayload.tableMode,
 
       // Logo flags for template selection
       includePedLogo: productDataFromSource.optional_logos?.origin === true,
@@ -215,40 +240,18 @@ export async function POST(req: Request) {
           text: featureText,
         }));
       })(),
-      specificationsTable: (() => {
-        // Pass raw data to buildPdf.ts for processing
-        const rawSpecs = productDataFromSource.tech_specs;
-        try {
-          const parsed = Array.isArray(rawSpecs)
-            ? rawSpecs
-            : typeof rawSpecs === "string"
-            ? JSON.parse(rawSpecs)
-            : [];
-          // Convert parsed data to table rows
-          const dataRows = (parsed || []).map((r: any) => [
-            (r.label ?? "").toString(),
-            (r.value ?? "").toString(),
-          ]);
-
-          // Always ensure exactly 5 rows - pad with empty rows if needed
-          const targetRowCount = 5;
-          while (dataRows.length < targetRowCount) {
-            dataRows.push(["", ""]);
-          }
-
-          // If somehow there are more than 5 rows, trim to 5
-          return dataRows.slice(0, targetRowCount);
-        } catch {
-          // Return 5 empty rows if parsing fails
-          return [
-            ["", ""],
-            ["", ""],
-            ["", ""],
-            ["", ""],
-            ["", ""],
-          ];
-        }
-      })(),
+      specificationsTable,
+      variantColumnKeys:
+        tablePayload.tableMode === "variant"
+          ? tablePayload.variantColumns
+          : undefined,
+      variantTableRows:
+        tablePayload.tableMode === "variant"
+          ? toVariantTableRows(
+              tablePayload.variantColumns,
+              tablePayload.variantRows
+            )
+          : undefined,
     } as const;
 
     console.log(

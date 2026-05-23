@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Variant Datasheet Layout Mockup</title>
+    <style>
+      @font-face {
+        font-family: "Poppins Mock";
+        src: url("../pdf/fonts/Poppins-Bold.ttf") format("truetype");
+        font-weight: 700;
+      }
+
+      @font-face {
+        font-family: "Inter Mock";
+        src: url("../pdf/fonts/Inter-Regular.ttf") format("truetype");
+        font-weight: 400;
+      }
+
+      @font-face {
+        font-family: "Inter Mock";
+        src: url("../pdf/fonts/Inter-Bold.ttf") format("truetype");
+        font-weight: 700;
+      }
+
+      :root {
+        --green: #2c5234;
+        --text: #111111;
+        --muted: #868686;
+        --rule: #808080;
+        --table-line: #cccccc;
+        --table-head: #eff2ef;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #ececec;
+        color: var(--text);
+        font-family: "Inter Mock", Arial, sans-serif;
+      }
+
+      .wrap {
+        display: grid;
+        gap: 24px;
+        justify-items: center;
+        padding: 24px;
+      }
+
+      .note {
+        width: 210mm;
+        color: #333333;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .note strong {
+        color: var(--green);
+      }
+
+      .sheet {
+        position: relative;
+        width: 210mm;
+        height: 297mm;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+      }
+
+      .title {
+        position: absolute;
+        top: 20mm;
+        left: 22mm;
+        width: 148mm;
+        color: var(--green);
+        font-family: "Poppins Mock", Arial, sans-serif;
+        font-size: 16pt;
+        font-weight: 700;
+        line-height: 0.98;
+      }
+
+      .subtitle {
+        position: absolute;
+        top: 33mm;
+        left: 22mm;
+        width: 148mm;
+        color: var(--muted);
+        font-size: 10pt;
+        font-weight: 700;
+      }
+
+      .top-logo {
+        position: absolute;
+        top: 18mm;
+        right: 10mm;
+        width: 25mm;
+        height: 25mm;
+        object-fit: contain;
+      }
+
+      .separator {
+        position: absolute;
+        top: 45mm;
+        left: 22mm;
+        width: 178mm;
+        height: 0.3mm;
+        background: var(--rule);
+      }
+
+      .intro {
+        position: absolute;
+        top: 50mm;
+        left: 22mm;
+        width: 178mm;
+        font-size: 9pt;
+        line-height: 1.3;
+      }
+
+      .features-heading {
+        position: absolute;
+        top: 77mm;
+        left: 22mm;
+        color: var(--green);
+        font-family: "Poppins Mock", Arial, sans-serif;
+        font-size: 12pt;
+        font-weight: 700;
+      }
+
+      .features {
+        position: absolute;
+        top: 88mm;
+        left: 22mm;
+        width: 93mm;
+        display: grid;
+        gap: 4.6mm;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 9pt;
+        line-height: 1.4;
+      }
+
+      .features li {
+        position: relative;
+        padding-left: 8mm;
+      }
+
+      .features li::before {
+        content: "";
+        position: absolute;
+        top: 0.8mm;
+        left: 0;
+        width: 3.5mm;
+        height: 3.5mm;
+        border-radius: 999px;
+        background: var(--green);
+      }
+
+      .features li::after {
+        content: "";
+        position: absolute;
+        top: 1.55mm;
+        left: 1.05mm;
+        width: 1.35mm;
+        height: 0.75mm;
+        border-left: 0.35mm solid #ffffff;
+        border-bottom: 0.35mm solid #ffffff;
+        transform: rotate(-45deg);
+      }
+
+      .product-image {
+        position: absolute;
+        top: 73mm;
+        left: 120mm;
+        width: 80mm;
+        height: 107mm;
+        background: linear-gradient(145deg, #f8f8f8, #f2f2f2);
+        overflow: hidden;
+      }
+
+      .product-image::before {
+        content: "";
+        position: absolute;
+        bottom: 18mm;
+        left: 19mm;
+        width: 68mm;
+        height: 1.4mm;
+        border-radius: 2mm;
+        background: linear-gradient(90deg, #d8d8d8, #8f8f8f 50%, #f7f7f7);
+        transform: rotate(-51deg);
+        transform-origin: left center;
+        box-shadow: 0 0 0 0.3mm #c9c9c9 inset;
+      }
+
+      .product-image::after {
+        content: "";
+        position: absolute;
+        top: 27mm;
+        right: 10mm;
+        width: 22mm;
+        height: 11mm;
+        border-radius: 1mm 5mm 1mm 1mm;
+        background: #151515;
+        transform: rotate(18deg);
+      }
+
+      .grip {
+        position: absolute;
+        top: 53mm;
+        left: 35mm;
+        width: 24mm;
+        height: 5mm;
+        border-radius: 3mm;
+        background: #1b1b1b;
+        transform: rotate(-51deg);
+      }
+
+      .section-bar {
+        position: absolute;
+        left: 22mm;
+        width: 178mm;
+        height: 8mm;
+        padding-left: 3mm;
+        color: #ffffff;
+        background: var(--green);
+        font-family: "Poppins Mock", Arial, sans-serif;
+        font-size: 14pt;
+        font-weight: 700;
+        line-height: 8mm;
+      }
+
+      .variant-bar {
+        top: 186mm;
+      }
+
+      .variant-table {
+        position: absolute;
+        top: 194mm;
+        left: 22mm;
+        width: 178mm;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 8.1pt;
+        line-height: 1.12;
+      }
+
+      .variant-table th,
+      .variant-table td {
+        border: 0.1mm solid var(--table-line);
+        padding: 1.35mm 1.7mm;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      .variant-table th {
+        height: 7.5mm;
+        background: var(--table-head);
+        color: var(--green);
+        font-weight: 700;
+      }
+
+      .variant-table td {
+        height: 7.9mm;
+      }
+
+      .variant-table .code {
+        width: 14%;
+        font-weight: 700;
+      }
+
+      .variant-table .description {
+        width: 42%;
+      }
+
+      .variant-table .small {
+        width: 14.666%;
+      }
+
+      .warranty {
+        position: absolute;
+        top: 242.5mm;
+        left: 22mm;
+        width: 178mm;
+        color: var(--green);
+        font-size: 9pt;
+        font-weight: 700;
+      }
+
+      .shipping-heading {
+        position: absolute;
+        top: 256mm;
+        left: 22mm;
+        color: var(--green);
+        font-family: "Poppins Mock", Arial, sans-serif;
+        font-size: 12pt;
+        font-weight: 700;
+      }
+
+      .shipping-copy {
+        position: absolute;
+        top: 264mm;
+        left: 22mm;
+        width: 112mm;
+        font-size: 9pt;
+        line-height: 1.28;
+      }
+
+      .parts-logo {
+        position: absolute;
+        top: 246mm;
+        right: 10mm;
+        width: 35mm;
+        height: 35mm;
+        object-fit: contain;
+      }
+
+      .footer {
+        position: absolute;
+        bottom: 3mm;
+        left: 0;
+        width: 210mm;
+        height: 14mm;
+        background: var(--green);
+        color: #ffffff;
+        font-size: 9.6pt;
+      }
+
+      .footer span {
+        position: absolute;
+        top: 3.7mm;
+      }
+
+      .footer .left {
+        left: 22mm;
+      }
+
+      .footer .right {
+        right: 10mm;
+      }
+
+      .overflow-title {
+        position: absolute;
+        top: 20mm;
+        left: 22mm;
+        width: 178mm;
+        color: var(--green);
+        font-family: "Poppins Mock", Arial, sans-serif;
+        font-size: 18pt;
+        font-weight: 700;
+      }
+
+      .overflow-subtitle {
+        position: absolute;
+        top: 33mm;
+        left: 22mm;
+        width: 178mm;
+        color: var(--muted);
+        font-size: 10pt;
+        font-weight: 700;
+      }
+
+      .overflow-bar {
+        top: 50mm;
+      }
+
+      .overflow-table {
+        top: 58mm;
+      }
+
+      .overflow-table td {
+        height: 14mm;
+        line-height: 1.25;
+      }
+
+      .continuation {
+        position: absolute;
+        top: 272mm;
+        left: 22mm;
+        color: var(--muted);
+        font-size: 8.5pt;
+      }
+
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        .wrap {
+          display: block;
+          padding: 0;
+        }
+
+        .note {
+          display: none;
+        }
+
+        .sheet {
+          box-shadow: none;
+          page-break-after: always;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="note">
+        <strong>Variant datasheet mockup:</strong> keeps the current customer-approved
+        structure, removes product code and weight from the title block, and
+        replaces Specifications with a selectable 5-column variant table. The
+        second page shows the overflow-safe layout if row descriptions become too
+        long for the first page.
+      </div>
+
+      <div class="sheet" aria-label="Variant datasheet compact page mockup">
+        <h1 class="title">Applied Airforce &ndash; An Extreme High Volume Air Blow Gun</h1>
+        <div class="subtitle">Variant Datasheet</div>
+        <img class="top-logo" src="../pdf/assets/Appliedlogo.jpg" alt="" />
+        <div class="separator"></div>
+
+        <p class="intro">
+          The Applied Airforce is an extreme high-volume air blow-down gun for
+          fast, effective cleaning of machinery and equipment. Connected to an
+          Applied Varimount, portable diesel air compressor, or other large-output
+          air compressor, it delivers powerful air to clear dust, debris and
+          stubborn material. Ideal for blowing down blast rooms and blowing off
+          items after blasting, it is faster than sweeping and safer than
+          improvised pipe-and-valve systems.
+        </p>
+
+        <h2 class="features-heading">Key Features</h2>
+        <ul class="features">
+          <li>Extreme high-volume air blow-down gun for heavy-duty cleaning tasks.</li>
+          <li>Clears dust, debris, rubble and stubborn material quickly and efficiently.</li>
+          <li>Ideal for cleaning and drying heavy machinery and equipment safely.</li>
+          <li>Works with tow-behind, portable diesel and large-output air compressors.</li>
+          <li>Faster than sweeping and safer than using a pipe and ball valve.</li>
+          <li>Power-assisted trigger requires minimal force, making it easy to operate.</li>
+        </ul>
+
+        <div class="product-image" aria-hidden="true">
+          <div class="grip"></div>
+        </div>
+
+        <div class="section-bar variant-bar">Variant Information</div>
+        <table class="variant-table" aria-label="Variant information">
+          <thead>
+            <tr>
+              <th class="code">Product Code</th>
+              <th class="description">Description</th>
+              <th class="small">Weight</th>
+              <th class="small">Length</th>
+              <th class="small">Diameter</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="code">AL-A-0001</td>
+              <td>Standard Airforce blow gun with long lance assembly</td>
+              <td>3.5 kg</td>
+              <td>1470 mm</td>
+              <td>70 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0002</td>
+              <td>Short lance version for compact cleaning areas</td>
+              <td>3.1 kg</td>
+              <td>1170 mm</td>
+              <td>70 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0003</td>
+              <td>Heavy-duty nozzle version for aggressive debris removal</td>
+              <td>3.8 kg</td>
+              <td>1510 mm</td>
+              <td>75 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0004</td>
+              <td>Extended reach version for large machinery access</td>
+              <td>4.2 kg</td>
+              <td>1740 mm</td>
+              <td>70 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0005</td>
+              <td>Compact trigger assembly with standard air lance</td>
+              <td>3.3 kg</td>
+              <td>1360 mm</td>
+              <td>68 mm</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="warranty">
+          This product is covered by a 12-month warranty against defects in
+          materials and workmanship.
+        </p>
+
+        <h2 class="shipping-heading">Shipping Information</h2>
+        <p class="shipping-copy">
+          The Applied Airforce variant range is shipped as individual packages.
+          Packaging dimensions and weights are listed in the variant information
+          table where applicable.
+        </p>
+        <img class="parts-logo" src="../pdf/assets/applied-genuine-parts-logo-512px.png" alt="" />
+
+        <div class="footer">
+          <span class="left">www.appliedpi.com</span>
+          <span class="right">www.ptocompressors.com</span>
+        </div>
+      </div>
+
+      <div class="sheet" aria-label="Variant datasheet overflow page mockup">
+        <h1 class="overflow-title">Variant Information</h1>
+        <div class="overflow-subtitle">Continuation layout for longer descriptions or more than five rows</div>
+        <img class="top-logo" src="../pdf/assets/Appliedlogo.jpg" alt="" />
+        <div class="separator"></div>
+
+        <div class="section-bar overflow-bar">Variant Information</div>
+        <table class="variant-table overflow-table" aria-label="Variant information continuation">
+          <thead>
+            <tr>
+              <th class="code">Product Code</th>
+              <th class="description">Description</th>
+              <th class="small">Weight</th>
+              <th class="small">Length</th>
+              <th class="small">Diameter</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="code">AL-A-0001</td>
+              <td>Standard Airforce blow gun with long lance assembly for general-purpose site cleaning and blast-room blow-down.</td>
+              <td>3.5 kg</td>
+              <td>1470 mm</td>
+              <td>70 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0002</td>
+              <td>Short lance version for compact cleaning areas where operators need a smaller working radius.</td>
+              <td>3.1 kg</td>
+              <td>1170 mm</td>
+              <td>70 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0003</td>
+              <td>Heavy-duty nozzle version for aggressive debris removal after blasting, sanding or preparation work.</td>
+              <td>3.8 kg</td>
+              <td>1510 mm</td>
+              <td>75 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0004</td>
+              <td>Extended reach version for clearing large machinery and equipment without requiring close operator access.</td>
+              <td>4.2 kg</td>
+              <td>1740 mm</td>
+              <td>70 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0005</td>
+              <td>Compact trigger assembly with standard air lance, designed for repeated cleaning tasks across workshops.</td>
+              <td>3.3 kg</td>
+              <td>1360 mm</td>
+              <td>68 mm</td>
+            </tr>
+            <tr>
+              <td class="code">AL-A-0006</td>
+              <td>Optional large-diameter configuration for applications where increased air movement is required.</td>
+              <td>4.6 kg</td>
+              <td>1650 mm</td>
+              <td>90 mm</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="continuation">Page 2 is only used when selected columns or row text exceed the compact first-page area.</div>
+        <div class="footer">
+          <span class="left">www.appliedpi.com</span>
+          <span class="right">www.ptocompressors.com</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

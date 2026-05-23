@@ -4,6 +4,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font, Plugin } from "@pdfme/common";
+import {
+  getVariantTableHead,
+  getVariantTableWidthPercentages,
+  normalizeVariantColumnKeys,
+  type VariantColumnKey,
+} from "../../datasheet/variant-table";
 
 // --- SVG Checkmark Definition ---
 const CHECKMARK_SVG =
@@ -395,6 +401,9 @@ interface BuildPdfInput {
   ceLogo?: string;
   irelandLogo?: string;
   specificationsTable: string[][]; // two-column body rows
+  datasheetMode?: "standard" | "variant";
+  variantColumnKeys?: VariantColumnKey[];
+  variantTableRows?: string[][];
   keyFeaturesList?: Array<{ icon: string; text: string }>; // Add key features
   imageOrientation?: "portrait" | "landscape"; // Add image orientation
   // New logo selection flags
@@ -404,17 +413,55 @@ interface BuildPdfInput {
   includeAppliedLogo?: boolean;
 }
 
-export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
-  // Load template based on image orientation
-  const templateFileName = getTemplateFileName(
-    input.imageOrientation || "portrait",
-    input.includePedLogo || false,
-    input.includeCeLogo || false,
-    input.includeIrelandLogo || false,
-    input.includeAppliedLogo || false
+const applyVariantTableColumns = (
+  template: Template,
+  columnKeys: VariantColumnKey[]
+): Template => {
+  const normalizedColumnKeys = normalizeVariantColumnKeys(columnKeys);
+  const head = getVariantTableHead(normalizedColumnKeys);
+  const headWidthPercentages =
+    getVariantTableWidthPercentages(normalizedColumnKeys);
+  const alignment = Object.fromEntries(
+    normalizedColumnKeys.map((_, index) => [index, "left"])
   );
 
+  return {
+    ...template,
+    schemas: template.schemas.map((page) =>
+      page.map((schema: any) => {
+        if (schema.name !== "variantTable") {
+          return schema;
+        }
+
+        return {
+          ...schema,
+          head,
+          headWidthPercentages,
+          columnStyles: {
+            ...(schema.columnStyles || {}),
+            alignment,
+          },
+        };
+      })
+    ),
+  } as Template;
+};
+
+export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
+  // Load template based on image orientation
+  const isVariantDatasheet = input.datasheetMode === "variant";
+  const templateFileName = isVariantDatasheet
+    ? "variant-datasheet-template.json"
+    : getTemplateFileName(
+        input.imageOrientation || "portrait",
+        input.includePedLogo || false,
+        input.includeCeLogo || false,
+        input.includeIrelandLogo || false,
+        input.includeAppliedLogo || false
+      );
+
   console.log("Template selection debug:", {
+    datasheetMode: input.datasheetMode || "standard",
     imageOrientation: input.imageOrientation,
     includePedLogo: input.includePedLogo,
     includeCeLogo: input.includeCeLogo,
@@ -428,13 +475,20 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
   ).default;
 
   // Fix padding type
-  const template: Template = {
+  let template: Template = {
     ...templateData,
     basePdf: {
       ...templateData.basePdf,
       padding: templateData.basePdf.padding as [number, number, number, number],
     },
   } as Template;
+
+  if (isVariantDatasheet) {
+    template = applyVariantTableColumns(
+      template,
+      input.variantColumnKeys || []
+    );
+  }
 
   // Set up fonts - load the proper fonts from filesystem
   const fontDir = path.resolve(process.cwd(), "pdf/fonts");
@@ -481,7 +535,8 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
   // Load client logo if needed (for templates that use Applied logo)
   let clientLogo = "";
-  const needsAppliedLogo = input.includeAppliedLogo || false;
+  const needsAppliedLogo =
+    isVariantDatasheet || input.includeAppliedLogo || false;
 
   console.log("Client logo loading debug:", {
     needsAppliedLogo,
@@ -512,7 +567,9 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
 
   // Determine template type based on the template filename
   // Check more specific patterns first to avoid false matches
-  const templateType = templateFileName.includes("-ireland-applied")
+  const templateType = isVariantDatasheet
+    ? "variant"
+    : templateFileName.includes("-ireland-applied")
     ? "ireland-applied"
     : templateFileName.includes("-client-")
     ? "client"
@@ -520,7 +577,10 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
     ? "applied-only"
     : "standard";
 
-  if (templateType === "applied-only") {
+  if (templateType === "variant") {
+    // Standalone Variant Datasheet uses the Applied Genuine Parts closing mark.
+    logoInputs.clientLogo = clientLogo;
+  } else if (templateType === "applied-only") {
     // Applied-only templates
     logoInputs.clientLogo = clientLogo;
   } else if (templateType === "ireland-applied") {
@@ -557,12 +617,19 @@ export async function buildPdfV2(input: BuildPdfInput): Promise<Uint8Array> {
       productTitle: input.productTitle,
       productSubtitle: input.productSubtitle,
       introParagraph: input.introParagraph,
+      keyFeaturesHeadingStatic: "Key Features",
+      specificationsHeadingStatic: "Specifications",
       productimage: input.productImageBase64 || "",
       specificationsTable: processedTable,
+      variantPageTitle: "Variant Information",
+      variantPageSubtitle: "Variant table for selected product options",
+      variantHeading: "Variant Information",
+      variantTable: input.variantTableRows || [],
       keyFeaturesList: input.keyFeaturesList || [],
 
       // Static schema placeholder inputs (for placeholder replacement)
       warrantyText: input.warrantyText,
+      shippingHeading: input.shippingHeading || "Shipping Information",
       shippingText: getShippingTextV2(input.shippingData, input.productTitle),
 
       // Logo inputs (depends on template type)

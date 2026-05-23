@@ -50,6 +50,18 @@ import {
 } from "@/components/ui/select";
 import { saveDatasheet, fetchCategories } from "../actions";
 import { useRouter } from "next/navigation";
+import {
+  DEFAULT_VARIANT_COLUMN_KEYS,
+  DEFAULT_VARIANT_ROW_COUNT,
+  MAX_VARIANT_COLUMNS,
+  MAX_VARIANT_ROWS,
+  VARIANT_TABLE_COLUMN_OPTIONS,
+  coerceSpecRows,
+  coerceVariantRows,
+  normalizeVariantColumnKeys,
+  parseDatasheetTablePayload,
+  type VariantColumnKey,
+} from "@/lib/datasheet/variant-table";
 
 // Define type for Category (if not already defined)
 interface Category {
@@ -97,6 +109,51 @@ interface DatasheetGeneratorFormProps {
   selectedProduct?: any; // Product selected from sidebar
 }
 
+type DatasheetMode = "standard" | "variant";
+type SpecFormRow = { id: number; label: string; value: string };
+type VariantFormRow = {
+  id: number;
+  values: Partial<Record<VariantColumnKey, string>>;
+};
+
+const createEmptySpecRows = (count = 5): SpecFormRow[] =>
+  Array.from({ length: count }, (_, index) => ({
+    id: index,
+    label: "",
+    value: "",
+  }));
+
+const createEmptyVariantRows = (
+  count = DEFAULT_VARIANT_ROW_COUNT
+): VariantFormRow[] =>
+  Array.from({ length: count }, (_, index) => ({
+    id: index,
+    values: {},
+  }));
+
+const specRowsForForm = (rows: unknown): SpecFormRow[] => {
+  const coercedRows = coerceSpecRows(rows);
+
+  return (coercedRows.length > 0 ? coercedRows : createEmptySpecRows()).map(
+    (row, index) => ({
+      id: index,
+      label: row.label,
+      value: row.value,
+    })
+  );
+};
+
+const variantRowsForForm = (rows: unknown): VariantFormRow[] => {
+  const coercedRows = coerceVariantRows(rows);
+
+  return (
+    coercedRows.length > 0 ? coercedRows : createEmptyVariantRows()
+  ).map((row, index) => ({
+    id: index,
+    values: row.values,
+  }));
+};
+
 export default function DatasheetGeneratorForm({
   initialData = null,
   editingProductId = null,
@@ -112,15 +169,13 @@ export default function DatasheetGeneratorForm({
   const [description, setDescription] = useState(
     initialData?.description || ""
   );
-  const [specs, setSpecs] = useState<
-    { id: number; label: string; value: string }[]
-  >(
-    // Initialize with 5 empty specifications
-    Array.from({ length: 5 }, (_, index) => ({
-      id: index,
-      label: "",
-      value: "",
-    }))
+  const [datasheetMode, setDatasheetMode] =
+    useState<DatasheetMode>("standard");
+  const [specs, setSpecs] = useState<SpecFormRow[]>(createEmptySpecRows());
+  const [variantColumnKeys, setVariantColumnKeys] =
+    useState<VariantColumnKey[]>(DEFAULT_VARIANT_COLUMN_KEYS);
+  const [variantRows, setVariantRows] = useState<VariantFormRow[]>(
+    createEmptyVariantRows()
   );
   const [weightValue, setWeightValue] = useState("");
   const [weightUnit, setWeightUnit] = useState("kg");
@@ -464,6 +519,10 @@ export default function DatasheetGeneratorForm({
       setSpecs([]);
     }
 
+    setDatasheetMode("standard");
+    setVariantColumnKeys(DEFAULT_VARIANT_COLUMN_KEYS);
+    setVariantRows(createEmptyVariantRows());
+
     // Clear image and other fields that don't have mappings
     setUploadedImagePath(null);
     setUploadedFileName(null);
@@ -652,79 +711,91 @@ export default function DatasheetGeneratorForm({
         setSelectedCategoryIds([]);
       }
 
-      // Initialize specs (with improved parsing)
+      // Initialize specs and optional Variant Information table data.
       if (initialData.tech_specs) {
-        let parsedSpecsArray = [];
-        try {
-          // Attempt 1: Parse directly
-          parsedSpecsArray = JSON.parse(initialData.tech_specs);
-        } catch (e1) {
-          // Attempt 2: Check for double-quoted string "[...]"
-          if (
-            typeof initialData.tech_specs === "string" &&
-            initialData.tech_specs.startsWith('"') &&
-            initialData.tech_specs.endsWith('"')
-          ) {
-            try {
-              // Remove outer quotes and try parsing the inner content
-              const innerJson = initialData.tech_specs.slice(1, -1);
-              parsedSpecsArray = JSON.parse(innerJson);
-            } catch (e2) {
-              console.error("Error parsing inner JSON for tech_specs:", e2);
-              parsedSpecsArray = []; // Fallback if inner parse fails
-            }
-          } else {
-            // Attempt 3: Try parsing as legacy text format (Label: Value)
-            if (typeof initialData.tech_specs === "string") {
-              console.log(
-                "Attempting to parse tech_specs as legacy text format."
-              );
-              const lines = initialData.tech_specs
-                .split("\n")
-                .map((l) => l.trim())
-                .filter((l) => l.includes(":"));
+        const tablePayload = parseDatasheetTablePayload(
+          initialData.tech_specs
+        );
 
-              if (lines.length > 0) {
-                parsedSpecsArray = lines.map((line) => {
-                  const parts = line.split(":");
-                  return {
-                    // id: index, // ID will be added below
-                    label: parts[0]?.trim() || "",
-                    value: parts.slice(1).join(":")?.trim() || "",
-                  };
-                });
-                console.log("Parsed tech_specs from legacy text format.");
+        if (tablePayload.tableMode === "variant") {
+          setDatasheetMode("variant");
+          setSpecs(specRowsForForm(tablePayload.specifications));
+          setVariantColumnKeys(
+            normalizeVariantColumnKeys(tablePayload.variantColumns)
+          );
+          setVariantRows(variantRowsForForm(tablePayload.variantRows));
+        } else {
+          setDatasheetMode("standard");
+          let parsedSpecsArray: unknown = tablePayload.specifications;
+
+          if (tablePayload.specifications.length === 0) {
+            try {
+              // Attempt 1: Parse directly
+              parsedSpecsArray = JSON.parse(initialData.tech_specs);
+            } catch {
+              // Attempt 2: Check for double-quoted string "[...]"
+              if (
+                typeof initialData.tech_specs === "string" &&
+                initialData.tech_specs.startsWith('"') &&
+                initialData.tech_specs.endsWith('"')
+              ) {
+                try {
+                  // Remove outer quotes and try parsing the inner content
+                  const innerJson = initialData.tech_specs.slice(1, -1);
+                  parsedSpecsArray = JSON.parse(innerJson);
+                } catch (e2) {
+                  console.error("Error parsing inner JSON for tech_specs:", e2);
+                  parsedSpecsArray = []; // Fallback if inner parse fails
+                }
               } else {
-                console.warn(
-                  "Tech_specs string did not match JSON, double-quoted JSON, or legacy format."
-                );
+                // Attempt 3: Try parsing as legacy text format (Label: Value)
+                if (typeof initialData.tech_specs === "string") {
+                  console.log(
+                    "Attempting to parse tech_specs as legacy text format."
+                  );
+                  const lines = initialData.tech_specs
+                    .split("\n")
+                    .map((l) => l.trim())
+                    .filter((l) => l.includes(":"));
+
+                  if (lines.length > 0) {
+                    parsedSpecsArray = lines.map((line) => {
+                      const parts = line.split(":");
+                      return {
+                        label: parts[0]?.trim() || "",
+                        value: parts.slice(1).join(":")?.trim() || "",
+                      };
+                    });
+                    console.log("Parsed tech_specs from legacy text format.");
+                  } else {
+                    console.warn(
+                      "Tech_specs string did not match JSON, double-quoted JSON, or legacy format."
+                    );
+                  }
+                } else {
+                  console.warn(
+                    "Tech_specs was not a string and initial JSON parse failed."
+                  );
+                }
               }
-            } else {
-              console.warn(
-                "Tech_specs was not a string and initial JSON parse failed."
-              );
             }
           }
-        }
 
-        // Ensure it's an array before mapping and setting state
-        if (Array.isArray(parsedSpecsArray)) {
-          setSpecs(
-            parsedSpecsArray.map((spec: any, index: number) => ({
-              id: index, // Assign stable ID during mapping
-              label: spec.label || "",
-              value: spec.value || "",
-            }))
-          );
-        } else {
-          console.warn(
-            "Final parsed tech_specs data is not an array:",
-            parsedSpecsArray
-          );
-          setSpecs([]); // Fallback to empty array if parsing resulted in non-array
+          if (Array.isArray(parsedSpecsArray)) {
+            setSpecs(specRowsForForm(parsedSpecsArray));
+          } else {
+            console.warn(
+              "Final parsed tech_specs data is not an array:",
+              parsedSpecsArray
+            );
+            setSpecs(createEmptySpecRows());
+          }
         }
       } else {
-        setSpecs([]); // Initialize empty if no initial tech_specs data
+        setDatasheetMode("standard");
+        setSpecs(createEmptySpecRows());
+        setVariantColumnKeys(DEFAULT_VARIANT_COLUMN_KEYS);
+        setVariantRows(createEmptyVariantRows());
       }
 
       // Mark form as initialized after loading data for editing
@@ -735,13 +806,10 @@ export default function DatasheetGeneratorForm({
       setProductTitle("");
       setProductCode("");
       setDescription("");
-      setSpecs(
-        Array.from({ length: 5 }, (_, index) => ({
-          id: index,
-          label: "",
-          value: "",
-        }))
-      );
+      setDatasheetMode("standard");
+      setSpecs(createEmptySpecRows());
+      setVariantColumnKeys(DEFAULT_VARIANT_COLUMN_KEYS);
+      setVariantRows(createEmptyVariantRows());
       setWeightValue("");
       setWeightUnit("kg");
       setKeyFeatures("");
@@ -1060,6 +1128,71 @@ export default function DatasheetGeneratorForm({
     setSpecs(newSpecs);
   };
 
+  const handleVariantColumnChange = (
+    columnKey: VariantColumnKey,
+    checked: boolean
+  ) => {
+    setVariantColumnKeys((currentKeys) => {
+      if (checked) {
+        const withColumn = [...currentKeys, columnKey];
+        const orderedKeys = VARIANT_TABLE_COLUMN_OPTIONS.map(
+          (column) => column.key
+        ).filter((key) => withColumn.includes(key));
+
+        return orderedKeys.slice(0, MAX_VARIANT_COLUMNS);
+      }
+
+      if (currentKeys.length === 1) {
+        toast.info("At least one variant column is required.");
+        return currentKeys;
+      }
+
+      return currentKeys.filter((key) => key !== columnKey);
+    });
+  };
+
+  const handleVariantCellChange = (
+    rowIndex: number,
+    columnKey: VariantColumnKey,
+    value: string
+  ) => {
+    setVariantRows((currentRows) =>
+      currentRows.map((row, index) => {
+        if (index !== rowIndex) return row;
+
+        return {
+          ...row,
+          values: {
+            ...row.values,
+            [columnKey]: value,
+          },
+        };
+      })
+    );
+  };
+
+  const addVariantRow = () => {
+    setVariantRows((currentRows) => {
+      if (currentRows.length >= MAX_VARIANT_ROWS) return currentRows;
+
+      return [
+        ...currentRows,
+        {
+          id: Math.max(...currentRows.map((row) => row.id), -1) + 1,
+          values: {},
+        },
+      ];
+    });
+  };
+
+  const removeVariantRow = (index: number) => {
+    setVariantRows((currentRows) => {
+      if (currentRows.length <= 1) return currentRows;
+
+      return currentRows.filter((_, rowIndex) => rowIndex !== index);
+    });
+  };
+
   // --- Handler for Category Checkbox Change ---
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
     setSelectedCategoryIds((prevIds) => {
@@ -1090,6 +1223,21 @@ export default function DatasheetGeneratorForm({
       setSelectedCatalogId((current) => current || catalogIdFromUrl);
     }
   }, [initialData?.catalog_id, editingProductId]);
+
+  const selectedVariantColumns = VARIANT_TABLE_COLUMN_OPTIONS.filter((column) =>
+    variantColumnKeys.includes(column.key)
+  );
+  const techSpecsFormValue = JSON.stringify(
+    datasheetMode === "variant"
+      ? {
+          version: 2,
+          tableMode: "variant",
+          specifications: specs.map(({ label, value }) => ({ label, value })),
+          variantColumns: variantColumnKeys,
+          variantRows: variantRows.map(({ values }) => ({ values })),
+        }
+      : specs.map(({ label, value }) => ({ label, value }))
+  );
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -1203,6 +1351,36 @@ export default function DatasheetGeneratorForm({
                   }
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Datasheet Type</Label>
+              <RadioGroup
+                value={datasheetMode}
+                onValueChange={(value) =>
+                  setDatasheetMode(value as DatasheetMode)
+                }
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+              >
+                <div className="flex items-start space-x-3 rounded-md border p-3">
+                  <RadioGroupItem value="standard" id="type-standard" />
+                  <Label
+                    htmlFor="type-standard"
+                    className="cursor-pointer font-medium"
+                  >
+                    Standard Datasheet
+                  </Label>
+                </div>
+                <div className="flex items-start space-x-3 rounded-md border p-3">
+                  <RadioGroupItem value="variant" id="type-variant" />
+                  <Label
+                    htmlFor="type-variant"
+                    className="cursor-pointer font-medium"
+                  >
+                    Variant Datasheet
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
 
             {/* Section 2: Descriptions & Specs */}
@@ -1526,11 +1704,127 @@ export default function DatasheetGeneratorForm({
                     </span>
                   )}
                 </Button>
+                {datasheetMode === "variant" && (
+                  <div className="space-y-5 rounded-md border p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Variant Information Columns</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {variantColumnKeys.length}/{MAX_VARIANT_COLUMNS}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {VARIANT_TABLE_COLUMN_OPTIONS.map((column) => {
+                          const checked = variantColumnKeys.includes(
+                            column.key
+                          );
+                          const disabled =
+                            !checked &&
+                            variantColumnKeys.length >= MAX_VARIANT_COLUMNS;
+
+                          return (
+                            <div
+                              key={column.key}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                id={`variant-column-${column.key}`}
+                                checked={checked}
+                                disabled={disabled}
+                                onCheckedChange={(value) =>
+                                  handleVariantColumnChange(
+                                    column.key,
+                                    Boolean(value)
+                                  )
+                                }
+                              />
+                              <Label
+                                htmlFor={`variant-column-${column.key}`}
+                                className="cursor-pointer font-normal"
+                              >
+                                {column.label}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Variant Information Rows</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addVariantRow}
+                          disabled={variantRows.length >= MAX_VARIANT_ROWS}
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Add Row
+                        </Button>
+                      </div>
+                      <div className="overflow-x-auto rounded-md border">
+                        <div
+                          className="grid min-w-[720px] border-b bg-muted/50 text-sm font-medium"
+                          style={{
+                            gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
+                          }}
+                        >
+                          {selectedVariantColumns.map((column) => (
+                            <div
+                              key={column.key}
+                              className="border-r px-3 py-2 last:border-r-0"
+                            >
+                              {column.label}
+                            </div>
+                          ))}
+                          <div className="px-2 py-2" />
+                        </div>
+                        {variantRows.map((row, rowIndex) => (
+                          <div
+                            key={row.id}
+                            className="grid min-w-[720px] border-b last:border-b-0"
+                            style={{
+                              gridTemplateColumns: `repeat(${selectedVariantColumns.length}, minmax(130px, 1fr)) 44px`,
+                            }}
+                          >
+                            {selectedVariantColumns.map((column) => (
+                              <Input
+                                key={column.key}
+                                value={row.values[column.key] || ""}
+                                onChange={(event) =>
+                                  handleVariantCellChange(
+                                    rowIndex,
+                                    column.key,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder={column.placeholder}
+                                className="h-10 rounded-none border-0 border-r shadow-none focus-visible:ring-1"
+                              />
+                            ))}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeVariantRow(rowIndex)}
+                              disabled={variantRows.length <= 1}
+                              aria-label="Remove variant row"
+                              className="h-10 rounded-none text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Hidden input to store JSON string for form submission */}
                 <input
                   type="hidden"
                   name="techSpecs"
-                  value={JSON.stringify(specs.map(({ id, ...rest }) => rest))}
+                  value={techSpecsFormValue}
                 />
               </div>
             </div>

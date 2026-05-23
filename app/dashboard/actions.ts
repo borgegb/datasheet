@@ -1201,6 +1201,14 @@ type SaveDatasheetState = {
 };
 // ----------------------------------------
 
+const normalizeOptionalFormString = (
+  value: FormDataEntryValue | null
+): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
+};
+
 // --- Action to Save/Update Datasheet (Product) ---
 export async function saveDatasheet(
   prevState: SaveDatasheetState | null,
@@ -1238,6 +1246,11 @@ export async function saveDatasheet(
         );
         categoryIds = [];
       }
+      categoryIds = categoryIds
+        .filter((categoryId): categoryId is string => {
+          return typeof categoryId === "string" && categoryId.trim().length > 0;
+        })
+        .map((categoryId) => categoryId.trim());
     } catch (e) {
       console.error("Error parsing categoryIdsJson:", e);
       return {
@@ -1269,8 +1282,8 @@ export async function saveDatasheet(
       origin: formData.get("includeOriginLogo") === "on",
       includeAppliedLogo: formData.get("includeAppliedLogo") === "on",
     },
-    catalog_id: formData.get("catalogId") as string | null,
-    image_path: formData.get("imagePath") as string | null,
+    catalog_id: normalizeOptionalFormString(formData.get("catalogId")),
+    image_path: normalizeOptionalFormString(formData.get("imagePath")),
     user_id: userId,
     organization_id: organizationId,
     category_ids: categoryIds,

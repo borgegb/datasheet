@@ -1905,13 +1905,13 @@ export default function DatasheetGeneratorForm({
                           {selectedVariantColumns.map((column, columnIndex) => (
                             <div
                               key={column.key}
-                              className="min-w-0 border-r px-2 py-1.5 last:border-r-0"
+                              className="group relative min-w-0 border-r px-2 py-1.5 last:border-r-0"
                             >
-                              <div className="flex min-w-0 items-center justify-between gap-1">
-                                <span className="truncate px-1">
+                              <div className="min-w-0">
+                                <span className="block truncate px-1">
                                   {column.label}
                                 </span>
-                                <div className="flex shrink-0 items-center gap-0.5">
+                                <div className="pointer-events-none absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-sm bg-muted/95 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -1921,9 +1921,9 @@ export default function DatasheetGeneratorForm({
                                     }
                                     disabled={columnIndex === 0}
                                     aria-label={`Move ${column.label} left`}
-                                    className="h-7 w-7 rounded-sm"
+                                    className="h-4 w-4 rounded-sm p-0"
                                   >
-                                    <ArrowLeft className="h-3.5 w-3.5" />
+                                    <ArrowLeft className="h-2.5 w-2.5" />
                                   </Button>
                                   <Button
                                     type="button"
@@ -1937,9 +1937,9 @@ export default function DatasheetGeneratorForm({
                                       selectedVariantColumns.length - 1
                                     }
                                     aria-label={`Move ${column.label} right`}
-                                    className="h-7 w-7 rounded-sm"
+                                    className="h-4 w-4 rounded-sm p-0"
                                   >
-                                    <ArrowRight className="h-3.5 w-3.5" />
+                                    <ArrowRight className="h-2.5 w-2.5" />
                                   </Button>
                                 </div>
                               </div>

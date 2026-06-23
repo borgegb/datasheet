@@ -60,6 +60,153 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       },
     ],
   },
+  "eu-doc-owner-manual-blasting": {
+    slug: "eu-doc-owner-manual-blasting",
+    title: "EU DoC - Owner's Manual Blasting Machines",
+    templatePath: "",
+    defaults: {
+      declarationNumber: "",
+      issueDate: "",
+    },
+    schema: z.object({
+      declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
+      issueDate: z.string().trim().min(1, "Date of issue is required"),
+    }),
+    fieldLayout: [
+      {
+        name: "declarationNumber",
+        label: "Declaration No.",
+        type: "text",
+        placeholder: "e.g., ACL-DoC-OM01",
+        required: true,
+      },
+      {
+        name: "issueDate",
+        label: "Date of issue",
+        type: "date",
+        required: true,
+      },
+    ],
+  },
+  "eu-doc-owner-manual-pto-compressors": {
+    slug: "eu-doc-owner-manual-pto-compressors",
+    title: "EU DoC - Owner's Manual PTO Compressors",
+    templatePath: "",
+    defaults: {
+      declarationNumber: "",
+      issueDate: "",
+    },
+    schema: z.object({
+      declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
+      issueDate: z.string().trim().min(1, "Date of issue is required"),
+    }),
+    fieldLayout: [
+      {
+        name: "declarationNumber",
+        label: "Declaration No.",
+        type: "text",
+        placeholder: "e.g., ACL-DoC-OM02",
+        required: true,
+      },
+      {
+        name: "issueDate",
+        label: "Date of issue",
+        type: "date",
+        required: true,
+      },
+    ],
+  },
+  "eu-doc-serialised": {
+    slug: "eu-doc-serialised",
+    title: "EU DoC - Serialised",
+    templatePath: "",
+    defaults: {
+      productType: "blast-machine",
+      declarationNumber: "",
+      issueDate: "",
+      commercialName: "",
+      modelType: "",
+      serialNumber: "",
+      yearOfConstruction: "",
+      pedCategory: "cat-ii",
+    },
+    schema: z.object({
+      productType: z.enum(["blast-machine", "pto-compressor"]),
+      declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
+      issueDate: z.string().trim().min(1, "Date of issue is required"),
+      commercialName: z.string().trim().min(1, "Commercial name is required"),
+      modelType: z.string().trim().min(1, "Model / type is required"),
+      serialNumber: z.string().trim().min(1, "Serial number is required"),
+      yearOfConstruction: z
+        .string()
+        .trim()
+        .regex(/^\d{4}$/, "Year must use four digits"),
+      pedCategory: z.enum(["cat-ii", "cat-iii"]),
+    }),
+    fieldLayout: [
+      {
+        name: "productType",
+        label: "Product type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Mobile abrasive blast machine", value: "blast-machine" },
+          { label: "PTO-driven air compressor", value: "pto-compressor" },
+        ],
+      },
+      {
+        name: "declarationNumber",
+        label: "Declaration No.",
+        type: "text",
+        placeholder: "e.g., ACL-DoC-25_161",
+        required: true,
+      },
+      {
+        name: "issueDate",
+        label: "Date of issue",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "commercialName",
+        label: "Commercial name",
+        type: "text",
+        placeholder: "e.g., Blast Machine BP200L",
+        required: true,
+      },
+      {
+        name: "modelType",
+        label: "Model / type",
+        type: "text",
+        placeholder: "e.g., BP-A-5000",
+        required: true,
+      },
+      {
+        name: "serialNumber",
+        label: "Serial number",
+        type: "text",
+        placeholder: "e.g., 25-00161",
+        required: true,
+      },
+      {
+        name: "yearOfConstruction",
+        label: "Year of construction",
+        type: "text",
+        placeholder: "e.g., 2025",
+        required: true,
+      },
+      {
+        name: "pedCategory",
+        label: "PED category",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Cat. II", value: "cat-ii" },
+          { label: "Cat. III", value: "cat-iii" },
+        ],
+      },
+    ],
+  },
   "hydrostatic-test": {
     slug: "hydrostatic-test",
     title: "Hydrostatic Test",

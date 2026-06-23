@@ -91,7 +91,11 @@ export default function CertificationsTable({ initialData }: Props) {
             </TableRow>
           ) : (
             rows.map((r) => {
-              const model = r.data?.model || "";
+              const model =
+                r.data?.model ||
+                r.data?.modelType ||
+                r.data?.commercialName ||
+                "";
               const serial = r.data?.serialNumber || "";
               return (
                 <TableRow key={r.id}>

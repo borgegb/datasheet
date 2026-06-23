@@ -23,8 +23,10 @@ import {
   updateVariantColumn,
   archiveVariantColumn,
   restoreVariantColumn,
+  updateCertificationSettings,
 } from "../actions";
 import type { OrganizationVariantColumn } from "../actions";
+import type { CertificationSettings } from "@/lib/certifications/settings";
 import { toast } from "sonner";
 import {
   Mail,
@@ -34,6 +36,7 @@ import {
   TrashIcon,
   ArchiveIcon,
   RotateCcw,
+  Save,
 } from "lucide-react";
 import {
   Dialog,
@@ -70,9 +73,11 @@ interface OrganizationClientProps {
   initialMembers: OrgMember[];
   initialCategories: Category[]; // Add new prop
   initialVariantColumns: OrganizationVariantColumn[];
+  initialCertificationSettings: CertificationSettings;
   errorMsg?: string;
   categoriesErrorMsg?: string; // Add new prop
   variantColumnsErrorMsg?: string;
+  certificationSettingsErrorMsg?: string;
 }
 
 export default function OrganizationClient({
@@ -80,9 +85,11 @@ export default function OrganizationClient({
   initialMembers,
   initialCategories, // Destructure new prop
   initialVariantColumns,
+  initialCertificationSettings,
   errorMsg,
   categoriesErrorMsg, // Destructure new prop
   variantColumnsErrorMsg,
+  certificationSettingsErrorMsg,
 }: OrganizationClientProps) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member"); // State for selected role
@@ -272,6 +279,27 @@ export default function OrganizationClient({
       toast.success(`Variant column "${columnName.trim()}" updated!`);
       setIsVariantColumnEditDialogOpen(false);
       setEditingVariantColumn(null);
+      return { error: null };
+    },
+    null
+  );
+
+  const [
+    certificationSettingsState,
+    submitUpdateCertificationSettings,
+    isCertificationSettingsPending,
+  ] = useActionState(
+    async (
+      prevState: { error: { message: string } | null } | null,
+      formData: FormData
+    ) => {
+      const result = await updateCertificationSettings(formData);
+      if (result.error) {
+        toast.error(`Failed to update certification settings: ${result.error.message}`);
+        return { error: result.error };
+      }
+
+      toast.success("Certification settings updated.");
       return { error: null };
     },
     null
@@ -593,6 +621,83 @@ export default function OrganizationClient({
         </Card>
       )}
       {/* --- End Manage Categories Section --- */}
+
+      {userRole === "owner" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Certification Settings</CardTitle>
+            <CardDescription>
+              Values used by EU Declaration of Conformity documents.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {certificationSettingsErrorMsg && (
+              <p className="mb-4 text-sm text-destructive">
+                Error loading certification settings:{" "}
+                {certificationSettingsErrorMsg}
+              </p>
+            )}
+            <form
+              action={submitUpdateCertificationSettings}
+              className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end"
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="template-revision">Template Revision</Label>
+                <Input
+                  id="template-revision"
+                  name="templateRevision"
+                  defaultValue={initialCertificationSettings.templateRevision}
+                  required
+                  disabled={isCertificationSettingsPending}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cat-ii-certificate-no">
+                  Cat. II Certificate No.
+                </Label>
+                <Input
+                  id="cat-ii-certificate-no"
+                  name="catIiCertificateNo"
+                  defaultValue={initialCertificationSettings.catIiCertificateNo}
+                  required
+                  disabled={isCertificationSettingsPending}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cat-iii-certificate-no">
+                  Cat. III Certificate No.
+                </Label>
+                <Input
+                  id="cat-iii-certificate-no"
+                  name="catIiiCertificateNo"
+                  defaultValue={
+                    initialCertificationSettings.catIiiCertificateNo
+                  }
+                  required
+                  disabled={isCertificationSettingsPending}
+                />
+              </div>
+              <div className="md:col-span-3 flex justify-end">
+                <Button type="submit" disabled={isCertificationSettingsPending}>
+                  {isCertificationSettingsPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {isCertificationSettingsPending
+                    ? "Saving..."
+                    : "Save Certification Settings"}
+                </Button>
+              </div>
+            </form>
+            {certificationSettingsState?.error && (
+              <p className="mt-3 text-sm text-destructive">
+                {certificationSettingsState.error.message}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {userRole === "owner" && (
         <Card>

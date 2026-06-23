@@ -6,6 +6,12 @@ import { createClient as createServerActionClient } from "@/lib/supabase/server"
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { VariantColumnDefinition } from "@/lib/datasheet/variant-table";
+import {
+  DEFAULT_CERTIFICATION_SETTINGS,
+  mapCertificationSettingsRow,
+  type CertificationSettings,
+  type CertificationSettingsRow,
+} from "@/lib/certifications/settings";
 // ---------------------------------------------------------
 
 // --- Action to get user's organization ID ---
@@ -62,7 +68,7 @@ async function getOwnerOrgId(
   if (profile.role !== "owner") {
     return {
       organizationId: null,
-      error: { message: "Only organization owners can manage variant columns." },
+      error: { message: "Only organization owners can manage organization settings." },
     };
   }
 
@@ -324,6 +330,97 @@ export async function fetchVariantColumnsForOrg(
     data: ((data || []) as VariantColumnRow[]).map(mapVariantColumnRow),
     error: null,
   };
+}
+
+export async function fetchCertificationSettingsForOrg(): Promise<{
+  data: CertificationSettings;
+  error: { message: string } | null;
+}> {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return {
+      data: DEFAULT_CERTIFICATION_SETTINGS,
+      error: { message: "User organization not found." },
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("certification_settings")
+    .select("template_revision, cat_ii_certificate_no, cat_iii_certificate_no")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Server Action Error (fetchCertificationSettingsForOrg):", error);
+    return {
+      data: DEFAULT_CERTIFICATION_SETTINGS,
+      error: { message: `Database error: ${error.message}` },
+    };
+  }
+
+  return {
+    data: mapCertificationSettingsRow(data as CertificationSettingsRow | null),
+    error: null,
+  };
+}
+
+export async function updateCertificationSettings(formData: FormData) {
+  "use server";
+  const supabase = await createServerActionClient();
+  const { organizationId, error: ownerError } = await getOwnerOrgId(supabase);
+
+  if (ownerError || !organizationId) {
+    return { error: ownerError || { message: "User organization not found." } };
+  }
+
+  const templateRevision = String(
+    formData.get("templateRevision") || ""
+  ).trim();
+  const catIiCertificateNo = String(
+    formData.get("catIiCertificateNo") || ""
+  ).trim();
+  const catIiiCertificateNo = String(
+    formData.get("catIiiCertificateNo") || ""
+  ).trim();
+
+  if (!templateRevision) {
+    return { error: { message: "Template revision is required." } };
+  }
+
+  if (!catIiCertificateNo) {
+    return { error: { message: "Cat. II certificate number is required." } };
+  }
+
+  if (!catIiiCertificateNo) {
+    return { error: { message: "Cat. III certificate number is required." } };
+  }
+
+  const { data, error } = await supabase
+    .from("certification_settings")
+    .upsert(
+      {
+        organization_id: organizationId,
+        template_revision: templateRevision,
+        cat_ii_certificate_no: catIiCertificateNo,
+        cat_iii_certificate_no: catIiiCertificateNo,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id" }
+    )
+    .select("organization_id")
+    .single();
+
+  if (error) {
+    console.error("Server Action Error (updateCertificationSettings):", error);
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/certifications");
+  return { data, error: null };
 }
 
 export async function createVariantColumn(label: string) {

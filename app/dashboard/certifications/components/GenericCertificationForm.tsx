@@ -274,6 +274,22 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     return () => clearTimeout(timer);
   }, [productQuery, organizationId]);
 
+  const getPlaceholder = (f: FieldSpec) => {
+    if (typeSlug !== "eu-doc-serialised") {
+      return f.placeholder;
+    }
+
+    if (form.productType === "pto-compressor") {
+      if (f.name === "commercialName") return "e.g., VariMount 350";
+      if (f.name === "modelType") return "e.g., VM-A-0001";
+    }
+
+    if (f.name === "commercialName") return "e.g., Blast Machine BP200L";
+    if (f.name === "modelType") return "e.g., BP-A-5000";
+
+    return f.placeholder;
+  };
+
   const renderField = (f: FieldSpec) => {
     // Special case: model uses the product search input; store chosen title in form.model
     if (f.name === "model") {
@@ -375,7 +391,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       <Input
         type="text"
         value={form[f.name] ?? ""}
-        placeholder={f.placeholder}
+        placeholder={getPlaceholder(f)}
         onChange={(e) => setForm((s) => ({ ...s, [f.name]: e.target.value }))}
       />
     );

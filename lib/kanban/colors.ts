@@ -4,6 +4,7 @@ export const KANBAN_ALLOWED_HEADER_COLORS = [
   "green",
   "yellow",
   "blue",
+  "purple",
 ] as const;
 
 export type KanbanHeaderColor = (typeof KANBAN_ALLOWED_HEADER_COLORS)[number];

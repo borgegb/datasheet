@@ -7,6 +7,12 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { VariantColumnDefinition } from "@/lib/datasheet/variant-table";
 import {
+  MAX_SIGNATURE_BYTES,
+  SIGNATURE_BUCKET,
+  isSignaturePathForOrganization,
+  validateSignaturePng,
+} from "@/lib/certifications/signature";
+import {
   DEFAULT_CERTIFICATION_SETTINGS,
   mapCertificationSettingsRow,
   type CertificationSettings,
@@ -349,7 +355,7 @@ export async function fetchCertificationSettingsForOrg(): Promise<{
 
   const { data, error } = await supabase
     .from("certification_settings")
-    .select("template_revision, cat_ii_certificate_no, cat_iii_certificate_no")
+    .select("template_revision, signature_storage_path")
     .eq("organization_id", organizationId)
     .maybeSingle();
 
@@ -361,10 +367,19 @@ export async function fetchCertificationSettingsForOrg(): Promise<{
     };
   }
 
-  return {
-    data: mapCertificationSettingsRow(data as CertificationSettingsRow | null),
-    error: null,
-  };
+  const row = data as CertificationSettingsRow | null;
+  const settings = mapCertificationSettingsRow(row);
+  if (row?.signature_storage_path && isSignaturePathForOrganization(row.signature_storage_path, organizationId)) {
+    const { organizationId: ownerOrganizationId } = await getOwnerOrgId(supabase);
+    if (ownerOrganizationId === organizationId) {
+      const { data: preview } = await supabase.storage
+        .from(SIGNATURE_BUCKET)
+        .createSignedUrl(row.signature_storage_path, 900);
+      settings.signaturePreviewUrl = preview?.signedUrl || null;
+    }
+  }
+
+  return { data: settings, error: null };
 }
 
 export async function updateCertificationSettings(formData: FormData) {
@@ -379,23 +394,39 @@ export async function updateCertificationSettings(formData: FormData) {
   const templateRevision = String(
     formData.get("templateRevision") || ""
   ).trim();
-  const catIiCertificateNo = String(
-    formData.get("catIiCertificateNo") || ""
-  ).trim();
-  const catIiiCertificateNo = String(
-    formData.get("catIiiCertificateNo") || ""
-  ).trim();
 
   if (!templateRevision) {
     return { error: { message: "Template revision is required." } };
   }
 
-  if (!catIiCertificateNo) {
-    return { error: { message: "Cat. II certificate number is required." } };
+  const signatureFile = formData.get("signatureFile");
+  const removeSignature = formData.get("removeSignature") === "on";
+  const hasUpload = signatureFile instanceof File && signatureFile.size > 0;
+  let uploadedPath: string | undefined;
+
+  if (hasUpload && removeSignature) {
+    return { error: { message: "Choose either a replacement signature or removal." } };
   }
 
-  if (!catIiiCertificateNo) {
-    return { error: { message: "Cat. III certificate number is required." } };
+  if (hasUpload) {
+    if (signatureFile.type !== "image/png" || signatureFile.size > MAX_SIGNATURE_BYTES) {
+      return { error: { message: "Signature must be a PNG image, 512 KB or smaller." } };
+    }
+
+    const bytes = new Uint8Array(await signatureFile.arrayBuffer());
+    try {
+      await validateSignaturePng(bytes);
+    } catch (error) {
+      return { error: { message: error instanceof Error ? error.message : "Invalid signature image." } };
+    }
+
+    uploadedPath = `${organizationId}/${randomUUID()}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from(SIGNATURE_BUCKET)
+      .upload(uploadedPath, bytes, { contentType: "image/png", upsert: false });
+    if (uploadError) {
+      return { error: { message: `Could not upload signature: ${uploadError.message}` } };
+    }
   }
 
   const { data, error } = await supabase
@@ -404,8 +435,8 @@ export async function updateCertificationSettings(formData: FormData) {
       {
         organization_id: organizationId,
         template_revision: templateRevision,
-        cat_ii_certificate_no: catIiCertificateNo,
-        cat_iii_certificate_no: catIiiCertificateNo,
+        ...(uploadedPath ? { signature_storage_path: uploadedPath } : {}),
+        ...(removeSignature ? { signature_storage_path: null } : {}),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "organization_id" }
@@ -414,6 +445,9 @@ export async function updateCertificationSettings(formData: FormData) {
     .single();
 
   if (error) {
+    if (uploadedPath) {
+      await supabase.storage.from(SIGNATURE_BUCKET).remove([uploadedPath]);
+    }
     console.error("Server Action Error (updateCertificationSettings):", error);
     return { error: { message: `Database error: ${error.message}` } };
   }
@@ -1306,6 +1340,27 @@ const normalizeOptionalFormString = (
   return trimmedValue.length > 0 ? trimmedValue : null;
 };
 
+type EuDocProductType = "blast-machine" | "pto-compressor";
+type EuDocPedCategory = "cat-ii" | "cat-iii";
+
+const normalizeEuDocProductType = (
+  value: FormDataEntryValue | null
+): EuDocProductType | null => {
+  if (value === "blast-machine" || value === "pto-compressor") {
+    return value;
+  }
+  return null;
+};
+
+const normalizeEuDocPedCategory = (
+  value: FormDataEntryValue | null
+): EuDocPedCategory | null => {
+  if (value === "cat-ii" || value === "cat-iii") {
+    return value;
+  }
+  return null;
+};
+
 // --- Action to Save/Update Datasheet (Product) ---
 export async function saveDatasheet(
   prevState: SaveDatasheetState | null,
@@ -1359,6 +1414,39 @@ export async function saveDatasheet(
   // -----------------------------------
 
   // Prepare data object for Supabase
+  const euDocProductType = normalizeEuDocProductType(
+    formData.get("euDocProductType")
+  );
+  const euDocPedCategory = normalizeEuDocPedCategory(
+    formData.get("euDocPedCategory")
+  );
+  const euDocCertificateNo = normalizeOptionalFormString(
+    formData.get("euDocCertificateNo")
+  );
+
+  if (
+    (euDocProductType || euDocPedCategory || euDocCertificateNo) &&
+    (!euDocProductType || !euDocPedCategory)
+  ) {
+    return {
+      data: null,
+      error: {
+        message:
+          "EU DoC settings need both product type and PED category, or leave the whole EU DoC section unconfigured.",
+      },
+    };
+  }
+
+  if (euDocProductType === "pto-compressor" && euDocPedCategory === "cat-iii") {
+    return {
+      data: null,
+      error: {
+        message:
+          "PTO compressor EU DoC settings must use Cat. II / Module A2.",
+      },
+    };
+  }
+
   const productData = {
     product_title: formData.get("productTitle") as string,
     product_code: formData.get("productCode") as string,
@@ -1381,6 +1469,9 @@ export async function saveDatasheet(
     },
     catalog_id: normalizeOptionalFormString(formData.get("catalogId")),
     image_path: normalizeOptionalFormString(formData.get("imagePath")),
+    eu_doc_product_type: euDocProductType,
+    eu_doc_ped_category: euDocPedCategory,
+    eu_doc_certificate_no: euDocCertificateNo,
     user_id: userId,
     organization_id: organizationId,
     category_ids: categoryIds,

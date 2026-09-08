@@ -26,6 +26,41 @@ import { format } from "date-fns";
 
 const VM350_SERIAL_PREFIX = "AP";
 
+type ProductSearchResult = {
+  id: string;
+  product_title: string | null;
+  product_code: string | null;
+  eu_doc_product_type?: "blast-machine" | "pto-compressor" | null;
+  eu_doc_ped_category?: "cat-ii" | "cat-iii" | null;
+  eu_doc_certificate_no?: string | null;
+};
+
+const EU_DOC_TYPE_SLUGS = new Set([
+  "eu-doc-owner-manual-blasting",
+  "eu-doc-owner-manual-pto-compressors",
+  "eu-doc-serialised",
+]);
+
+function productDisplayName(product: ProductSearchResult) {
+  return product.product_title || product.product_code || "Untitled product";
+}
+
+function productTypeLabel(productType: ProductSearchResult["eu_doc_product_type"]) {
+  if (productType === "blast-machine") return "Mobile abrasive blast machine";
+  if (productType === "pto-compressor") return "PTO-driven air compressor";
+  return "Product type missing";
+}
+
+function pedCategoryLabel(pedCategory: ProductSearchResult["eu_doc_ped_category"]) {
+  if (pedCategory === "cat-ii") return "Cat. II / Module A2";
+  if (pedCategory === "cat-iii") return "Cat. III / Module B + C2";
+  return "PED category missing";
+}
+
+function stringOrEmpty(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function sanitizeSerialChunk(value: string, length: number) {
   return value.replace(/\D/g, "").slice(0, length);
 }
@@ -208,8 +243,10 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   const [productLabel, setProductLabel] = React.useState<string>("");
   const [productQuery, setProductQuery] = React.useState<string>("");
   const [productResults, setProductResults] = React.useState<
-    { id: string; product_title: string; product_code: string | null }[]
+    ProductSearchResult[]
   >([]);
+  const [selectedProduct, setSelectedProduct] =
+    React.useState<ProductSearchResult | null>(null);
   const [isSearchingProducts, setIsSearchingProducts] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [generatedPdfUrl, setGeneratedPdfUrl] = React.useState<string | null>(
@@ -218,6 +255,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   const [organizationId, setOrganizationId] = React.useState<string | null>(
     null
   );
+  const requiresEuDocProduct = EU_DOC_TYPE_SLUGS.has(typeSlug);
 
   React.useEffect(() => {
     const supabase = createClient();
@@ -246,16 +284,16 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       setIsSearchingProducts(true);
       try {
         const supabase = createClient();
+        const safeQuery = q.replace(/[%(),]/g, "");
         // Search by title or code
         const { data, error } = await supabase
           .from("products")
-          .select("id, product_title, product_code")
+          .select(
+            "id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no"
+          )
           .eq("organization_id", organizationId)
           .or(
-            `product_title.ilike.%${q.replace(
-              /%/g,
-              ""
-            )}%,product_code.ilike.%${q.replace(/%/g, "")}%)`
+            `product_title.ilike.%${safeQuery}%,product_code.ilike.%${safeQuery}%`
           )
           .order("updated_at", { ascending: false })
           .limit(10);
@@ -279,7 +317,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       return f.placeholder;
     }
 
-    if (form.productType === "pto-compressor") {
+    if (selectedProduct?.eu_doc_product_type === "pto-compressor") {
       if (f.name === "commercialName") return "e.g., VariMount 350";
       if (f.name === "modelType") return "e.g., VM-A-0001";
     }
@@ -288,6 +326,29 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     if (f.name === "modelType") return "e.g., BP-A-5000";
 
     return f.placeholder;
+  };
+
+  const selectProduct = (product: ProductSearchResult) => {
+    setProductId(product.id);
+    setSelectedProduct(product);
+    setProductLabel(productDisplayName(product));
+    setProductQuery("");
+    setProductResults([]);
+
+    if (typeSlug === "eu-doc-serialised") {
+      setForm((current) => ({
+        ...current,
+        commercialName:
+          stringOrEmpty(current.commercialName) || product.product_title || "",
+        modelType: stringOrEmpty(current.modelType) || product.product_code || "",
+      }));
+    }
+  };
+
+  const clearProductSelection = () => {
+    setProductLabel("");
+    setProductId("");
+    setSelectedProduct(null);
   };
 
   const renderField = (f: FieldSpec) => {
@@ -299,8 +360,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
             placeholder="Search product by name or code..."
             value={productLabel || productQuery}
             onChange={(e) => {
-              setProductLabel("");
-              setProductId("");
+              clearProductSelection();
               setForm((s) => ({ ...s, model: "" }));
               setProductQuery(e.target.value);
             }}
@@ -323,15 +383,16 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
                       type="button"
                       className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent"
                       onClick={() => {
-                        setProductId(p.id);
-                        const titleOnly = p.product_title;
-                        setProductLabel(titleOnly);
-                        setForm((s) => ({ ...s, model: titleOnly }));
-                        setProductQuery("");
-                        setProductResults([]);
+                        selectProduct(p);
+                        setForm((s) => ({
+                          ...s,
+                          model: productDisplayName(p),
+                        }));
                       }}
                     >
-                      <span className="font-medium">{p.product_title}</span>
+                      <span className="font-medium">
+                        {productDisplayName(p)}
+                      </span>
                       {p.product_code && (
                         <span className="text-muted-foreground text-xs">
                           ({p.product_code})
@@ -397,6 +458,101 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     );
   };
 
+  const renderEuDocProductSelector = () => {
+    if (!requiresEuDocProduct) {
+      return null;
+    }
+
+    const certificateNo = selectedProduct?.eu_doc_certificate_no?.trim() || "";
+
+    return (
+      <div className="space-y-2 rounded-md border p-4">
+        <div className="space-y-1">
+          <Label>Product</Label>
+          <p className="text-sm text-muted-foreground">
+            Select the datasheet product that controls type, PED category,
+            module, and certificate number.
+          </p>
+        </div>
+        <div className="relative">
+          <Input
+            placeholder="Search product by name or code..."
+            value={productLabel || productQuery}
+            onChange={(e) => {
+              clearProductSelection();
+              setProductQuery(e.target.value);
+            }}
+          />
+          {productQuery.length >= 2 && (
+            <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow">
+              <div className="max-h-64 overflow-auto text-sm">
+                {isSearchingProducts ? (
+                  <div className="px-3 py-2 text-muted-foreground">
+                    Searching...
+                  </div>
+                ) : productResults.length === 0 ? (
+                  <div className="px-3 py-2 text-muted-foreground">
+                    No results
+                  </div>
+                ) : (
+                  productResults.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-accent"
+                      onClick={() => selectProduct(product)}
+                    >
+                      <span className="font-medium">
+                        {productDisplayName(product)}
+                        {product.product_code ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {product.product_code}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {productTypeLabel(product.eu_doc_product_type)} |{" "}
+                        {pedCategoryLabel(product.eu_doc_ped_category)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        {selectedProduct && (
+          <div className="grid grid-cols-1 gap-2 rounded-md bg-muted/40 p-3 text-sm sm:grid-cols-3">
+            <div>
+              <span className="block font-medium">Product type</span>
+              <span className="text-muted-foreground">
+                {productTypeLabel(selectedProduct.eu_doc_product_type)}
+              </span>
+            </div>
+            <div>
+              <span className="block font-medium">PED route</span>
+              <span className="text-muted-foreground">
+                {pedCategoryLabel(selectedProduct.eu_doc_ped_category)}
+              </span>
+            </div>
+            <div>
+              <span className="block font-medium">Certificate</span>
+              <span
+                className={
+                  certificateNo
+                    ? "text-muted-foreground"
+                    : "font-medium text-destructive"
+                }
+              >
+                {certificateNo || "Missing - generation blocked"}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -407,6 +563,10 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       if (!parse.success) {
         const first = parse.error.issues[0];
         throw new Error(first?.message || "Please fill required fields");
+      }
+
+      if (requiresEuDocProduct && !productId) {
+        throw new Error("Select a product before generating this DoC.");
       }
 
       const res = await fetch(
@@ -455,6 +615,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {renderEuDocProductSelector()}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {typeDef.fieldLayout.map((f) => (
               <div key={f.name} className="space-y-1.5">

@@ -121,17 +121,14 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
     title: "EU DoC - Serialised",
     templatePath: "",
     defaults: {
-      productType: "blast-machine",
       declarationNumber: "",
       issueDate: "",
       commercialName: "",
       modelType: "",
       serialNumber: "",
       yearOfConstruction: "",
-      pedCategory: "cat-ii",
     },
     schema: z.object({
-      productType: z.enum(["blast-machine", "pto-compressor"]),
       declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
       issueDate: z.string().trim().min(1, "Date of issue is required"),
       commercialName: z.string().trim().min(1, "Commercial name is required"),
@@ -141,19 +138,8 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         .string()
         .trim()
         .regex(/^\d{4}$/, "Year must use four digits"),
-      pedCategory: z.enum(["cat-ii", "cat-iii"]),
     }),
     fieldLayout: [
-      {
-        name: "productType",
-        label: "Product type",
-        type: "select",
-        required: true,
-        options: [
-          { label: "Mobile abrasive blast machine", value: "blast-machine" },
-          { label: "PTO-driven air compressor", value: "pto-compressor" },
-        ],
-      },
       {
         name: "declarationNumber",
         label: "Declaration No.",
@@ -194,16 +180,6 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         type: "text",
         placeholder: "e.g., 2025",
         required: true,
-      },
-      {
-        name: "pedCategory",
-        label: "PED category",
-        type: "select",
-        required: true,
-        options: [
-          { label: "Cat. II", value: "cat-ii" },
-          { label: "Cat. III", value: "cat-iii" },
-        ],
       },
     ],
   },

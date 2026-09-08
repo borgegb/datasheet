@@ -2,7 +2,7 @@ name: Supabase keepalive
 
 on:
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "17 0,6,12,18 * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,7 +12,7 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST API
+      - name: Query Supabase database
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -24,4 +24,5 @@ jobs:
             "${SUPABASE_URL}/rest/v1/keepalive?select=id&limit=1" \
             --header "apikey: ${SUPABASE_ANON_KEY}" \
             --header "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            --header "Cache-Control: no-cache" \
             --output /dev/null

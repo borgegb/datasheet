@@ -24,6 +24,18 @@ export type EuDeclarationCertificationType =
 
 type EuDeclarationInput = Record<string, unknown>;
 
+export type EuDocProductType = "blast-machine" | "pto-compressor";
+export type EuDocPedCategory = "cat-ii" | "cat-iii";
+
+export type EuDeclarationProductCertification = {
+  id?: string;
+  productTitle?: string | null;
+  productCode?: string | null;
+  productType: EuDocProductType;
+  pedCategory: EuDocPedCategory;
+  certificateNo: string;
+};
+
 type FontSet = {
   regular: PDFFont;
   bold: PDFFont;
@@ -84,17 +96,29 @@ export function isEuDeclarationOfConformityType(
 
 export function buildEuDeclarationTitle(
   type: EuDeclarationCertificationType,
-  data: EuDeclarationInput
+  data: EuDeclarationInput,
+  productCertification?: EuDeclarationProductCertification | null
 ) {
   const declarationNumber = stringValue(data.declarationNumber);
+  const productName =
+    productCertification?.productTitle || productCertification?.productCode;
+
   if (type === "eu-doc-owner-manual-blasting") {
-    return ["Owner's Manual DoC - Blasting Machines", declarationNumber]
+    return [
+      "Owner's Manual DoC - Blasting Machines",
+      productName,
+      declarationNumber,
+    ]
       .filter(Boolean)
       .join(" - ");
   }
 
   if (type === "eu-doc-owner-manual-pto-compressors") {
-    return ["Owner's Manual DoC - PTO Compressors", declarationNumber]
+    return [
+      "Owner's Manual DoC - PTO Compressors",
+      productName,
+      declarationNumber,
+    ]
       .filter(Boolean)
       .join(" - ");
   }
@@ -140,39 +164,54 @@ function formatIssueDate(value: unknown) {
   return `${day}/${months[date.getUTCMonth()]}/${date.getUTCFullYear()}`;
 }
 
-function resolvePed(
-  categoryValue: string,
-  settings: CertificationSettings,
-  includeBothRoutes = false
-) {
-  if (includeBothRoutes) {
-    return {
-      pedCategory: "Cat. II, or Cat. III",
-      modules: "Module A2 (For Cat. II), and Module B + C2 (For Cat. III)",
-      certificateNo: `(For Cat. II) ${settings.catIiCertificateNo}, or\n(For Cat. III) ${settings.catIiiCertificateNo}`,
-    };
-  }
-
-  if (categoryValue === "cat-iii") {
+function resolvePed(productCertification: EuDeclarationProductCertification) {
+  if (productCertification.pedCategory === "cat-iii") {
     return {
       pedCategory: "Cat. III",
       modules: "Module B + C2",
-      certificateNo: settings.catIiiCertificateNo,
+      certificateNo: productCertification.certificateNo,
     };
   }
 
   return {
     pedCategory: "Cat. II",
     modules: "Module A2",
-    certificateNo: settings.catIiCertificateNo,
+    certificateNo: productCertification.certificateNo,
   };
+}
+
+function productTitleOrFallback(
+  productCertification: EuDeclarationProductCertification,
+  fallback: string
+) {
+  return (
+    productCertification.productTitle?.trim() ||
+    productCertification.productCode?.trim() ||
+    fallback
+  );
+}
+
+function productCodeOrFallback(
+  productCertification: EuDeclarationProductCertification,
+  fallback: string
+) {
+  return (
+    productCertification.productCode?.trim() ||
+    productCertification.productTitle?.trim() ||
+    fallback
+  );
 }
 
 function resolveDeclaration(
   type: EuDeclarationCertificationType,
   data: EuDeclarationInput,
-  settings: CertificationSettings
+  settings: CertificationSettings,
+  productCertification: EuDeclarationProductCertification | null
 ): ResolvedDeclaration {
+  if (!productCertification) {
+    throw new Error("EU DoC product certification data is required.");
+  }
+
   const common = {
     declarationNumber: stringValue(data.declarationNumber),
     issueDate: formatIssueDate(data.issueDate),
@@ -182,7 +221,7 @@ function resolveDeclaration(
   };
 
   if (type === "eu-doc-owner-manual-blasting") {
-    const ped = resolvePed("", settings, true);
+    const ped = resolvePed(productCertification);
     return {
       ...common,
       documentLabel: "Owner's Manual DoC - Blasting Machines",
@@ -191,8 +230,17 @@ function resolveDeclaration(
           label: "Description / function",
           value: "Mobile abrasive blast machine",
         },
-        { label: "Commercial name", value: "Blasting Machine BPXY0L" },
-        { label: "Model / type", value: "XY0L, BP-A-Z000" },
+        {
+          label: "Commercial name",
+          value: productTitleOrFallback(
+            productCertification,
+            "Blasting Machine BPXY0L"
+          ),
+        },
+        {
+          label: "Model / type",
+          value: productCodeOrFallback(productCertification, "XY0L, BP-A-Z000"),
+        },
       ],
       ...ped,
       includeCompressorStandard: false,
@@ -201,14 +249,23 @@ function resolveDeclaration(
   }
 
   if (type === "eu-doc-owner-manual-pto-compressors") {
-    const ped = resolvePed("cat-ii", settings);
+    const ped = resolvePed(productCertification);
     return {
       ...common,
       documentLabel: "Owner's Manual DoC - PTO Compressors",
       equipmentRows: [
         { label: "Description / function", value: "PTO-driven air compressor" },
-        { label: "Commercial name", value: "VariMount 350" },
-        { label: "Model / type", value: "VM350 / VM-A-0001" },
+        {
+          label: "Commercial name",
+          value: productTitleOrFallback(productCertification, "VariMount 350"),
+        },
+        {
+          label: "Model / type",
+          value: productCodeOrFallback(
+            productCertification,
+            "VM350 / VM-A-0001"
+          ),
+        },
       ],
       ...ped,
       includeCompressorStandard: true,
@@ -216,9 +273,8 @@ function resolveDeclaration(
     };
   }
 
-  const productType = stringValue(data.productType);
-  const isCompressor = productType === "pto-compressor";
-  const ped = resolvePed(stringValue(data.pedCategory), settings);
+  const isCompressor = productCertification.productType === "pto-compressor";
+  const ped = resolvePed(productCertification);
 
   return {
     ...common,
@@ -230,8 +286,24 @@ function resolveDeclaration(
           ? "PTO-driven air compressor"
           : "Mobile abrasive blast machine",
       },
-      { label: "Commercial name", value: stringValue(data.commercialName) },
-      { label: "Model / type", value: stringValue(data.modelType) },
+      {
+        label: "Commercial name",
+        value:
+          stringValue(data.commercialName) ||
+          productTitleOrFallback(
+            productCertification,
+            isCompressor ? "VariMount 350" : "Blast Machine BP200L"
+          ),
+      },
+      {
+        label: "Model / type",
+        value:
+          stringValue(data.modelType) ||
+          productCodeOrFallback(
+            productCertification,
+            isCompressor ? "VM-A-0001" : "BP-A-5000"
+          ),
+      },
       { label: "Serial number", value: stringValue(data.serialNumber) },
       {
         label: "Year of construction",
@@ -701,7 +773,7 @@ function drawStandards(
   return cursorY - 18;
 }
 
-function drawSignatureBlock(page: PDFPage, y: number, fonts: FontSet) {
+function drawSignatureBlock(page: PDFPage, y: number, fonts: FontSet, signature: PDFImage | null) {
   let cursorY = drawSectionTitle(
     page,
     "Signed for and on Behalf of Applied Concepts Ltd.",
@@ -755,6 +827,16 @@ function drawSignatureBlock(page: PDFPage, y: number, fonts: FontSet) {
   });
 
   cursorY -= rowHeight + 48;
+
+  if (signature) {
+    const scale = Math.min(140 / signature.width, 38 / signature.height);
+    page.drawImage(signature, {
+      x: MARGIN_X,
+      y: cursorY + 4,
+      width: signature.width * scale,
+      height: signature.height * scale,
+    });
+  }
 
   page.drawLine({
     start: { x: MARGIN_X, y: cursorY },
@@ -834,13 +916,21 @@ function drawCeMarking(options: {
 export async function buildEuDeclarationOfConformityPdf(
   type: EuDeclarationCertificationType,
   data: EuDeclarationInput,
-  settings: CertificationSettings
+  settings: CertificationSettings,
+  productCertification: EuDeclarationProductCertification | null,
+  signaturePng?: Uint8Array
 ): Promise<Uint8Array> {
-  const declaration = resolveDeclaration(type, data, settings);
+  const declaration = resolveDeclaration(
+    type,
+    data,
+    settings,
+    productCertification
+  );
   const pdfDoc = await PDFDocument.create();
   const fonts = await loadFontSet(pdfDoc);
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
+  const signature = signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
 
   const page1 = pdfDoc.addPage(PAGE_SIZE);
   drawHeader(page1, fonts, 1, logo);
@@ -969,9 +1059,10 @@ export async function buildEuDeclarationOfConformityPdf(
   });
   y -= 18;
 
-  if (y > BOTTOM_Y + 120) {
-    drawSignatureBlock(page2, y, fonts);
+  if (y <= BOTTOM_Y + 120) {
+    throw new Error("The signature section does not fit on page two.");
   }
+  drawSignatureBlock(page2, y, fonts, signature);
 
   return pdfDoc.save();
 }

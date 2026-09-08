@@ -5,17 +5,26 @@ import {
   createClient as createSupabaseAdminClient,
   type SupabaseClient,
 } from "@supabase/supabase-js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Template } from "@pdfme/common";
 import { buildCertificationPdf } from "@/lib/pdf/certifications/buildCertificationPdf";
 import { buildVm350DeclarationPdf } from "@/lib/pdf/certifications/buildVm350DeclarationPdf";
 import {
   buildEuDeclarationOfConformityPdf,
   buildEuDeclarationTitle,
+  type EuDeclarationProductCertification,
+  type EuDocPedCategory,
+  type EuDocProductType,
   isEuDeclarationOfConformityType,
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import {
+  MAX_SIGNATURE_BYTES,
+  SIGNATURE_BUCKET,
+  isSignaturePathForOrganization,
+  validateSignaturePng,
+} from "@/lib/certifications/signature";
 import {
   DEFAULT_CERTIFICATION_SETTINGS,
   mapCertificationSettingsRow,
@@ -66,20 +75,25 @@ async function getAuthenticatedOrganizationId() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return { organizationId: null, error: "Authentication required." };
+    return { organizationId: null, userId: null, role: null, error: "Authentication required." };
   }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("id", user.id)
     .single();
 
   if (profileError || !profile?.organization_id) {
-    return { organizationId: null, error: "User organization not found." };
+    return { organizationId: null, userId: null, role: null, error: "User organization not found." };
   }
 
-  return { organizationId: profile.organization_id as string, error: null };
+  return {
+    organizationId: profile.organization_id as string,
+    userId: user.id,
+    role: profile.role as string | null,
+    error: null,
+  };
 }
 
 async function validateProductId(
@@ -112,22 +126,152 @@ async function validateProductId(
   return { productId: data.id as string, error: null };
 }
 
+type EuDocProductRow = {
+  id: string;
+  product_title: string | null;
+  product_code: string | null;
+  eu_doc_product_type: string | null;
+  eu_doc_ped_category: string | null;
+  eu_doc_certificate_no: string | null;
+};
+
+function normalizeEuDocProductType(value: unknown): EuDocProductType | null {
+  if (value === "blast-machine" || value === "pto-compressor") {
+    return value;
+  }
+  return null;
+}
+
+function normalizeEuDocPedCategory(value: unknown): EuDocPedCategory | null {
+  if (value === "cat-ii" || value === "cat-iii") {
+    return value;
+  }
+  return null;
+}
+
+async function fetchEuDeclarationProductCertification(
+  supabase: SupabaseClient,
+  organizationId: string,
+  productId: unknown,
+  type: string
+): Promise<{
+  productCertification: EuDeclarationProductCertification | null;
+  error: string | null;
+}> {
+  if (typeof productId !== "string" || !productId.trim()) {
+    return {
+      productCertification: null,
+      error: "Select a product before generating this DoC.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      "id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no"
+    )
+    .eq("id", productId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      productCertification: null,
+      error: `Could not validate selected product: ${error.message}`,
+    };
+  }
+
+  const product = data as EuDocProductRow | null;
+  if (!product?.id) {
+    return {
+      productCertification: null,
+      error: "Selected product was not found.",
+    };
+  }
+
+  const productType = normalizeEuDocProductType(product.eu_doc_product_type);
+  const pedCategory = normalizeEuDocPedCategory(product.eu_doc_ped_category);
+  const certificateNo = product.eu_doc_certificate_no?.trim() || "";
+
+  if (!productType || !pedCategory) {
+    return {
+      productCertification: null,
+      error:
+        "Selected product is missing EU DoC settings. Set product type and PED category on the datasheet first.",
+    };
+  }
+
+  if (
+    type === "eu-doc-owner-manual-blasting" &&
+    productType !== "blast-machine"
+  ) {
+    return {
+      productCertification: null,
+      error:
+        "Owner's Manual Blasting DoCs must use a blast machine product.",
+    };
+  }
+
+  if (
+    type === "eu-doc-owner-manual-pto-compressors" &&
+    productType !== "pto-compressor"
+  ) {
+    return {
+      productCertification: null,
+      error:
+        "Owner's Manual PTO Compressor DoCs must use a PTO compressor product.",
+    };
+  }
+
+  if (productType === "pto-compressor" && pedCategory === "cat-iii") {
+    return {
+      productCertification: null,
+      error:
+        "PTO compressor DoCs must use Cat. II / Module A2 product settings.",
+    };
+  }
+
+  if (!certificateNo) {
+    return {
+      productCertification: null,
+      error:
+        "Selected product has no EU DoC certificate number. Add the issued certificate number on the datasheet before generating.",
+    };
+  }
+
+  return {
+    productCertification: {
+      id: product.id,
+      productTitle: product.product_title,
+      productCode: product.product_code,
+      productType,
+      pedCategory,
+      certificateNo,
+    },
+    error: null,
+  };
+}
+
 async function fetchCertificationSettings(
   supabase: SupabaseClient,
   organizationId: string
-): Promise<CertificationSettings> {
+): Promise<{ settings: CertificationSettings; signaturePath: string | null }> {
   const { data, error } = await supabase
     .from("certification_settings")
-    .select("template_revision, cat_ii_certificate_no, cat_iii_certificate_no")
+    .select("template_revision, signature_storage_path")
     .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (error) {
     console.error("Failed to fetch certification settings:", error);
-    return DEFAULT_CERTIFICATION_SETTINGS;
+    throw new Error("Could not load certification settings. Check the DoC database migrations.");
   }
 
-  return mapCertificationSettingsRow(data as CertificationSettingsRow | null);
+  const row = data as CertificationSettingsRow | null;
+  return {
+    settings: row ? mapCertificationSettingsRow(row) : DEFAULT_CERTIFICATION_SETTINGS,
+    signaturePath: row?.signature_storage_path || null,
+  };
 }
 
 async function loadTemplate(slug: string): Promise<Template> {
@@ -160,10 +304,14 @@ export async function POST(
       return jsonError("Unknown certification type", 404);
     }
 
-    const { organizationId, error: orgError } =
+    const { organizationId, userId, role, error: orgError } =
       await getAuthenticatedOrganizationId();
     if (orgError || !organizationId) {
       return jsonError(orgError || "Authentication required.", 401);
+    }
+
+    if (isEuDeclarationOfConformityType(type) && role !== "owner" && role !== "member") {
+      return jsonError("Only organization owners and members can issue signed DoCs.", 403);
     }
 
     const payload = await req.json().catch(() => null);
@@ -180,29 +328,78 @@ export async function POST(
     }
 
     const adminSupabase = getAdminClient();
-    const productValidation = await validateProductId(
-      adminSupabase,
-      organizationId,
-      productId
-    );
-    if (productValidation.error) {
-      return jsonError(productValidation.error, 400);
+    let productRecordId: string | null = null;
+    let euProductCertification: EuDeclarationProductCertification | null = null;
+
+    if (isEuDeclarationOfConformityType(type)) {
+      const productValidation =
+        await fetchEuDeclarationProductCertification(
+          adminSupabase,
+          organizationId,
+          productId,
+          type
+        );
+
+      if (productValidation.error || !productValidation.productCertification) {
+        return jsonError(productValidation.error || "Invalid product.", 400);
+      }
+
+      euProductCertification = productValidation.productCertification;
+      productRecordId = euProductCertification.id || null;
+    } else {
+      const productValidation = await validateProductId(
+        adminSupabase,
+        organizationId,
+        productId
+      );
+      if (productValidation.error) {
+        return jsonError(productValidation.error, 400);
+      }
+      productRecordId = productValidation.productId;
     }
 
     let pdfBytes: Uint8Array;
     let title: string;
+    let signatureRecord: {
+      signerName: string;
+      storagePath: string;
+      sha256: string;
+      generatedBy: string | null;
+      generatedAt: string;
+    } | null = null;
 
     if (isEuDeclarationOfConformityType(type)) {
-      const settings = await fetchCertificationSettings(
+      const { settings, signaturePath } = await fetchCertificationSettings(
         adminSupabase,
         organizationId
       );
+      if (!signaturePath || !isSignaturePathForOrganization(signaturePath, organizationId)) {
+        return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a DoC.", 409);
+      }
+
+      const { data: signatureFile, error: signatureError } = await adminSupabase.storage
+        .from(SIGNATURE_BUCKET)
+        .download(signaturePath);
+      if (signatureError || !signatureFile || signatureFile.size > MAX_SIGNATURE_BYTES) {
+        return jsonError("The configured signature could not be loaded. Ask an organization owner to upload it again.", 409);
+      }
+      const signaturePng = new Uint8Array(await signatureFile.arrayBuffer());
+      await validateSignaturePng(signaturePng);
+      signatureRecord = {
+        signerName: "Mark Clendennen",
+        storagePath: signaturePath,
+        sha256: createHash("sha256").update(signaturePng).digest("hex"),
+        generatedBy: userId,
+        generatedAt: new Date().toISOString(),
+      };
       pdfBytes = await buildEuDeclarationOfConformityPdf(
         type,
         merged,
-        settings
+        settings,
+        euProductCertification,
+        signaturePng
       );
-      title = buildEuDeclarationTitle(type, merged);
+      title = buildEuDeclarationTitle(type, merged, euProductCertification);
     } else {
       const template = await loadTemplate(typeDef.slug);
       pdfBytes =
@@ -242,19 +439,29 @@ export async function POST(
     }
 
     try {
-      await adminSupabase.from("certifications").insert({
+      const { error: recordError } = await adminSupabase.from("certifications").insert({
         organization_id: organizationId,
-        product_id: productValidation.productId,
+        product_id: productRecordId,
         type,
         title: title || null,
-        data: merged,
+        data: euProductCertification
+          ? {
+              ...merged,
+              productCertification: euProductCertification,
+              signature: signatureRecord,
+            }
+          : merged,
         pdf_storage_path: filePath,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+      if (recordError) throw recordError;
     } catch (e) {
-      // Non-fatal if table missing; PDF already generated and uploaded
       console.error("Failed to insert certification record:", e);
+      if (signatureRecord) {
+        await adminSupabase.storage.from("datasheet-assets").remove([filePath]);
+        return jsonError("Could not save the signed DoC record. Please try again.");
+      }
     }
 
     return Response.json({ url: signed?.signedUrl, path: filePath });

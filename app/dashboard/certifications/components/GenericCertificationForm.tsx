@@ -17,7 +17,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
-import { euDocHoldReason, serialisedProductFields } from "@/lib/certifications/release";
+import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
+import type { EuDocProductOptions } from "@/lib/certifications/products";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
@@ -82,9 +84,11 @@ function buildVm350SerialNumber(middle: string, suffix: string) {
 }
 
 function DateField({
+  id,
   value,
   onChange,
 }: {
+  id: string;
   value: string;
   onChange: (nextValue: string) => void;
 }) {
@@ -95,6 +99,8 @@ function DateField({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
+          type="button"
           variant="outline"
           data-empty={!dateObj}
           className="data-[empty=true]:text-muted-foreground w-full justify-between font-normal"
@@ -227,9 +233,10 @@ function Vm350SerialNumberField({
 
 interface Props {
   typeSlug: string;
+  euDocProducts?: EuDocProductOptions;
 }
 
-export default function GenericCertificationForm({ typeSlug }: Props) {
+export default function GenericCertificationForm({ typeSlug, euDocProducts }: Props) {
   const router = useRouter();
   const typeDef = CERT_TYPES[typeSlug];
   if (!typeDef) {
@@ -257,8 +264,17 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   );
   const requiresEuDocProduct = EU_DOC_TYPE_SLUGS.has(typeSlug);
   const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
+  const declarationNumber = typeSlug === "eu-doc-serialised"
+    ? serialisedDeclarationNumber(form.serialNumber) : null;
+  const formValues = typeSlug === "eu-doc-serialised"
+    ? { ...form, declarationNumber: declarationNumber ?? "" } : form;
+  const updateField = (name: string, value: string) => {
+    setForm((current) => ({ ...current, [name]: value }));
+    setGeneratedPdfUrl(null);
+  };
 
   React.useEffect(() => {
+    if (requiresEuDocProduct || holdReason) return;
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
       const user = data?.user;
@@ -270,12 +286,13 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
         .single();
       setOrganizationId(profile?.organization_id ?? null);
     });
-  }, []);
+  }, [requiresEuDocProduct, holdReason]);
 
   // Debounced product search
   React.useEffect(() => {
     let timer: any;
     const run = async () => {
+      if (requiresEuDocProduct || holdReason) return;
       if (!organizationId) return;
       const q = productQuery.trim();
       if (q.length < 2) {
@@ -311,7 +328,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     };
     timer = setTimeout(run, 250);
     return () => clearTimeout(timer);
-  }, [productQuery, organizationId]);
+  }, [productQuery, organizationId, requiresEuDocProduct, holdReason]);
 
   const getPlaceholder = (f: FieldSpec) => {
     if (typeSlug !== "eu-doc-serialised") {
@@ -357,6 +374,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       return (
         <div className="relative">
           <Input
+            id={f.name}
             placeholder="Search product by name or code..."
             value={productLabel || productQuery}
             onChange={(e) => {
@@ -423,9 +441,10 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       // Minimal select using native input to avoid extra deps
       return (
         <select
+          id={f.name}
           className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={form[f.name] ?? ""}
-          onChange={(e) => setForm((s) => ({ ...s, [f.name]: e.target.value }))}
+          onChange={(e) => updateField(f.name, e.target.value)}
         >
           <option value="">Select…</option>
           {(f.options || []).map((opt) => (
@@ -440,20 +459,21 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     if (f.type === "date") {
       return (
         <DateField
+          id={f.name}
           value={(form[f.name] as string) ?? ""}
-          onChange={(nextValue) =>
-            setForm((current) => ({ ...current, [f.name]: nextValue }))
-          }
+          onChange={(nextValue) => updateField(f.name, nextValue)}
         />
       );
     }
 
     return (
       <Input
+        id={f.name}
         type="text"
-        value={form[f.name] ?? ""}
+        value={formValues[f.name] ?? ""}
+        readOnly={typeSlug === "eu-doc-serialised" && f.name === "declarationNumber"}
         placeholder={getPlaceholder(f)}
-        onChange={(e) => setForm((s) => ({ ...s, [f.name]: e.target.value }))}
+        onChange={(e) => updateField(f.name, e.target.value)}
       />
     );
   };
@@ -466,65 +486,35 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     const certificateNo = selectedProduct?.eu_doc_certificate_no?.trim() || "";
 
     return (
-      <div className="space-y-2 rounded-md border p-4">
-        <div className="space-y-1">
-          <Label>Product</Label>
-          <p className="text-sm text-muted-foreground">
-            Select the datasheet product that controls type, PED category,
-            module, and certificate number.
-          </p>
-        </div>
-        <div className="relative">
-          <Input
-            placeholder="Search product by name or code..."
-            value={productLabel || productQuery}
-            onChange={(e) => {
-              clearProductSelection();
-              setProductQuery(e.target.value);
-            }}
-          />
-          {productQuery.length >= 2 && (
-            <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow">
-              <div className="max-h-64 overflow-auto text-sm">
-                {isSearchingProducts ? (
-                  <div className="px-3 py-2 text-muted-foreground">
-                    Searching...
-                  </div>
-                ) : productResults.length === 0 ? (
-                  <div className="px-3 py-2 text-muted-foreground">
-                    No results
-                  </div>
-                ) : (
-                  productResults.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      disabled={Boolean(euDocHoldReason(typeSlug, product.eu_doc_product_type))}
-                      className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => selectProduct(product)}
-                    >
-                      <span className="font-medium">
-                        {productDisplayName(product)}
-                        {product.product_code ? (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {product.product_code}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {productTypeLabel(product.eu_doc_product_type)} |{" "}
-                        {pedCategoryLabel(product.eu_doc_ped_category)}
-                        {euDocHoldReason(typeSlug, product.eu_doc_product_type) ? " | On hold" : ""}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="eu-doc-product">Product</Label>
+        {euDocProducts?.error ? (
+          <div className="space-y-2">
+            <p role="alert" className="text-sm text-destructive">{euDocProducts.error}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => router.refresh()}>Retry</Button>
+          </div>
+        ) : (
+          <Select value={productId} onValueChange={(id) => {
+            const product = euDocProducts?.data.find((item) => item.id === id);
+            if (product) selectProduct(product);
+          }} disabled={!euDocProducts?.data.length}>
+            <SelectTrigger id="eu-doc-product" className="data-[size=default]:h-auto min-h-10 w-full text-left [&_[data-slot=select-value]]:line-clamp-none [&_span]:whitespace-normal">
+              <SelectValue placeholder={euDocProducts?.data.length ? "Select product" : "No configured blast machines available"} />
+            </SelectTrigger>
+            <SelectContent className="max-w-[calc(100vw-2rem)]">
+              {euDocProducts?.data.map((product) => (
+                <SelectItem key={product.id} value={product.id} className="whitespace-normal break-words">
+                  {productDisplayName(product)}{product.product_code ? ` (${product.product_code})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {!euDocProducts?.error && !euDocProducts?.data.length && (
+          <p role="status" className="text-sm text-muted-foreground">An organization owner must configure product type, PED category and certificate number before a product is available.</p>
+        )}
         {selectedProduct && (
-          <div className="grid grid-cols-1 gap-2 rounded-md bg-muted/40 p-3 text-sm sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 border-b py-3 text-sm sm:grid-cols-3 [&>div]:min-w-0 [&>div]:break-words">
             <div>
               <span className="block font-medium">Product type</span>
               <span className="text-muted-foreground">
@@ -561,8 +551,11 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     setGeneratedPdfUrl(null);
     try {
       if (holdReason) throw new Error(holdReason);
+      if (typeSlug === "eu-doc-serialised" && !declarationNumber) {
+        throw new Error(SERIAL_NUMBER_FORMAT_MESSAGE);
+      }
       // Lightweight validation for required fields present in schema
-      const parse = typeDef.schema.safeParse(form);
+      const parse = typeDef.schema.safeParse(formValues);
       if (!parse.success) {
         const first = parse.error.issues[0];
         throw new Error(first?.message || "Please fill required fields");
@@ -578,7 +571,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            certification: form,
+            certification: formValues,
             organizationId,
             productId: productId || null,
             ...(requiresEuDocProduct ? { documentMode } : {}),
@@ -622,7 +615,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
         {holdReason ? (
           <p role="status" className="text-sm text-muted-foreground">{holdReason}</p>
         ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onChange={() => setGeneratedPdfUrl(null)} className="space-y-6">
           {requiresEuDocProduct && (
             <fieldset className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <legend className="mb-2 text-sm font-medium">Document status</legend>
@@ -639,7 +632,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {typeDef.fieldLayout.map((f) => (
               <div key={f.name} className="space-y-1.5">
-                <Label>{f.label}</Label>
+                <Label htmlFor={f.name}>{f.label}</Label>
                 {renderField(f)}
               </div>
             ))}
@@ -669,7 +662,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || (requiresEuDocProduct && (!productId || Boolean(euDocProducts?.error)))}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

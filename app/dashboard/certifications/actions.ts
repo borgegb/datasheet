@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { isAvailableBlastProduct, ORGANIZATION_ACCESS_MESSAGE, type EuDocProductOptions } from "@/lib/certifications/products";
 
 async function getUserProfileContext(): Promise<{
   organization_id: string | null;
@@ -39,7 +40,7 @@ export type CertificationRow = {
 export async function fetchCertificationsForOrg() {
   const supabase = await createClient();
   const orgId = await getUserOrganizationId();
-  if (!orgId) return { data: [], error: { message: "No organization" } };
+  if (!orgId) return { data: [], error: { message: ORGANIZATION_ACCESS_MESSAGE } };
 
   const { data, error } = await supabase
     .from("certifications")
@@ -51,6 +52,29 @@ export async function fetchCertificationsForOrg() {
 
   if (error) return { data: [], error };
   return { data: data as CertificationRow[], error: null };
+}
+
+export async function fetchEuDocProducts(): Promise<EuDocProductOptions> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return { data: [], error: "Please sign in to load products." };
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles").select("organization_id").eq("id", user.id).single();
+    if (profileError || !profile?.organization_id) {
+      return { data: [], error: ORGANIZATION_ACCESS_MESSAGE };
+    }
+    // Read with the user's session and RLS, never the service-role client.
+    const { data, error } = await supabase.from("products")
+      .select("id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no")
+      .eq("organization_id", profile.organization_id)
+      .eq("eu_doc_product_type", "blast-machine")
+      .order("product_title", { ascending: true });
+    if (error) return { data: [], error: "Products could not be loaded. Please retry." };
+    return { data: (data ?? []).filter(isAvailableBlastProduct), error: null };
+  } catch {
+    return { data: [], error: "Products could not be loaded. Please retry." };
+  }
 }
 
 export async function deleteCertification(id: string) {

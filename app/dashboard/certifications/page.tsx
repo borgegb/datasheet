@@ -1,16 +1,15 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { CERT_TYPES } from "./registry";
-import { euDocHoldReason } from "@/lib/certifications/release";
+import CertificateTypeChoices from "./components/CertificateTypeChoices";
 import { fetchCertificationsForOrg } from "./actions";
 import CertificationsTable from "./components/CertificationsTable";
 
 export default async function CertificationsPage() {
-  const { data } = await fetchCertificationsForOrg();
+  const { data, error } = await fetchCertificationsForOrg();
   return (
     <div className="flex flex-col flex-1 p-4 md:p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold">Certifications</h1>
           <p className="text-muted-foreground">
@@ -23,24 +22,15 @@ export default async function CertificationsPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="rounded-md border p-6">
+        <section>
           <h2 className="font-medium mb-3">Available certificate types</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {Object.values(CERT_TYPES).map((t) => (
-              euDocHoldReason(t.slug) ? <Button key={t.slug} variant="outline" disabled className="h-auto min-h-10 whitespace-normal py-2">{t.title} (on hold)</Button> :
-              <Button key={t.slug} variant="outline" asChild className="h-auto min-h-10 whitespace-normal py-2">
-                <Link href={`/dashboard/certifications/${t.slug}/new`}>
-                  {t.title}
-                </Link>
-              </Button>
-            ))}
-          </div>
-        </div>
+          <CertificateTypeChoices />
+        </section>
 
-        <div className="rounded-md border p-6">
+        <section>
           <h2 className="font-medium mb-3">Certificates</h2>
-          <CertificationsTable initialData={data || []} />
-        </div>
+          {error ? <p role="alert" className="text-sm text-destructive">{error.message}</p> : <CertificationsTable initialData={data || []} />}
+        </section>
       </div>
     </div>
   );

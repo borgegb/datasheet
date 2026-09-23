@@ -179,6 +179,8 @@ async function run() {
     ['missing product certificate', { product: { eu_doc_certificate_no: '' } }, 400],
     ['cross-org product', { product: { organization_id: 'other' } }, 400],
     ['PTO manual on hold', { type: 'eu-doc-owner-manual-pto-compressors' }, 409],
+    ['legacy VM350 on hold', { type: 'ec-vm-350-declaration' }, 409],
+    ['legacy VM350 test on hold', { type: 'ec-vm-350-declaration', documentMode: 'test' }, 409],
     ['PTO serialised on hold with certificate', { product: { eu_doc_product_type: 'pto-compressor', eu_doc_ped_category: 'cat-ii', eu_doc_certificate_no: 'VALID-COMPRESSOR-CERT' } }, 400],
     ['invalid mode', { documentMode: 'signed-test' }, 400],
     ['viewer test', { role: 'viewer', documentMode: 'test' }, 403],
@@ -216,6 +218,79 @@ async function run() {
     assert.equal(fields.modelType, 'BP-A-2000');
     assert.equal(fields.serialNumber, ''); assert.equal(fields.yearOfConstruction, '');
   });
+  await check('declaration numbering matches Rafael example and existing serial formats', () => {
+    const { serialisedDeclarationNumber } = load('lib/certifications/release.ts');
+    for (const [serial, expected] of [
+      ['AP-26-00321', 'ACL-DoC-26_321'], ['25-00161', 'ACL-DoC-25_161'],
+      ['AP-26-0001', 'ACL-DoC-26_1'], ['AP-26-12345', 'ACL-DoC-26_12345'],
+      [' AP-26-00000 ', 'ACL-DoC-26_0'],
+    ]) assert.equal(serialisedDeclarationNumber(serial), expected);
+    for (const serial of ['', null, {}, 'AP-2026-00321', 'XX-26-00321', 'AP-26-32X21', 'AP-26-00321-extra', 'AP-26-000321']) {
+      assert.equal(serialisedDeclarationNumber(serial), null);
+    }
+  });
+  for (const documentMode of ['test', 'issued']) await check(`${documentMode} derives and persists declaration number, ignoring forged input`, async () => {
+    const { response, calls } = await routeProbe({ documentMode, data: { serialNumber: 'AP-26-00321', declarationNumber: 'FORGED-NUMBER' } });
+    assert.equal(response.status, 200);
+    const expected = `${documentMode === 'test' ? 'TEST-' : ''}ACL-DoC-26_321`;
+    assert.equal(calls.builder[1].declarationNumber, expected);
+    assert.equal(calls.records[0].data.declarationNumber, expected);
+  });
+  await check('serialised numbering does not require a client declaration value', async () => {
+    const { response, calls } = await routeProbe({ data: { declarationNumber: null } });
+    assert.equal(response.status, 200);
+    assert.equal(calls.records[0].data.declarationNumber, 'ACL-DoC-26_161');
+  });
+  await check('unrecognized serial format blocks generation instead of guessing a declaration', async () => {
+    const { response, calls } = await routeProbe({ data: { serialNumber: 'OTHER-UNIT-42' } });
+    assert.equal(response.status, 400); assert.equal(calls.uploads.length, 0);
+    assert.equal(calls.downloads.length, 0);
+  });
+  await check('owner manual retains its independent declaration number', async () => {
+    const { response, calls } = await routeProbe({ type: 'eu-doc-owner-manual-blasting', data: { declarationNumber: 'ACL-DoC-OM01', serialNumber: '' } });
+    assert.equal(response.status, 200); assert.equal(calls.records[0].data.declarationNumber, 'ACL-DoC-OM01');
+    assert.equal(calls.builder[1].serialNumber, undefined);
+  });
+  for (const condition of ['ready', 'anonymous', 'no-org', 'profile-error', 'product-error', 'empty', 'network-error']) {
+    await check(`product dropdown handles ${condition} without widening access`, async () => {
+      const reads = [];
+      const client = {
+        auth: { getUser: async () => ({ data: { user: condition === 'anonymous' ? null : { id: 'user-a' } } }) },
+        from(table) {
+          reads.push(table);
+          const filters = {};
+          return {
+            select() { return this; },
+            eq(key, value) { filters[key] = value; return this; },
+            single: async () => {
+              assert.equal(filters.id, 'user-a');
+              return { data: { organization_id: condition === 'no-org' ? null : org }, error: condition === 'profile-error' ? { message: 'denied' } : null };
+            },
+            order: async (column, options) => {
+              assert.equal(filters.organization_id, org);
+              assert.equal(filters.eu_doc_product_type, 'blast-machine');
+              assert.equal(column, 'product_title'); assert.equal(options.ascending, true);
+              if (condition === 'network-error') throw new Error('offline');
+              return { data: condition === 'empty' ? [] : [blast,
+                { ...blast, id: 'incomplete', eu_doc_certificate_no: ' ' },
+                { ...blast, id: 'no-category', eu_doc_ped_category: null },
+                { ...blast, id: 'pto', eu_doc_product_type: 'pto-compressor' },
+              ], error: condition === 'product-error' ? { message: 'denied' } : null };
+            },
+          };
+        },
+      };
+      const actions = load('app/dashboard/certifications/actions.ts', {
+        '@/lib/supabase/server': { createClient: async () => client },
+        'next/cache': { revalidatePath() {} },
+      });
+      const result = await actions.fetchEuDocProducts();
+      assert.equal(Boolean(result.error), !['ready', 'empty'].includes(condition));
+      assert.equal(result.data.length, condition === 'ready' ? 1 : 0);
+      if (['anonymous', 'no-org', 'profile-error'].includes(condition)) assert.equal(reads.includes('products'), false);
+      if (['no-org', 'profile-error'].includes(condition)) assert.match(result.error, /organization owner/);
+    });
+  }
   for (const [name, options, expectedDeletes] of [
     ['storage failure keeps the record', { storageError: true }, 0],
     ['silent storage denial keeps the record', { fileRemains: true }, 0],
@@ -249,7 +324,7 @@ async function run() {
     assert.equal(Boolean(result.error), name !== 'missing PDF can finish record cleanup');
     if (options.role || options.path) assert.equal(removed, 0);
   });
-  for (const type of ['ec-vm-350-declaration', 'hydrostatic-test']) await check(`${type} does not require new signature`, async () => {
+  for (const type of ['hydrostatic-test']) await check(`${type} does not require new signature`, async () => {
     const { response, calls } = await routeProbe({ type, signaturePath: null, data: { serialNumber: 'AP-26-0001', model: 'Test', dateOfTest: common.issueDate } });
     assert.equal(response.status, 200); assert.equal(calls.downloads.length, 0);
   });

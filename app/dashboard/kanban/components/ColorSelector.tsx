@@ -47,6 +47,12 @@ export default function ColorSelector({
       bgColor: "bg-blue-500",
       borderColor: "border-blue-500",
     },
+    {
+      value: "purple",
+      label: "Purple",
+      bgColor: "bg-purple-500",
+      borderColor: "border-purple-500",
+    },
   ] as const;
 
   return (
@@ -57,7 +63,7 @@ export default function ColorSelector({
         onValueChange={(newValue) =>
           onChange(newValue as KanbanHeaderColor)
         }
-        className="grid grid-cols-5 gap-2"
+        className="grid grid-cols-3 sm:grid-cols-6 gap-2"
       >
         {colors.map((color) => (
           <div key={color.value} className="flex items-center">

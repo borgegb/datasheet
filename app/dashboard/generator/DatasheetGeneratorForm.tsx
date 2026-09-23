@@ -99,6 +99,7 @@ interface Catalog {
 // Re-add definition for Profile type used in state
 interface Profile {
   organization_id: string | null;
+  role?: string | null;
   full_name?: string | null; // Make optional if not always selected/present
   avatar_url?: string | null; // Make optional
 }
@@ -637,7 +638,7 @@ export default function DatasheetGeneratorForm({
       // Fetch Profile (needed for org context if categories become org-specific later)
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("organization_id, full_name, avatar_url")
+        .select("organization_id, role, full_name, avatar_url")
         .eq("id", userData.user.id)
         .single();
 
@@ -1429,12 +1430,15 @@ export default function DatasheetGeneratorForm({
             type="hidden"
             name="euDocProductType"
             value={euDocProductType}
+            disabled={profile?.role !== "owner"}
           />
           <input
             type="hidden"
             name="euDocPedCategory"
             value={euDocPedCategory}
+            disabled={profile?.role !== "owner"}
           />
+          <input type="hidden" name="euDocCertificateNo" value={euDocCertificateNo} disabled={profile?.role !== "owner"} />
           {/* -------------------------------------------- */}
 
           <div className="space-y-8">
@@ -1540,14 +1544,13 @@ export default function DatasheetGeneratorForm({
               </RadioGroup>
             </div>
 
-            <div className="space-y-4 rounded-md border p-4">
+            <fieldset disabled={profile?.role !== "owner"} className="space-y-4 border-t pt-4">
               <div>
                 <Label className="text-base font-semibold">
                   EU Declaration of Conformity Settings
                 </Label>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Used by EU DoC certificates. Leave the certificate number
-                  blank until the issued certificate is available.
+                  {profile?.role === "owner" ? "Product certification mapping" : "Managed by organization owners"}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -1555,6 +1558,7 @@ export default function DatasheetGeneratorForm({
                   <Label htmlFor="eu-doc-product-type">Product Type</Label>
                   <Select
                     value={euDocProductType || "none"}
+                    disabled={profile?.role !== "owner"}
                     onValueChange={(value) =>
                       setEuDocProductType(value === "none" ? "" : value)
                     }
@@ -1577,6 +1581,7 @@ export default function DatasheetGeneratorForm({
                   <Label htmlFor="eu-doc-ped-category">PED Category</Label>
                   <Select
                     value={euDocPedCategory || "none"}
+                    disabled={profile?.role !== "owner"}
                     onValueChange={(value) =>
                       setEuDocPedCategory(value === "none" ? "" : value)
                     }
@@ -1599,7 +1604,6 @@ export default function DatasheetGeneratorForm({
                   </Label>
                   <Input
                     id="eu-doc-certificate-no"
-                    name="euDocCertificateNo"
                     value={euDocCertificateNo}
                     onChange={(event) =>
                       setEuDocCertificateNo(event.target.value)
@@ -1618,7 +1622,7 @@ export default function DatasheetGeneratorForm({
                     </span>
                   </div>
                 )}
-            </div>
+            </fieldset>
 
             {/* Section 2: Descriptions & Specs */}
             <div className="space-y-6">

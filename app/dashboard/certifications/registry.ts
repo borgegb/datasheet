@@ -18,6 +18,10 @@ export type CertificationTypeDef = {
   fieldLayout: FieldSpec[];
 };
 
+const declarationNumber = z.string().trim().min(1, "Declaration No. is required").max(80, "Declaration No. must be 80 characters or fewer");
+const issueDate = z.string().trim().min(1, "Date of issue is required").max(40)
+  .refine((value) => !Number.isNaN(Date.parse(value)), "Date of issue must be a valid date");
+
 export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   "ec-vm-350-declaration": {
     slug: "ec-vm-350-declaration",
@@ -69,8 +73,8 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       issueDate: "",
     },
     schema: z.object({
-      declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
-      issueDate: z.string().trim().min(1, "Date of issue is required"),
+      declarationNumber,
+      issueDate,
     }),
     fieldLayout: [
       {
@@ -97,8 +101,8 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       issueDate: "",
     },
     schema: z.object({
-      declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
-      issueDate: z.string().trim().min(1, "Date of issue is required"),
+      declarationNumber,
+      issueDate,
     }),
     fieldLayout: [
       {
@@ -129,11 +133,11 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       yearOfConstruction: "",
     },
     schema: z.object({
-      declarationNumber: z.string().trim().min(1, "Declaration No. is required"),
-      issueDate: z.string().trim().min(1, "Date of issue is required"),
-      commercialName: z.string().trim().min(1, "Commercial name is required"),
-      modelType: z.string().trim().min(1, "Model / type is required"),
-      serialNumber: z.string().trim().min(1, "Serial number is required"),
+      declarationNumber,
+      issueDate,
+      commercialName: z.string().trim().min(1, "Commercial name is required").max(160, "Commercial name must be 160 characters or fewer"),
+      modelType: z.string().trim().min(1, "Model / type is required").max(80, "Model / type must be 80 characters or fewer"),
+      serialNumber: z.string().trim().min(1, "Serial number is required").max(80, "Serial number must be 80 characters or fewer"),
       yearOfConstruction: z
         .string()
         .trim()

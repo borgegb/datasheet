@@ -60,27 +60,43 @@ export async function deleteCertification(id: string) {
   const userRole = profile?.role ?? "viewer";
 
   if (!orgId) return { error: { message: "No organization" } };
-  if (userRole === "viewer") {
+  if (userRole !== "owner" && userRole !== "member") {
     return {
       error: { message: "You do not have permission to delete certifications" },
     };
   }
 
   // Soft-validate ownership
-  const { data: row } = await supabase
+  const { data: row, error: readError } = await supabase
     .from("certifications")
     .select("id, pdf_storage_path")
     .eq("id", id)
     .eq("organization_id", orgId)
     .single();
 
+  if (readError) return { error: readError };
   if (!row) return { error: { message: "Not found" } };
 
   // Delete file if exists
   if (row.pdf_storage_path) {
-    await supabase.storage
+    const segments = row.pdf_storage_path.split("/");
+    if (segments[0] !== orgId || segments[1] !== "certifications" ||
+        segments.some((segment: string) => !segment || segment === "." || segment === "..")) {
+      return { error: { message: "Invalid certificate file path. Nothing was deleted." } };
+    }
+    const { error: storageError } = await supabase.storage
       .from("datasheet-assets")
       .remove([row.pdf_storage_path]);
+    if (storageError) {
+      return { error: { message: "Could not remove the PDF. The record was kept; please retry." } };
+    }
+    // Storage can report an empty successful deletion when RLS hid the object.
+    const { data: remaining, error: verifyError } = await supabase.storage
+      .from("datasheet-assets")
+      .list(segments.slice(0, -1).join("/"), { search: segments.at(-1), limit: 100 });
+    if (verifyError || remaining?.some((file) => file.name === segments.at(-1))) {
+      return { error: { message: "PDF removal could not be confirmed. The record was kept; please retry." } };
+    }
   }
 
   const { error } = await supabase
@@ -90,5 +106,5 @@ export async function deleteCertification(id: string) {
     .eq("organization_id", orgId);
 
   if (!error) revalidatePath("/dashboard/certifications");
-  return { error };
+  return { error: error ? { message: "The PDF was removed, but its record could not be deleted. Please retry deletion." } : null };
 }

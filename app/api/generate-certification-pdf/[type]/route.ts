@@ -18,6 +18,7 @@ import {
   isEuDeclarationOfConformityType,
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
+import { euDocHoldReason } from "@/lib/certifications/release";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   MAX_SIGNATURE_BYTES,
@@ -193,6 +194,9 @@ async function fetchEuDeclarationProductCertification(
   const pedCategory = normalizeEuDocPedCategory(product.eu_doc_ped_category);
   const certificateNo = product.eu_doc_certificate_no?.trim() || "";
 
+  const holdReason = euDocHoldReason(type, productType);
+  if (holdReason) return { productCertification: null, error: holdReason };
+
   if (!productType || !pedCategory) {
     return {
       productCertification: null,
@@ -310,9 +314,12 @@ export async function POST(
       return jsonError(orgError || "Authentication required.", 401);
     }
 
-    if (isEuDeclarationOfConformityType(type) && role !== "owner" && role !== "member") {
-      return jsonError("Only organization owners and members can issue signed DoCs.", 403);
+    if (role !== "owner" && role !== "member") {
+      return jsonError("Only organization owners and members can generate certificates.", 403);
     }
+
+    const holdReason = euDocHoldReason(type);
+    if (holdReason) return jsonError(holdReason, 409);
 
     const payload = await req.json().catch(() => null);
     const { certification, productId } = payload || {};
@@ -320,11 +327,24 @@ export async function POST(
       return jsonError("Missing certification payload", 400);
     }
 
-    const merged = { ...typeDef.defaults, ...certification };
+    const isEuDoc = isEuDeclarationOfConformityType(type);
+    const documentMode = payload.documentMode ?? "test";
+    if (isEuDoc && documentMode !== "test" && documentMode !== "issued") {
+      return jsonError("Invalid document status.", 400);
+    }
+    const isTest = isEuDoc && documentMode === "test";
+    let merged = { ...typeDef.defaults, ...certification };
     const parsed = typeDef.schema.safeParse(merged);
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0];
       return jsonError(firstIssue?.message || "Invalid certification data", 400);
+    }
+    if (isEuDoc) {
+      // Only accepted form fields may enter a declaration or its saved snapshot.
+      merged = parsed.data;
+      if (isTest && !merged.declarationNumber.startsWith("TEST-")) {
+        merged.declarationNumber = `TEST-${merged.declarationNumber}`;
+      }
     }
 
     const adminSupabase = getAdminClient();
@@ -373,33 +393,38 @@ export async function POST(
         adminSupabase,
         organizationId
       );
-      if (!signaturePath || !isSignaturePathForOrganization(signaturePath, organizationId)) {
-        return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a DoC.", 409);
-      }
+      let signaturePng: Uint8Array | undefined;
+      if (!isTest) {
+        if (!signaturePath || !isSignaturePathForOrganization(signaturePath, organizationId)) {
+          return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a DoC.", 409);
+        }
 
-      const { data: signatureFile, error: signatureError } = await adminSupabase.storage
-        .from(SIGNATURE_BUCKET)
-        .download(signaturePath);
-      if (signatureError || !signatureFile || signatureFile.size > MAX_SIGNATURE_BYTES) {
-        return jsonError("The configured signature could not be loaded. Ask an organization owner to upload it again.", 409);
+        const { data: signatureFile, error: signatureError } = await adminSupabase.storage
+          .from(SIGNATURE_BUCKET)
+          .download(signaturePath);
+        if (signatureError || !signatureFile || signatureFile.size > MAX_SIGNATURE_BYTES) {
+          return jsonError("The configured signature could not be loaded. Ask an organization owner to upload it again.", 409);
+        }
+        signaturePng = new Uint8Array(await signatureFile.arrayBuffer());
+        await validateSignaturePng(signaturePng);
+        signatureRecord = {
+          signerName: "Mark Clendennen",
+          storagePath: signaturePath,
+          sha256: createHash("sha256").update(signaturePng).digest("hex"),
+          generatedBy: userId,
+          generatedAt: new Date().toISOString(),
+        };
       }
-      const signaturePng = new Uint8Array(await signatureFile.arrayBuffer());
-      await validateSignaturePng(signaturePng);
-      signatureRecord = {
-        signerName: "Mark Clendennen",
-        storagePath: signaturePath,
-        sha256: createHash("sha256").update(signaturePng).digest("hex"),
-        generatedBy: userId,
-        generatedAt: new Date().toISOString(),
-      };
       pdfBytes = await buildEuDeclarationOfConformityPdf(
         type,
         merged,
         settings,
         euProductCertification,
-        signaturePng
+        signaturePng,
+        { isTest }
       );
       title = buildEuDeclarationTitle(type, merged, euProductCertification);
+      if (isTest) title = `TEST / NOT FOR ISSUE - ${title}`;
     } else {
       const template = await loadTemplate(typeDef.slug);
       pdfBytes =
@@ -416,7 +441,7 @@ export async function POST(
 
     const iso = new Date().toISOString().replace(/[:.]/g, "-");
     const rid = randomUUID().slice(0, 8);
-    const fileName = `${type}-certificate-${iso}-${rid}.pdf`;
+    const fileName = `${isTest ? "TEST-" : ""}${type}-certificate-${iso}-${rid}.pdf`;
     const filePath = `${organizationId}/certifications/${type}/generated/${fileName}`;
 
     const { error: uploadError } = await adminSupabase.storage
@@ -430,14 +455,6 @@ export async function POST(
       return jsonError(uploadError.message);
     }
 
-    const { data: signed, error: signedErr } = await adminSupabase.storage
-      .from("datasheet-assets")
-      .createSignedUrl(filePath, 900);
-
-    if (signedErr) {
-      return jsonError(signedErr.message);
-    }
-
     try {
       const { error: recordError } = await adminSupabase.from("certifications").insert({
         organization_id: organizationId,
@@ -449,6 +466,8 @@ export async function POST(
               ...merged,
               productCertification: euProductCertification,
               signature: signatureRecord,
+              documentMode,
+              generatedBy: userId,
             }
           : merged,
         pdf_storage_path: filePath,
@@ -458,12 +477,17 @@ export async function POST(
       if (recordError) throw recordError;
     } catch (e) {
       console.error("Failed to insert certification record:", e);
-      if (signatureRecord) {
-        await adminSupabase.storage.from("datasheet-assets").remove([filePath]);
-        return jsonError("Could not save the signed DoC record. Please try again.");
-      }
+      const { error: cleanupError } = await adminSupabase.storage.from("datasheet-assets").remove([filePath]);
+      if (cleanupError) console.error("Orphaned certificate PDF requires cleanup:", filePath, cleanupError);
+      return jsonError("Could not save the certificate record. Please try again.");
     }
 
+    const { data: signed, error: signedErr } = await adminSupabase.storage
+      .from("datasheet-assets")
+      .createSignedUrl(filePath, 900);
+    if (signedErr || !signed?.signedUrl) {
+      return jsonError("Certificate saved, but its download link could not be created. Open it from the certificates list.");
+    }
     return Response.json({ url: signed?.signedUrl, path: filePath });
   } catch (e) {
     return jsonError(errorMessage(e));

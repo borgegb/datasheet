@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CERT_TYPES } from "./registry";
+import { euDocHoldReason } from "@/lib/certifications/release";
 import { fetchCertificationsForOrg } from "./actions";
 import CertificationsTable from "./components/CertificationsTable";
 
@@ -26,7 +27,8 @@ export default async function CertificationsPage() {
           <h2 className="font-medium mb-3">Available certificate types</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {Object.values(CERT_TYPES).map((t) => (
-              <Button key={t.slug} variant="outline" asChild>
+              euDocHoldReason(t.slug) ? <Button key={t.slug} variant="outline" disabled className="h-auto min-h-10 whitespace-normal py-2">{t.title} (on hold)</Button> :
+              <Button key={t.slug} variant="outline" asChild className="h-auto min-h-10 whitespace-normal py-2">
                 <Link href={`/dashboard/certifications/${t.slug}/new`}>
                   {t.title}
                 </Link>

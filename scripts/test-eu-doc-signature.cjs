@@ -121,7 +121,7 @@ async function routeProbe(options = {}) {
     '@/lib/pdf/certifications/buildVm350DeclarationPdf': { buildVm350DeclarationPdf: async () => new Uint8Array([1]) },
     '@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf': { ...builder, buildEuDeclarationOfConformityPdf: async (...args) => { calls.builder = args; return new Uint8Array([1]); } },
   });
-  const payload = { certification: { ...unit, signature: { generatedBy: 'forged', storagePath: 'wrong.png' }, ...options.data }, productId: options.productId || blast.id, organizationId: 'untrusted-org' };
+  const payload = { documentMode: options.documentMode ?? 'issued', certification: { ...unit, signature: { generatedBy: 'forged', storagePath: 'wrong.png' }, ...options.data }, productId: options.productId || blast.id, organizationId: 'untrusted-org' };
   const response = await route.POST(new Request('http://localhost/test', { method: 'POST', body: JSON.stringify(payload) }), { params: Promise.resolve({ type: options.type || 'eu-doc-serialised' }) });
   return { response, body: await response.json(), calls };
 }
@@ -176,6 +176,10 @@ async function run() {
     ['missing settings schema', { settingsReadError: true }, 500],
     ['missing product certificate', { product: { eu_doc_certificate_no: '' } }, 400],
     ['cross-org product', { product: { organization_id: 'other' } }, 400],
+    ['PTO manual on hold', { type: 'eu-doc-owner-manual-pto-compressors' }, 409],
+    ['PTO serialised on hold with certificate', { product: { eu_doc_product_type: 'pto-compressor', eu_doc_ped_category: 'cat-ii', eu_doc_certificate_no: 'VALID-COMPRESSOR-CERT' } }, 400],
+    ['invalid mode', { documentMode: 'signed-test' }, 400],
+    ['viewer test', { role: 'viewer', documentMode: 'test' }, 403],
   ];
   for (const [name, options, status] of blocked) await check(`${name} blocks issuance`, async () => {
     const { response, calls, body } = await routeProbe(options);
@@ -187,6 +191,61 @@ async function run() {
     assert.equal(response.status, 500); assert.equal(body.url, undefined);
     assert.equal(calls.removals[0].bucket, 'datasheet-assets');
     assert.deepEqual(calls.removals[0].paths, [calls.uploads[0].filePath]);
+  });
+  await check('unsigned test does not load or embed a signature', async () => {
+    const { response, calls } = await routeProbe({ documentMode: 'test', signaturePath: null, data: { declarationNumber: 'ACL-DoC-TEST-01', documentMode: 'issued' } });
+    assert.equal(response.status, 200);
+    assert.equal(calls.builder[4], undefined); assert.equal(calls.builder[5].isTest, true);
+    assert.equal(calls.downloads.length, 0); assert.equal(calls.records[0].data.signature, null);
+    assert.equal(calls.records[0].data.documentMode, 'test');
+    assert.match(calls.records[0].data.declarationNumber, /^TEST-/);
+    assert.match(calls.records[0].title, /^TEST \/ NOT FOR ISSUE/);
+  });
+  await check('test record failure also prevents download and cleans PDF', async () => {
+    const { response, calls, body } = await routeProbe({ documentMode: 'test', recordError: true });
+    assert.equal(response.status, 500); assert.equal(body.url, undefined);
+    assert.equal(calls.signedUrls.length, 0); assert.equal(calls.removals.length, 1);
+  });
+  await check('product switching resets machine identity and per-unit values', () => {
+    const { serialisedProductFields } = load('lib/certifications/release.ts');
+    let fields = { ...unit, ...serialisedProductFields(blast) };
+    fields = { ...fields, ...serialisedProductFields({ product_title: 'Applied 40L Classic Blast Machine', product_code: 'BP-A-2000' }) };
+    assert.equal(fields.commercialName, 'Applied 40L Classic Blast Machine');
+    assert.equal(fields.modelType, 'BP-A-2000');
+    assert.equal(fields.serialNumber, ''); assert.equal(fields.yearOfConstruction, '');
+  });
+  for (const [name, options, expectedDeletes] of [
+    ['storage failure keeps the record', { storageError: true }, 0],
+    ['silent storage denial keeps the record', { fileRemains: true }, 0],
+    ['database failure remains retryable', { deleteError: true }, 1],
+    ['missing PDF can finish record cleanup', {}, 1],
+    ['viewer cannot delete', { role: 'viewer' }, 0],
+    ['unknown role cannot delete', { role: 'unknown' }, 0],
+    ['foreign path cannot be deleted', { path: 'other-org/certifications/file.pdf' }, 0],
+    ['unrelated asset cannot be deleted', { path: `${org}/images/file.png` }, 0],
+  ]) await check(name, async () => {
+    let deleted = 0, removed = 0;
+    const client = {
+      auth: { getUser: async () => ({ data: { user: { id: 'user-a' } } }) },
+      from(table) {
+        let deleting = false;
+        const query = {
+          select() { return this; }, eq() { return this; },
+          single: async () => ({ data: table === 'profiles' ? { organization_id: org, role: options.role || 'owner' } : { id: 'record-a', pdf_storage_path: options.path || `${org}/certifications/test/file.pdf` }, error: null }),
+          delete() { deleting = true; return this; },
+          then(resolve) { if (deleting) deleted++; resolve({ error: options.deleteError ? { message: 'DB unavailable' } : null }); },
+        }; return query;
+      },
+      storage: { from: () => ({
+        remove: async () => { removed++; return { data: [], error: options.storageError ? { message: 'Storage unavailable' } : null }; },
+        list: async () => ({ data: options.fileRemains ? [{ name: 'file.pdf' }] : [], error: null }),
+      }) },
+    };
+    const actions = load('app/dashboard/certifications/actions.ts', { '@/lib/supabase/server': { createClient: async () => client }, 'next/cache': { revalidatePath() {} } });
+    const result = await actions.deleteCertification('record-a');
+    assert.equal(deleted, expectedDeletes);
+    assert.equal(Boolean(result.error), name !== 'missing PDF can finish record cleanup');
+    if (options.role || options.path) assert.equal(removed, 0);
   });
   for (const type of ['ec-vm-350-declaration', 'hydrostatic-test']) await check(`${type} does not require new signature`, async () => {
     const { response, calls } = await routeProbe({ type, signaturePath: null, data: { serialNumber: 'AP-26-0001', model: 'Test', dateOfTest: common.issueDate } });
@@ -269,6 +328,34 @@ async function run() {
       fs.mkdirSync(process.env.EU_DOC_TEST_OUTPUT, { recursive: true });
       fs.writeFileSync(path.join(process.env.EU_DOC_TEST_OUTPUT, `signature-${name}.pdf`), bytes);
     }
+  });
+  await check('long identifiers wrap, page-one CE clears footer, tests stay unsigned', async () => {
+    const text = [], images = [];
+    const drawText = PDFPage.prototype.drawText, drawImage = PDFPage.prototype.drawImage;
+    PDFPage.prototype.drawText = function(value, opts) { text.push({ page: this, value, ...opts }); return drawText.call(this, value, opts); };
+    PDFPage.prototype.drawImage = function(value, opts) { images.push({ page: this, ...opts }); return drawImage.call(this, value, opts); };
+    let bytes;
+    try {
+      bytes = await builder.buildEuDeclarationOfConformityPdf('eu-doc-serialised', {
+        ...unit, declarationNumber: 'TEST-ACL-DoC-2026-BP200L-DECLARATION-00161',
+        commercialName: 'Applied Aquablaster Xtreme 100 Blasting Machine',
+      }, { templateRevision: '01' }, variants[1][2], png, { isTest: true });
+    } finally { PDFPage.prototype.drawText = drawText; PDFPage.prototype.drawImage = drawImage; }
+    const finalPages = text.at(-1).page.doc.getPages();
+    const onPageOne = text.filter(item => item.page === finalPages[0]);
+    const declaration = onPageOne.filter(item => item.font && item.size === 9 && item.y > 600);
+    assert.ok(declaration.length >= 4, 'declaration occupies multiple lines');
+    for (const item of declaration) {
+      if (item.x < 230) assert.ok(item.x + item.font.widthOfTextAtSize(item.value, item.size) < 231, 'inside first cell');
+    }
+    assert.ok(onPageOne.find(item => item.value === '2810').y > 66, 'CE number above footer clearance');
+    assert.equal(text.filter(item => finalPages.includes(item.page) && item.value === 'TEST / NOT FOR ISSUE - UNSIGNED').length, 2);
+    assert.equal(images.filter(item => item.page === finalPages[1]).length, 1, 'page two contains company logo only, no signature');
+    assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
+    if (process.env.EU_DOC_TEST_OUTPUT) fs.writeFileSync(path.join(process.env.EU_DOC_TEST_OUTPUT, 'unsigned-long-serialised.pdf'), bytes);
+  });
+  await check('excessive content fails instead of overlapping footer', async () => {
+    await assert.rejects(builder.buildEuDeclarationOfConformityPdf('eu-doc-serialised', { ...unit, commercialName: 'very long name '.repeat(100) }, { templateRevision: '01' }, variants[1][2]), /too long to fit/);
   });
   console.log(`\n${passed} checks passed. Database and storage were mocked; no live writes.`);
   if (process.env.EU_DOC_TEST_OUTPUT) fs.writeFileSync(path.join(process.env.EU_DOC_TEST_OUTPUT, 'signature-test-only.png'), png);

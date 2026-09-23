@@ -16,6 +16,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
+import { euDocHoldReason, serialisedProductFields } from "@/lib/certifications/release";
 import {
   Popover,
   PopoverContent,
@@ -55,10 +56,6 @@ function pedCategoryLabel(pedCategory: ProductSearchResult["eu_doc_ped_category"
   if (pedCategory === "cat-ii") return "Cat. II / Module A2";
   if (pedCategory === "cat-iii") return "Cat. III / Module B + C2";
   return "PED category missing";
-}
-
-function stringOrEmpty(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
 }
 
 function sanitizeSerialChunk(value: string, length: number) {
@@ -249,6 +246,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     React.useState<ProductSearchResult | null>(null);
   const [isSearchingProducts, setIsSearchingProducts] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [documentMode, setDocumentMode] = React.useState<"test" | "issued">("test");
   const [generatedPdfUrl, setGeneratedPdfUrl] = React.useState<string | null>(
     null
   );
@@ -256,6 +254,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     null
   );
   const requiresEuDocProduct = EU_DOC_TYPE_SLUGS.has(typeSlug);
+  const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
 
   React.useEffect(() => {
     const supabase = createClient();
@@ -338,11 +337,10 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     if (typeSlug === "eu-doc-serialised") {
       setForm((current) => ({
         ...current,
-        commercialName:
-          stringOrEmpty(current.commercialName) || product.product_title || "",
-        modelType: stringOrEmpty(current.modelType) || product.product_code || "",
+        ...serialisedProductFields(product),
       }));
     }
+    setGeneratedPdfUrl(null);
   };
 
   const clearProductSelection = () => {
@@ -499,7 +497,8 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
                     <button
                       key={product.id}
                       type="button"
-                      className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-accent"
+                      disabled={Boolean(euDocHoldReason(typeSlug, product.eu_doc_product_type))}
+                      className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => selectProduct(product)}
                     >
                       <span className="font-medium">
@@ -513,6 +512,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
                       <span className="text-xs text-muted-foreground">
                         {productTypeLabel(product.eu_doc_product_type)} |{" "}
                         {pedCategoryLabel(product.eu_doc_ped_category)}
+                        {euDocHoldReason(typeSlug, product.eu_doc_product_type) ? " | On hold" : ""}
                       </span>
                     </button>
                   ))
@@ -558,6 +558,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     setIsSubmitting(true);
     setGeneratedPdfUrl(null);
     try {
+      if (holdReason) throw new Error(holdReason);
       // Lightweight validation for required fields present in schema
       const parse = typeDef.schema.safeParse(form);
       if (!parse.success) {
@@ -578,6 +579,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
             certification: form,
             organizationId,
             productId: productId || null,
+            ...(requiresEuDocProduct ? { documentMode } : {}),
           }),
         }
       );
@@ -585,7 +587,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       if (!res.ok) throw new Error(data?.error || "Failed to generate PDF");
       if (data?.url) {
         setGeneratedPdfUrl(data.url);
-        toast.success(`✅ ${typeDef.title} PDF generated!`, {
+        toast.success(`${requiresEuDocProduct && documentMode === "test" ? "Test" : typeDef.title} PDF generated`, {
           description: "Click the button to open your generated PDF.",
           action: (
             <Button
@@ -614,7 +616,22 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
         <CardTitle>New {typeDef.title} Certificate</CardTitle>
       </CardHeader>
       <CardContent>
+        {holdReason ? (
+          <p role="status" className="text-sm text-muted-foreground">{holdReason}</p>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
+          {requiresEuDocProduct && (
+            <fieldset className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <legend className="mb-2 text-sm font-medium">Document status</legend>
+              {(["test", "issued"] as const).map((mode) => (
+                <label key={mode} className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="documentMode" value={mode} checked={documentMode === mode}
+                    onChange={() => { setDocumentMode(mode); setGeneratedPdfUrl(null); }} />
+                  {mode === "test" ? "Test / not for issue (unsigned)" : "Issue signed DoC"}
+                </label>
+              ))}
+            </fieldset>
+          )}
           {renderEuDocProductSelector()}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {typeDef.fieldLayout.map((f) => (
@@ -655,10 +672,11 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {isSubmitting ? "Generating..." : "Generate PDF"}
+              {isSubmitting ? "Generating..." : requiresEuDocProduct && documentMode === "test" ? "Generate test PDF" : "Generate PDF"}
             </Button>
           </div>
         </form>
+        )}
       </CardContent>
     </Card>
   );

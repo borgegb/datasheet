@@ -391,7 +391,15 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number) {
       if (current) {
         lines.push(current);
       }
-      current = word;
+      current = "";
+      // Identifiers have no spaces; split them instead of crossing cell borders.
+      for (const character of word) {
+        if (current && font.widthOfTextAtSize(current + character, size) > maxWidth) {
+          lines.push(current);
+          current = "";
+        }
+        current += character;
+      }
     }
 
     if (current) {
@@ -441,7 +449,8 @@ function drawSectionTitle(
   page: PDFPage,
   title: string,
   y: number,
-  fonts: FontSet
+  fonts: FontSet,
+  titleGap = 18
 ) {
   page.drawText(title, {
     x: MARGIN_X,
@@ -456,7 +465,7 @@ function drawSectionTitle(
     thickness: 0.6,
     color: BORDER_COLOR,
   });
-  return y - 18;
+  return y - titleGap;
 }
 
 function drawKeyValueRows(options: {
@@ -469,6 +478,7 @@ function drawKeyValueRows(options: {
   fonts: FontSet;
   size?: number;
   labelColor?: RGB;
+  compact?: boolean;
 }) {
   const {
     page,
@@ -480,6 +490,7 @@ function drawKeyValueRows(options: {
     fonts,
     size = 8.6,
     labelColor = TEXT_COLOR,
+    compact = false,
   } = options;
   const valueWidth = width - labelWidth - 14;
   let cursorY = y;
@@ -488,7 +499,7 @@ function drawKeyValueRows(options: {
     const labelLines = wrapText(row.label, fonts.bold, size, labelWidth - 10);
     const valueLines = wrapText(row.value, fonts.regular, size, valueWidth);
     const lineCount = Math.max(labelLines.length, valueLines.length, 1);
-    const rowHeight = Math.max(22, lineCount * (size + 3) + 10);
+    const rowHeight = Math.max(compact ? 20 : 22, lineCount * (size + 3) + (compact ? 8 : 10));
 
     page.drawRectangle({
       x,
@@ -553,8 +564,14 @@ function drawInfoBar(
   y: number
 ) {
   const width = CONTENT_WIDTH;
-  const height = 38;
   const colWidth = width / 3;
+  const cells = [
+    ["Declaration No.", declaration.declarationNumber],
+    ["Revision", declaration.revision],
+    ["Date of issue", declaration.issueDate],
+  ];
+  const valueLines = cells.map(([, value]) => wrapText(value || "-", fonts.regular, 9, colWidth - 16));
+  const height = 38 + (Math.max(...valueLines.map((lines) => lines.length)) - 1) * 12;
 
   page.drawRectangle({
     x: MARGIN_X,
@@ -575,13 +592,7 @@ function drawInfoBar(
     });
   });
 
-  const cells = [
-    ["Declaration No.", declaration.declarationNumber],
-    ["Revision", declaration.revision],
-    ["Date of issue", declaration.issueDate],
-  ];
-
-  cells.forEach(([label, value], index) => {
+  cells.forEach(([label], index) => {
     const x = MARGIN_X + colWidth * index + 8;
     page.drawText(label, {
       x,
@@ -590,13 +601,13 @@ function drawInfoBar(
       size: 8,
       color: MUTED_COLOR,
     });
-    page.drawText(value || "-", {
+    valueLines[index].forEach((line, lineIndex) => page.drawText(line, {
       x,
-      y: y - 29,
+      y: y - 29 - lineIndex * 12,
       font: fonts.regular,
       size: 9,
       color: TEXT_COLOR,
-    });
+    }));
   });
 
   return y - height - 18;
@@ -685,12 +696,13 @@ function drawFooter(page: PDFPage, fonts: FontSet, pageNumber: number) {
   });
 }
 
-function drawLegislation(page: PDFPage, y: number, fonts: FontSet) {
+function drawLegislation(page: PDFPage, y: number, fonts: FontSet, compact = false) {
   let cursorY = drawSectionTitle(
     page,
     "Applicable Union Harmonisation Legislation",
     y,
-    fonts
+    fonts,
+    compact ? 12 : 18
   );
   const legislation = [
     "Directive 2006/42/EC of the European Parliament and of the Council of 17 May 2006 on machinery (Machinery Directive).",
@@ -918,7 +930,8 @@ export async function buildEuDeclarationOfConformityPdf(
   data: EuDeclarationInput,
   settings: CertificationSettings,
   productCertification: EuDeclarationProductCertification | null,
-  signaturePng?: Uint8Array
+  signaturePng?: Uint8Array,
+  options: { isTest?: boolean } = {}
 ): Promise<Uint8Array> {
   const declaration = resolveDeclaration(
     type,
@@ -930,94 +943,110 @@ export async function buildEuDeclarationOfConformityPdf(
   const fonts = await loadFontSet(pdfDoc);
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
-  const signature = signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
+  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
 
-  const page1 = pdfDoc.addPage(PAGE_SIZE);
-  drawHeader(page1, fonts, 1, logo);
-  drawFooter(page1, fonts, 1);
+  let page1: PDFPage;
   let y = TOP_Y;
-  y = drawInfoBar(page1, declaration, fonts, y);
+  // Preserve the approved spacing when it fits; reclaim section gaps for longer
+  // identities. Never shrink text or move the CE block into the footer/page two.
+  for (const compact of [false, true]) {
+    page1 = pdfDoc.addPage(PAGE_SIZE);
+    drawHeader(page1, fonts, 1, logo);
+    drawFooter(page1, fonts, 1);
+    y = TOP_Y;
+    y = drawInfoBar(page1, declaration, fonts, y);
+    if (compact) y += 4;
 
-  y = drawWrappedText({
-    page: page1,
-    text: "Applied Concepts Ltd., Roscrea Rd., Birr, Co. Offaly, R42 XW08, Republic of Ireland, hereby declares under its sole responsibility that the equipment identified below is in conformity with all the relevant provisions of the Union harmonisation legislation listed in this declaration. This declaration relates exclusively to the equipment in the state in which it was placed on the market and excludes components added or operations carried out subsequently by the user.",
-    x: MARGIN_X,
-    y,
-    maxWidth: CONTENT_WIDTH,
-    font: fonts.regular,
-    size: 8.9,
-    lineHeight: 11.8,
-  });
-  y -= 14;
+    y = drawWrappedText({
+      page: page1,
+      text: "Applied Concepts Ltd., Roscrea Rd., Birr, Co. Offaly, R42 XW08, Republic of Ireland, hereby declares under its sole responsibility that the equipment identified below is in conformity with all the relevant provisions of the Union harmonisation legislation listed in this declaration. This declaration relates exclusively to the equipment in the state in which it was placed on the market and excludes components added or operations carried out subsequently by the user.",
+      x: MARGIN_X,
+      y,
+      maxWidth: CONTENT_WIDTH,
+      font: fonts.regular,
+      size: 8.9,
+      lineHeight: 11.8,
+    });
+    y -= 14;
 
-  y = drawSectionTitle(page1, "Manufacturer", y, fonts);
-  y = drawKeyValueRows({
-    page: page1,
-    rows: [
-      { label: "Company", value: "Applied Concepts Ltd." },
-      {
-        label: "Address",
-        value:
-          "Roscrea Rd., Birr, Co. Offaly, R42 XW08, Republic of Ireland",
-      },
-    ],
-    x: MARGIN_X,
-    y,
-    width: CONTENT_WIDTH,
-    labelWidth: 128,
-    fonts,
-  });
-  y -= 16;
+    y = drawSectionTitle(page1, "Manufacturer", y, fonts, compact ? 12 : 18);
+    y = drawKeyValueRows({
+      page: page1,
+      rows: [
+        { label: "Company", value: "Applied Concepts Ltd." },
+        {
+          label: "Address",
+          value:
+            "Roscrea Rd., Birr, Co. Offaly, R42 XW08, Republic of Ireland",
+        },
+      ],
+      x: MARGIN_X,
+      y,
+      width: CONTENT_WIDTH,
+      labelWidth: 128,
+      fonts,
+      compact,
+    });
+    y -= compact ? 14 : 16;
 
-  y = drawSectionTitle(
-    page1,
-    "Object of the Declaration - Equipment Identification",
-    y,
-    fonts
-  );
-  y = drawKeyValueRows({
-    page: page1,
-    rows: declaration.equipmentRows,
-    x: MARGIN_X,
-    y,
-    width: CONTENT_WIDTH,
-    labelWidth: 128,
-    fonts,
-  });
-  y -= 16;
+    y = drawSectionTitle(
+      page1,
+      "Object of the Declaration - Equipment Identification",
+      y,
+      fonts,
+      compact ? 12 : 18
+    );
+    y = drawKeyValueRows({
+      page: page1,
+      rows: declaration.equipmentRows,
+      x: MARGIN_X,
+      y,
+      width: CONTENT_WIDTH,
+      labelWidth: 128,
+      fonts,
+      compact,
+    });
+    y -= compact ? 14 : 16;
 
-  y = drawLegislation(page1, y, fonts);
+    y = drawLegislation(page1, y, fonts, compact);
 
-  y = drawSectionTitle(page1, "Conformity Assessment Procedure", y, fonts);
-  y = drawKeyValueRows({
-    page: page1,
-    rows: [
-      {
-        label: "Machinery Directive 2006/42/EC",
-        value:
-          "Internal checks on the manufacture of machinery - Annex VIII (manufacturer's self-assessment). The equipment is not listed in Annex IV of the Directive; no Notified Body is required for the machinery conformity assessment.",
-      },
-      {
-        label: "Pressure Equipment Directive 2014/68/EU",
-        value: `PED category: ${declaration.pedCategory}\nModule(s): ${declaration.modules}\nNotified Body: HPi Verification Services Ltd, EU Notified Body No. 2810, Office No. C5, Bracetown Business Park, Clonee, Dublin 15, D15 YDC1, Ireland.\nCertificate No(s).: ${declaration.certificateNo}`,
-      },
-    ],
-    x: MARGIN_X,
-    y,
-    width: CONTENT_WIDTH,
-    labelWidth: 138,
-    fonts,
-    size: 8.1,
-  });
-  y -= 14;
+    y = drawSectionTitle(page1, "Conformity Assessment Procedure", y, fonts, compact ? 12 : 18);
+    y = drawKeyValueRows({
+      page: page1,
+      rows: [
+        {
+          label: "Machinery Directive 2006/42/EC",
+          value:
+            "Internal checks on the manufacture of machinery - Annex VIII (manufacturer's self-assessment). The equipment is not listed in Annex IV of the Directive; no Notified Body is required for the machinery conformity assessment.",
+        },
+        {
+          label: "Pressure Equipment Directive 2014/68/EU",
+          value: `PED category: ${declaration.pedCategory}\nModule(s): ${declaration.modules}\nNotified Body: HPi Verification Services Ltd, EU Notified Body No. 2810, Office No. C5, Bracetown Business Park, Clonee, Dublin 15, D15 YDC1, Ireland.\nCertificate No(s).: ${declaration.certificateNo}`,
+        },
+      ],
+      x: MARGIN_X,
+      y,
+      width: CONTENT_WIDTH,
+      labelWidth: 138,
+      fonts,
+      size: 8.1,
+      compact,
+    });
+    y -= 14;
 
-  drawCeMarking({
-    page: page1,
-    y,
-    fonts,
-    ceLogo,
-    note: declaration.ceNote,
-  });
+    const ceBottom = drawCeMarking({
+      page: page1,
+      y,
+      fonts,
+      ceLogo,
+      note: declaration.ceNote,
+    });
+    if (ceBottom >= BOTTOM_Y) break;
+    if (compact) {
+      throw new Error("The equipment details are too long to fit above the page-one CE/footer area. Shorten the declaration number, name, model or certificate number.");
+    }
+    pdfDoc.removePage(0);
+  }
 
   const page2 = pdfDoc.addPage(PAGE_SIZE);
   drawHeader(page2, fonts, 2, logo);
@@ -1063,6 +1092,14 @@ export async function buildEuDeclarationOfConformityPdf(
     throw new Error("The signature section does not fit on page two.");
   }
   drawSignatureBlock(page2, y, fonts, signature);
+
+  if (options.isTest) {
+    for (const page of pdfDoc.getPages()) {
+      page.drawText("TEST / NOT FOR ISSUE - UNSIGNED", {
+        x: MARGIN_X, y: TOP_Y + 15, font: fonts.bold, size: 10, color: MUTED_COLOR,
+      });
+    }
+  }
 
   return pdfDoc.save();
 }

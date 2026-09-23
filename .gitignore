@@ -29,6 +29,7 @@
 
 # Supabase local development state
 .supabase
+/supabase/.temp/
 
 # Deno / Functions (if applicable)
 # deno.lock

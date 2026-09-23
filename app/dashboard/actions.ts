@@ -1424,8 +1424,31 @@ export async function saveDatasheet(
     formData.get("euDocCertificateNo")
   );
 
+  const { data: savingProfile, error: profileError } = await supabase
+    .from("profiles").select("role").eq("id", userId).single();
+  if (profileError || !savingProfile || !["owner", "member"].includes(savingProfile.role)) {
+    return { data: null, error: { message: "You do not have permission to save datasheets." } };
+  }
+  const canManageCertification = savingProfile.role === "owner";
+  if (!canManageCertification) {
+    const { data: existing, error: existingError } = editingProductId
+      ? await supabase.from("products")
+          .select("eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no")
+          .eq("id", editingProductId).eq("organization_id", organizationId).single()
+      : { data: null, error: null };
+    if (existingError) return { data: null, error: existingError };
+    const fields = [
+      ["euDocProductType", euDocProductType, existing?.eu_doc_product_type],
+      ["euDocPedCategory", euDocPedCategory, existing?.eu_doc_ped_category],
+      ["euDocCertificateNo", euDocCertificateNo, existing?.eu_doc_certificate_no],
+    ] as const;
+    if (fields.some(([field, value, stored]) => formData.has(field) && value !== (stored || null))) {
+      return { data: null, error: { message: "Only organization owners can change EU DoC mappings." } };
+    }
+  }
+
   if (
-    (euDocProductType || euDocPedCategory || euDocCertificateNo) &&
+    canManageCertification && (euDocProductType || euDocPedCategory || euDocCertificateNo) &&
     (!euDocProductType || !euDocPedCategory)
   ) {
     return {
@@ -1437,7 +1460,7 @@ export async function saveDatasheet(
     };
   }
 
-  if (euDocProductType === "pto-compressor" && euDocPedCategory === "cat-iii") {
+  if (canManageCertification && euDocProductType === "pto-compressor" && euDocPedCategory === "cat-iii") {
     return {
       data: null,
       error: {
@@ -1469,9 +1492,11 @@ export async function saveDatasheet(
     },
     catalog_id: normalizeOptionalFormString(formData.get("catalogId")),
     image_path: normalizeOptionalFormString(formData.get("imagePath")),
-    eu_doc_product_type: euDocProductType,
-    eu_doc_ped_category: euDocPedCategory,
-    eu_doc_certificate_no: euDocCertificateNo,
+    ...(canManageCertification && formData.has("euDocProductType") ? {
+      eu_doc_product_type: euDocProductType,
+      eu_doc_ped_category: euDocPedCategory,
+      eu_doc_certificate_no: euDocCertificateNo,
+    } : {}),
     user_id: userId,
     organization_id: organizationId,
     category_ids: categoryIds,

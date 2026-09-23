@@ -19,7 +19,7 @@ import {
   isEuDeclarationOfConformityType,
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
-import { euDocHoldReason } from "@/lib/certifications/release";
+import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   MAX_SIGNATURE_BYTES,
@@ -335,6 +335,11 @@ export async function POST(
     }
     const isTest = isEuDoc && documentMode === "test";
     let merged = { ...typeDef.defaults, ...certification };
+    if (type === "eu-doc-serialised") {
+      const declarationNumber = serialisedDeclarationNumber(merged.serialNumber);
+      if (!declarationNumber) return jsonError(SERIAL_NUMBER_FORMAT_MESSAGE, 400);
+      merged.declarationNumber = declarationNumber;
+    }
     const parsed = typeDef.schema.safeParse(merged);
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0];

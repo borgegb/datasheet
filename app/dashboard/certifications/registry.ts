@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 
 export type FieldSpec = {
   name: string;
@@ -66,7 +67,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   },
   "eu-doc-owner-manual-blasting": {
     slug: "eu-doc-owner-manual-blasting",
-    title: "EU DoC - Owner's Manual Blasting Machines",
+    title: "EU DoC - Owner's Manual - Blast Machines",
     templatePath: "",
     defaults: {
       declarationNumber: "",
@@ -94,7 +95,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   },
   "eu-doc-owner-manual-pto-compressors": {
     slug: "eu-doc-owner-manual-pto-compressors",
-    title: "EU DoC - Owner's Manual PTO Compressors",
+    title: "EU DoC - Owner's Manual - PTO Compressors",
     templatePath: "",
     defaults: {
       declarationNumber: "",
@@ -122,7 +123,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   },
   "eu-doc-serialised": {
     slug: "eu-doc-serialised",
-    title: "EU DoC - Serialised",
+    title: "EU DoC - Serialised - Blast Machines",
     templatePath: "",
     defaults: {
       declarationNumber: "",
@@ -137,7 +138,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       issueDate,
       commercialName: z.string().trim().min(1, "Commercial name is required").max(160, "Commercial name must be 160 characters or fewer"),
       modelType: z.string().trim().min(1, "Model / type is required").max(80, "Model / type must be 80 characters or fewer"),
-      serialNumber: z.string().trim().min(1, "Serial number is required").max(80, "Serial number must be 80 characters or fewer"),
+      serialNumber: z.string().trim().refine((value) => serialisedDeclarationNumber(value) !== null, SERIAL_NUMBER_FORMAT_MESSAGE),
       yearOfConstruction: z
         .string()
         .trim()
@@ -148,7 +149,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         name: "declarationNumber",
         label: "Declaration No.",
         type: "text",
-        placeholder: "e.g., ACL-DoC-25_161",
+        placeholder: "Automatic",
         required: true,
       },
       {
@@ -175,7 +176,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         name: "serialNumber",
         label: "Serial number",
         type: "text",
-        placeholder: "e.g., 25-00161",
+        placeholder: "e.g., AP-26-00321",
         required: true,
       },
       {

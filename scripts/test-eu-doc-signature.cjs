@@ -115,6 +115,7 @@ function mockClient(options = {}) {
 async function routeProbe(options = {}) {
   const { client, calls } = mockClient(options);
   const route = load('app/api/generate-certification-pdf/[type]/route.ts', {
+    'next/cache': { revalidatePath: (value) => { calls.revalidated = value; } },
     '@supabase/supabase-js': { createClient: () => client },
     '@/lib/supabase/server': { createClient: async () => client },
     '@/lib/pdf/certifications/buildCertificationPdf': { buildCertificationPdf: async () => new Uint8Array([1]) },
@@ -166,6 +167,7 @@ async function run() {
     assert.equal(calls.records[0].data.signature.generatedBy, 'user-a');
     assert.equal(calls.records[0].data.signature.sha256, createHash('sha256').update(png).digest('hex'));
     assert.equal(calls.records[0].data.signature.storagePath, signaturePath);
+    assert.equal(calls.revalidated, '/dashboard/certifications');
   });
   const blocked = [
     ['anonymous', { anonymous: true }, 401], ['viewer', { role: 'viewer' }, 403],

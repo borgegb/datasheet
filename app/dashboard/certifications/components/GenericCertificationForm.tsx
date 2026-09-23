@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -229,6 +230,7 @@ interface Props {
 }
 
 export default function GenericCertificationForm({ typeSlug }: Props) {
+  const router = useRouter();
   const typeDef = CERT_TYPES[typeSlug];
   if (!typeDef) {
     return (
@@ -587,6 +589,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       if (!res.ok) throw new Error(data?.error || "Failed to generate PDF");
       if (data?.url) {
         setGeneratedPdfUrl(data.url);
+        router.refresh();
         toast.success(`${requiresEuDocProduct && documentMode === "test" ? "Test" : typeDef.title} PDF generated`, {
           description: "Click the button to open your generated PDF.",
           action: (

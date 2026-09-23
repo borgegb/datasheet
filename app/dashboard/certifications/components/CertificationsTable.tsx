@@ -31,6 +31,8 @@ export default function CertificationsTable({ initialData }: Props) {
   const [rows, setRows] = React.useState(initialData);
   const [userRole, setUserRole] = React.useState<string>("viewer");
 
+  React.useEffect(() => setRows(initialData), [initialData]);
+
   React.useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
@@ -101,7 +103,7 @@ export default function CertificationsTable({ initialData }: Props) {
               return (
                 <TableRow key={r.id}>
                   <TableCell className="max-w-[260px] truncate">
-                    {r.data?.documentMode === "test" && <span className="mr-2 font-semibold text-muted-foreground">TEST</span>}
+                    {r.data?.documentMode === "test" && <span className="mr-2 font-semibold text-muted-foreground">TEST </span>}
                     {r.title || `${model}${serial ? ` – ${serial}` : ""}`}
                   </TableCell>
                   <TableCell className="capitalize">

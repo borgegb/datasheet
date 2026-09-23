@@ -6,6 +6,7 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 import { createHash, randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import type { Template } from "@pdfme/common";
 import { buildCertificationPdf } from "@/lib/pdf/certifications/buildCertificationPdf";
 import { buildVm350DeclarationPdf } from "@/lib/pdf/certifications/buildVm350DeclarationPdf";
@@ -482,6 +483,7 @@ export async function POST(
       return jsonError("Could not save the certificate record. Please try again.");
     }
 
+    revalidatePath("/dashboard/certifications");
     const { data: signed, error: signedErr } = await adminSupabase.storage
       .from("datasheet-assets")
       .createSignedUrl(filePath, 900);

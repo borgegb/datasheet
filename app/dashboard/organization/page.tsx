@@ -4,6 +4,7 @@ import {
   fetchOrgMembers,
   fetchCategories,
   fetchVariantColumnsForOrg,
+  fetchCertificationSettingsForOrg,
 } from "../actions";
 import OrganizationClient from "./OrganizationClient";
 import { redirect } from "next/navigation";
@@ -32,6 +33,8 @@ export default async function OrganizationPage() {
   // ----------------------
   const { data: variantColumnsData, error: variantColumnsError } =
     await fetchVariantColumnsForOrg(true);
+  const { data: certificationSettingsData, error: certificationSettingsError } =
+    await fetchCertificationSettingsForOrg();
 
   if (profileError || !profile) {
     console.error("Error fetching user profile for org page:", profileError);
@@ -41,9 +44,11 @@ export default async function OrganizationPage() {
         initialMembers={[]}
         initialCategories={[]} // Pass empty array
         initialVariantColumns={variantColumnsData || []}
+        initialCertificationSettings={certificationSettingsData}
         errorMsg="Failed to load user profile."
         categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
         variantColumnsErrorMsg={variantColumnsError?.message}
+        certificationSettingsErrorMsg={certificationSettingsError?.message}
       />
     );
   }
@@ -56,9 +61,11 @@ export default async function OrganizationPage() {
         initialMembers={[]}
         initialCategories={categoriesData || []} // Pass fetched categories
         initialVariantColumns={variantColumnsData || []}
+        initialCertificationSettings={certificationSettingsData}
         errorMsg="You do not seem to belong to an organization."
         categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
         variantColumnsErrorMsg={variantColumnsError?.message}
+        certificationSettingsErrorMsg={certificationSettingsError?.message}
       />
     );
   }
@@ -74,9 +81,11 @@ export default async function OrganizationPage() {
         initialMembers={[]}
         initialCategories={categoriesData || []} // Pass fetched categories
         initialVariantColumns={variantColumnsData || []}
+        initialCertificationSettings={certificationSettingsData}
         errorMsg={`Failed to load organization members: ${membersError.message}`}
         categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
         variantColumnsErrorMsg={variantColumnsError?.message}
+        certificationSettingsErrorMsg={certificationSettingsError?.message}
       />
     );
   }
@@ -87,8 +96,10 @@ export default async function OrganizationPage() {
       initialMembers={members || []} // Pass fetched members
       initialCategories={categoriesData || []} // Pass fetched categories
       initialVariantColumns={variantColumnsData || []}
+      initialCertificationSettings={certificationSettingsData}
       categoriesErrorMsg={categoriesError?.message} // Pass category fetch error
       variantColumnsErrorMsg={variantColumnsError?.message}
+      certificationSettingsErrorMsg={certificationSettingsError?.message}
     />
   );
 }

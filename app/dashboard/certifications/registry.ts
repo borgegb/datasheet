@@ -18,6 +18,10 @@ export type CertificationTypeDef = {
   fieldLayout: FieldSpec[];
 };
 
+const declarationNumber = z.string().trim().min(1, "Declaration No. is required").max(80, "Declaration No. must be 80 characters or fewer");
+const issueDate = z.string().trim().min(1, "Date of issue is required").max(40)
+  .refine((value) => !Number.isNaN(Date.parse(value)), "Date of issue must be a valid date");
+
 export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   "ec-vm-350-declaration": {
     slug: "ec-vm-350-declaration",
@@ -57,6 +61,129 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         label: "Serial Number",
         type: "text",
         placeholder: "e.g., VM350-001",
+      },
+    ],
+  },
+  "eu-doc-owner-manual-blasting": {
+    slug: "eu-doc-owner-manual-blasting",
+    title: "EU DoC - Owner's Manual Blasting Machines",
+    templatePath: "",
+    defaults: {
+      declarationNumber: "",
+      issueDate: "",
+    },
+    schema: z.object({
+      declarationNumber,
+      issueDate,
+    }),
+    fieldLayout: [
+      {
+        name: "declarationNumber",
+        label: "Declaration No.",
+        type: "text",
+        placeholder: "e.g., ACL-DoC-OM01",
+        required: true,
+      },
+      {
+        name: "issueDate",
+        label: "Date of issue",
+        type: "date",
+        required: true,
+      },
+    ],
+  },
+  "eu-doc-owner-manual-pto-compressors": {
+    slug: "eu-doc-owner-manual-pto-compressors",
+    title: "EU DoC - Owner's Manual PTO Compressors",
+    templatePath: "",
+    defaults: {
+      declarationNumber: "",
+      issueDate: "",
+    },
+    schema: z.object({
+      declarationNumber,
+      issueDate,
+    }),
+    fieldLayout: [
+      {
+        name: "declarationNumber",
+        label: "Declaration No.",
+        type: "text",
+        placeholder: "e.g., ACL-DoC-OM02",
+        required: true,
+      },
+      {
+        name: "issueDate",
+        label: "Date of issue",
+        type: "date",
+        required: true,
+      },
+    ],
+  },
+  "eu-doc-serialised": {
+    slug: "eu-doc-serialised",
+    title: "EU DoC - Serialised",
+    templatePath: "",
+    defaults: {
+      declarationNumber: "",
+      issueDate: "",
+      commercialName: "",
+      modelType: "",
+      serialNumber: "",
+      yearOfConstruction: "",
+    },
+    schema: z.object({
+      declarationNumber,
+      issueDate,
+      commercialName: z.string().trim().min(1, "Commercial name is required").max(160, "Commercial name must be 160 characters or fewer"),
+      modelType: z.string().trim().min(1, "Model / type is required").max(80, "Model / type must be 80 characters or fewer"),
+      serialNumber: z.string().trim().min(1, "Serial number is required").max(80, "Serial number must be 80 characters or fewer"),
+      yearOfConstruction: z
+        .string()
+        .trim()
+        .regex(/^\d{4}$/, "Year must use four digits"),
+    }),
+    fieldLayout: [
+      {
+        name: "declarationNumber",
+        label: "Declaration No.",
+        type: "text",
+        placeholder: "e.g., ACL-DoC-25_161",
+        required: true,
+      },
+      {
+        name: "issueDate",
+        label: "Date of issue",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "commercialName",
+        label: "Commercial name",
+        type: "text",
+        placeholder: "e.g., Blast Machine BP200L",
+        required: true,
+      },
+      {
+        name: "modelType",
+        label: "Model / type",
+        type: "text",
+        placeholder: "e.g., BP-A-5000",
+        required: true,
+      },
+      {
+        name: "serialNumber",
+        label: "Serial number",
+        type: "text",
+        placeholder: "e.g., 25-00161",
+        required: true,
+      },
+      {
+        name: "yearOfConstruction",
+        label: "Year of construction",
+        type: "text",
+        placeholder: "e.g., 2025",
+        required: true,
       },
     ],
   },

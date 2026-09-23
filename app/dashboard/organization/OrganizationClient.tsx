@@ -6,6 +6,7 @@ import ProductsDataTable from "@/components/ProductsDataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import CertificationSettingsForm from "./CertificationSettingsForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Card,
@@ -25,6 +26,7 @@ import {
   restoreVariantColumn,
 } from "../actions";
 import type { OrganizationVariantColumn } from "../actions";
+import type { CertificationSettings } from "@/lib/certifications/settings";
 import { toast } from "sonner";
 import {
   Mail,
@@ -70,9 +72,11 @@ interface OrganizationClientProps {
   initialMembers: OrgMember[];
   initialCategories: Category[]; // Add new prop
   initialVariantColumns: OrganizationVariantColumn[];
+  initialCertificationSettings: CertificationSettings;
   errorMsg?: string;
   categoriesErrorMsg?: string; // Add new prop
   variantColumnsErrorMsg?: string;
+  certificationSettingsErrorMsg?: string;
 }
 
 export default function OrganizationClient({
@@ -80,9 +84,11 @@ export default function OrganizationClient({
   initialMembers,
   initialCategories, // Destructure new prop
   initialVariantColumns,
+  initialCertificationSettings,
   errorMsg,
   categoriesErrorMsg, // Destructure new prop
   variantColumnsErrorMsg,
+  certificationSettingsErrorMsg,
 }: OrganizationClientProps) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member"); // State for selected role
@@ -593,6 +599,20 @@ export default function OrganizationClient({
         </Card>
       )}
       {/* --- End Manage Categories Section --- */}
+
+      {userRole === "owner" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Certification Settings</CardTitle>
+            <CardDescription>
+              EU Declaration of Conformity
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CertificationSettingsForm settings={initialCertificationSettings} errorMessage={certificationSettingsErrorMsg} />
+          </CardContent>
+        </Card>
+      )}
 
       {userRole === "owner" && (
         <Card>

@@ -99,6 +99,7 @@ interface Catalog {
 // Re-add definition for Profile type used in state
 interface Profile {
   organization_id: string | null;
+  role?: string | null;
   full_name?: string | null; // Make optional if not always selected/present
   avatar_url?: string | null; // Make optional
 }
@@ -120,6 +121,9 @@ interface ProductData {
   optional_logos: any | null; // Use 'any' or a specific type for JSONB
   catalog_id: string | null; // ADD BACK
   category_ids?: string[] | null; // ADD (as array of strings)
+  eu_doc_product_type: "blast-machine" | "pto-compressor" | null;
+  eu_doc_ped_category: "cat-ii" | "cat-iii" | null;
+  eu_doc_certificate_no: string | null;
 }
 // ---------------------------------
 
@@ -238,6 +242,15 @@ export default function DatasheetGeneratorForm({
     initialData?.key_features || ""
   );
   const [warranty, setWarranty] = useState(initialData?.warranty || "");
+  const [euDocProductType, setEuDocProductType] = useState(
+    initialData?.eu_doc_product_type || ""
+  );
+  const [euDocPedCategory, setEuDocPedCategory] = useState(
+    initialData?.eu_doc_ped_category || ""
+  );
+  const [euDocCertificateNo, setEuDocCertificateNo] = useState(
+    initialData?.eu_doc_certificate_no || ""
+  );
 
   // --- Enhanced Shipping State ---
   const [shippingMethod, setShippingMethod] = useState<"pallet" | "package">(
@@ -625,7 +638,7 @@ export default function DatasheetGeneratorForm({
       // Fetch Profile (needed for org context if categories become org-specific later)
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("organization_id, full_name, avatar_url")
+        .select("organization_id, role, full_name, avatar_url")
         .eq("id", userData.user.id)
         .single();
 
@@ -742,6 +755,9 @@ export default function DatasheetGeneratorForm({
       }
       setKeyFeatures(initialData.key_features || "");
       setWarranty(initialData.warranty || "");
+      setEuDocProductType(initialData.eu_doc_product_type || "");
+      setEuDocPedCategory(initialData.eu_doc_ped_category || "");
+      setEuDocCertificateNo(initialData.eu_doc_certificate_no || "");
 
       // Parse shipping info - enhanced to handle new shipping structure
       if (initialData.shipping_info) {
@@ -914,6 +930,9 @@ export default function DatasheetGeneratorForm({
       setWeightUnit("kg");
       setKeyFeatures("");
       setWarranty("");
+      setEuDocProductType("");
+      setEuDocPedCategory("");
+      setEuDocCertificateNo("");
       setShippingMethod("pallet");
       setShippingUnits("4");
       setShippingUnitType("unit");
@@ -1407,6 +1426,19 @@ export default function DatasheetGeneratorForm({
             name="categoryIdsJson"
             value={JSON.stringify(selectedCategoryIds)}
           />
+          <input
+            type="hidden"
+            name="euDocProductType"
+            value={euDocProductType}
+            disabled={profile?.role !== "owner"}
+          />
+          <input
+            type="hidden"
+            name="euDocPedCategory"
+            value={euDocPedCategory}
+            disabled={profile?.role !== "owner"}
+          />
+          <input type="hidden" name="euDocCertificateNo" value={euDocCertificateNo} disabled={profile?.role !== "owner"} />
           {/* -------------------------------------------- */}
 
           <div className="space-y-8">
@@ -1511,6 +1543,86 @@ export default function DatasheetGeneratorForm({
                 </div>
               </RadioGroup>
             </div>
+
+            <fieldset disabled={profile?.role !== "owner"} className="space-y-4 border-t pt-4">
+              <div>
+                <Label className="text-base font-semibold">
+                  EU Declaration of Conformity Settings
+                </Label>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {profile?.role === "owner" ? "Product certification mapping" : "Managed by organization owners"}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="eu-doc-product-type">Product Type</Label>
+                  <Select
+                    value={euDocProductType || "none"}
+                    disabled={profile?.role !== "owner"}
+                    onValueChange={(value) =>
+                      setEuDocProductType(value === "none" ? "" : value)
+                    }
+                  >
+                    <SelectTrigger id="eu-doc-product-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not configured</SelectItem>
+                      <SelectItem value="blast-machine">
+                        Mobile abrasive blast machine
+                      </SelectItem>
+                      <SelectItem value="pto-compressor">
+                        PTO-driven air compressor
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="eu-doc-ped-category">PED Category</Label>
+                  <Select
+                    value={euDocPedCategory || "none"}
+                    disabled={profile?.role !== "owner"}
+                    onValueChange={(value) =>
+                      setEuDocPedCategory(value === "none" ? "" : value)
+                    }
+                  >
+                    <SelectTrigger id="eu-doc-ped-category">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not configured</SelectItem>
+                      <SelectItem value="cat-ii">Cat. II / Module A2</SelectItem>
+                      <SelectItem value="cat-iii">
+                        Cat. III / Module B + C2
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="eu-doc-certificate-no">
+                    Certificate No.
+                  </Label>
+                  <Input
+                    id="eu-doc-certificate-no"
+                    value={euDocCertificateNo}
+                    onChange={(event) =>
+                      setEuDocCertificateNo(event.target.value)
+                    }
+                    placeholder="e.g., HPiVS-iP1283-001-I-03-00"
+                  />
+                </div>
+              </div>
+              {euDocProductType === "pto-compressor" &&
+                euDocPedCategory === "cat-iii" && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      PTO compressor DoCs are expected to use Cat. II / Module
+                      A2. Saving will be blocked until this is corrected.
+                    </span>
+                  </div>
+                )}
+            </fieldset>
 
             {/* Section 2: Descriptions & Specs */}
             <div className="space-y-6">

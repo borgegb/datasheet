@@ -25,6 +25,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  outputFileTracingIncludes: {
+    "/api/generate-certification-pdf/**": [
+      "./pdf/assets/**/*",
+      "./pdf/fonts/**/*",
+      "./pdf/template/certifications/**/*",
+    ],
+  },
   /* other config options here */
 };
 

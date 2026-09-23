@@ -7,11 +7,12 @@ import GenericCertificationForm from "../../components/GenericCertificationForm"
 import { CERT_TYPES } from "../../registry";
 
 interface Props {
-  params: { type: string };
+  params: Promise<{ type: string }>;
 }
 
-export default function NewCertificationTypePage({ params }: Props) {
-  const typeDef = CERT_TYPES[params.type];
+export default async function NewCertificationTypePage({ params }: Props) {
+  const { type } = await params;
+  const typeDef = CERT_TYPES[type];
   if (!typeDef) return notFound();
 
   return (
@@ -32,7 +33,7 @@ export default function NewCertificationTypePage({ params }: Props) {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="w-full max-w-2xl mx-auto">
-          <GenericCertificationForm typeSlug={params.type} />
+          <GenericCertificationForm typeSlug={type} />
         </div>
       </div>
     </div>

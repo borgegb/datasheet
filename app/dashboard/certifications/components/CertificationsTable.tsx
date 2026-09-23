@@ -31,6 +31,8 @@ export default function CertificationsTable({ initialData }: Props) {
   const [rows, setRows] = React.useState(initialData);
   const [userRole, setUserRole] = React.useState<string>("viewer");
 
+  React.useEffect(() => setRows(initialData), [initialData]);
+
   React.useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
@@ -59,6 +61,7 @@ export default function CertificationsTable({ initialData }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this certificate and its stored PDF? Downloaded copies will not be removed.")) return;
     const t = toast.loading("Deleting certificate...");
     const { error } = await deleteCertification(id);
     if (error) {
@@ -91,11 +94,16 @@ export default function CertificationsTable({ initialData }: Props) {
             </TableRow>
           ) : (
             rows.map((r) => {
-              const model = r.data?.model || "";
+              const model =
+                r.data?.model ||
+                r.data?.modelType ||
+                r.data?.commercialName ||
+                "";
               const serial = r.data?.serialNumber || "";
               return (
                 <TableRow key={r.id}>
                   <TableCell className="max-w-[260px] truncate">
+                    {r.data?.documentMode === "test" && <span className="mr-2 font-semibold text-muted-foreground">TEST </span>}
                     {r.title || `${model}${serial ? ` – ${serial}` : ""}`}
                   </TableCell>
                   <TableCell className="capitalize">
@@ -124,7 +132,7 @@ export default function CertificationsTable({ initialData }: Props) {
                         >
                           <Download className="mr-2 h-4 w-4" /> Open PDF
                         </DropdownMenuItem>
-                        {userRole !== "viewer" && (
+                        {(userRole === "owner" || userRole === "member") && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

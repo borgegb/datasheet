@@ -6,6 +6,18 @@ import { createClient as createServerActionClient } from "@/lib/supabase/server"
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { VariantColumnDefinition } from "@/lib/datasheet/variant-table";
+import {
+  MAX_SIGNATURE_BYTES,
+  SIGNATURE_BUCKET,
+  isSignaturePathForOrganization,
+  validateSignaturePng,
+} from "@/lib/certifications/signature";
+import {
+  DEFAULT_CERTIFICATION_SETTINGS,
+  mapCertificationSettingsRow,
+  type CertificationSettings,
+  type CertificationSettingsRow,
+} from "@/lib/certifications/settings";
 // ---------------------------------------------------------
 
 // --- Action to get user's organization ID ---
@@ -62,7 +74,7 @@ async function getOwnerOrgId(
   if (profile.role !== "owner") {
     return {
       organizationId: null,
-      error: { message: "Only organization owners can manage variant columns." },
+      error: { message: "Only organization owners can manage organization settings." },
     };
   }
 
@@ -324,6 +336,125 @@ export async function fetchVariantColumnsForOrg(
     data: ((data || []) as VariantColumnRow[]).map(mapVariantColumnRow),
     error: null,
   };
+}
+
+export async function fetchCertificationSettingsForOrg(): Promise<{
+  data: CertificationSettings;
+  error: { message: string } | null;
+}> {
+  "use server";
+  const supabase = await createServerActionClient();
+  const organizationId = await getUserOrgId(supabase);
+
+  if (!organizationId) {
+    return {
+      data: DEFAULT_CERTIFICATION_SETTINGS,
+      error: { message: "User organization not found." },
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("certification_settings")
+    .select("template_revision, signature_storage_path")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Server Action Error (fetchCertificationSettingsForOrg):", error);
+    return {
+      data: DEFAULT_CERTIFICATION_SETTINGS,
+      error: { message: `Database error: ${error.message}` },
+    };
+  }
+
+  const row = data as CertificationSettingsRow | null;
+  const settings = mapCertificationSettingsRow(row);
+  if (row?.signature_storage_path && isSignaturePathForOrganization(row.signature_storage_path, organizationId)) {
+    const { organizationId: ownerOrganizationId } = await getOwnerOrgId(supabase);
+    if (ownerOrganizationId === organizationId) {
+      const { data: preview } = await supabase.storage
+        .from(SIGNATURE_BUCKET)
+        .createSignedUrl(row.signature_storage_path, 900);
+      settings.signaturePreviewUrl = preview?.signedUrl || null;
+    }
+  }
+
+  return { data: settings, error: null };
+}
+
+export async function updateCertificationSettings(formData: FormData) {
+  "use server";
+  const supabase = await createServerActionClient();
+  const { organizationId, error: ownerError } = await getOwnerOrgId(supabase);
+
+  if (ownerError || !organizationId) {
+    return { error: ownerError || { message: "User organization not found." } };
+  }
+
+  const templateRevision = String(
+    formData.get("templateRevision") || ""
+  ).trim();
+
+  if (!templateRevision) {
+    return { error: { message: "Template revision is required." } };
+  }
+
+  const signatureFile = formData.get("signatureFile");
+  const removeSignature = formData.get("removeSignature") === "on";
+  const hasUpload = signatureFile instanceof File && signatureFile.size > 0;
+  let uploadedPath: string | undefined;
+
+  if (hasUpload && removeSignature) {
+    return { error: { message: "Choose either a replacement signature or removal." } };
+  }
+
+  if (hasUpload) {
+    if (signatureFile.type !== "image/png" || signatureFile.size > MAX_SIGNATURE_BYTES) {
+      return { error: { message: "Signature must be a PNG image, 512 KB or smaller." } };
+    }
+
+    const bytes = new Uint8Array(await signatureFile.arrayBuffer());
+    try {
+      await validateSignaturePng(bytes);
+    } catch (error) {
+      return { error: { message: error instanceof Error ? error.message : "Invalid signature image." } };
+    }
+
+    uploadedPath = `${organizationId}/${randomUUID()}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from(SIGNATURE_BUCKET)
+      .upload(uploadedPath, bytes, { contentType: "image/png", upsert: false });
+    if (uploadError) {
+      return { error: { message: `Could not upload signature: ${uploadError.message}` } };
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("certification_settings")
+    .upsert(
+      {
+        organization_id: organizationId,
+        template_revision: templateRevision,
+        ...(uploadedPath ? { signature_storage_path: uploadedPath } : {}),
+        ...(removeSignature ? { signature_storage_path: null } : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id" }
+    )
+    .select("organization_id")
+    .single();
+
+  if (error) {
+    if (uploadedPath) {
+      await supabase.storage.from(SIGNATURE_BUCKET).remove([uploadedPath]);
+    }
+    console.error("Server Action Error (updateCertificationSettings):", error);
+    return { error: { message: `Database error: ${error.message}` } };
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/certifications");
+  return { data, error: null };
 }
 
 export async function createVariantColumn(label: string) {
@@ -1209,6 +1340,27 @@ const normalizeOptionalFormString = (
   return trimmedValue.length > 0 ? trimmedValue : null;
 };
 
+type EuDocProductType = "blast-machine" | "pto-compressor";
+type EuDocPedCategory = "cat-ii" | "cat-iii";
+
+const normalizeEuDocProductType = (
+  value: FormDataEntryValue | null
+): EuDocProductType | null => {
+  if (value === "blast-machine" || value === "pto-compressor") {
+    return value;
+  }
+  return null;
+};
+
+const normalizeEuDocPedCategory = (
+  value: FormDataEntryValue | null
+): EuDocPedCategory | null => {
+  if (value === "cat-ii" || value === "cat-iii") {
+    return value;
+  }
+  return null;
+};
+
 // --- Action to Save/Update Datasheet (Product) ---
 export async function saveDatasheet(
   prevState: SaveDatasheetState | null,
@@ -1262,6 +1414,62 @@ export async function saveDatasheet(
   // -----------------------------------
 
   // Prepare data object for Supabase
+  const euDocProductType = normalizeEuDocProductType(
+    formData.get("euDocProductType")
+  );
+  const euDocPedCategory = normalizeEuDocPedCategory(
+    formData.get("euDocPedCategory")
+  );
+  const euDocCertificateNo = normalizeOptionalFormString(
+    formData.get("euDocCertificateNo")
+  );
+
+  const { data: savingProfile, error: profileError } = await supabase
+    .from("profiles").select("role").eq("id", userId).single();
+  if (profileError || !savingProfile || !["owner", "member"].includes(savingProfile.role)) {
+    return { data: null, error: { message: "You do not have permission to save datasheets." } };
+  }
+  const canManageCertification = savingProfile.role === "owner";
+  if (!canManageCertification) {
+    const { data: existing, error: existingError } = editingProductId
+      ? await supabase.from("products")
+          .select("eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no")
+          .eq("id", editingProductId).eq("organization_id", organizationId).single()
+      : { data: null, error: null };
+    if (existingError) return { data: null, error: existingError };
+    const fields = [
+      ["euDocProductType", euDocProductType, existing?.eu_doc_product_type],
+      ["euDocPedCategory", euDocPedCategory, existing?.eu_doc_ped_category],
+      ["euDocCertificateNo", euDocCertificateNo, existing?.eu_doc_certificate_no],
+    ] as const;
+    if (fields.some(([field, value, stored]) => formData.has(field) && value !== (stored || null))) {
+      return { data: null, error: { message: "Only organization owners can change EU DoC mappings." } };
+    }
+  }
+
+  if (
+    canManageCertification && (euDocProductType || euDocPedCategory || euDocCertificateNo) &&
+    (!euDocProductType || !euDocPedCategory)
+  ) {
+    return {
+      data: null,
+      error: {
+        message:
+          "EU DoC settings need both product type and PED category, or leave the whole EU DoC section unconfigured.",
+      },
+    };
+  }
+
+  if (canManageCertification && euDocProductType === "pto-compressor" && euDocPedCategory === "cat-iii") {
+    return {
+      data: null,
+      error: {
+        message:
+          "PTO compressor EU DoC settings must use Cat. II / Module A2.",
+      },
+    };
+  }
+
   const productData = {
     product_title: formData.get("productTitle") as string,
     product_code: formData.get("productCode") as string,
@@ -1284,6 +1492,11 @@ export async function saveDatasheet(
     },
     catalog_id: normalizeOptionalFormString(formData.get("catalogId")),
     image_path: normalizeOptionalFormString(formData.get("imagePath")),
+    ...(canManageCertification && formData.has("euDocProductType") ? {
+      eu_doc_product_type: euDocProductType,
+      eu_doc_ped_category: euDocPedCategory,
+      eu_doc_certificate_no: euDocCertificateNo,
+    } : {}),
     user_id: userId,
     organization_id: organizationId,
     category_ids: categoryIds,

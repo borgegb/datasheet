@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
+import { euDocHoldReason, serialisedProductFields } from "@/lib/certifications/release";
 import {
   Popover,
   PopoverContent,
@@ -25,6 +27,37 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
 const VM350_SERIAL_PREFIX = "AP";
+
+type ProductSearchResult = {
+  id: string;
+  product_title: string | null;
+  product_code: string | null;
+  eu_doc_product_type?: "blast-machine" | "pto-compressor" | null;
+  eu_doc_ped_category?: "cat-ii" | "cat-iii" | null;
+  eu_doc_certificate_no?: string | null;
+};
+
+const EU_DOC_TYPE_SLUGS = new Set([
+  "eu-doc-owner-manual-blasting",
+  "eu-doc-owner-manual-pto-compressors",
+  "eu-doc-serialised",
+]);
+
+function productDisplayName(product: ProductSearchResult) {
+  return product.product_title || product.product_code || "Untitled product";
+}
+
+function productTypeLabel(productType: ProductSearchResult["eu_doc_product_type"]) {
+  if (productType === "blast-machine") return "Mobile abrasive blast machine";
+  if (productType === "pto-compressor") return "PTO-driven air compressor";
+  return "Product type missing";
+}
+
+function pedCategoryLabel(pedCategory: ProductSearchResult["eu_doc_ped_category"]) {
+  if (pedCategory === "cat-ii") return "Cat. II / Module A2";
+  if (pedCategory === "cat-iii") return "Cat. III / Module B + C2";
+  return "PED category missing";
+}
 
 function sanitizeSerialChunk(value: string, length: number) {
   return value.replace(/\D/g, "").slice(0, length);
@@ -197,6 +230,7 @@ interface Props {
 }
 
 export default function GenericCertificationForm({ typeSlug }: Props) {
+  const router = useRouter();
   const typeDef = CERT_TYPES[typeSlug];
   if (!typeDef) {
     return (
@@ -208,16 +242,21 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
   const [productLabel, setProductLabel] = React.useState<string>("");
   const [productQuery, setProductQuery] = React.useState<string>("");
   const [productResults, setProductResults] = React.useState<
-    { id: string; product_title: string; product_code: string | null }[]
+    ProductSearchResult[]
   >([]);
+  const [selectedProduct, setSelectedProduct] =
+    React.useState<ProductSearchResult | null>(null);
   const [isSearchingProducts, setIsSearchingProducts] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [documentMode, setDocumentMode] = React.useState<"test" | "issued">("test");
   const [generatedPdfUrl, setGeneratedPdfUrl] = React.useState<string | null>(
     null
   );
   const [organizationId, setOrganizationId] = React.useState<string | null>(
     null
   );
+  const requiresEuDocProduct = EU_DOC_TYPE_SLUGS.has(typeSlug);
+  const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
 
   React.useEffect(() => {
     const supabase = createClient();
@@ -246,16 +285,16 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       setIsSearchingProducts(true);
       try {
         const supabase = createClient();
+        const safeQuery = q.replace(/[%(),]/g, "");
         // Search by title or code
         const { data, error } = await supabase
           .from("products")
-          .select("id, product_title, product_code")
+          .select(
+            "id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no"
+          )
           .eq("organization_id", organizationId)
           .or(
-            `product_title.ilike.%${q.replace(
-              /%/g,
-              ""
-            )}%,product_code.ilike.%${q.replace(/%/g, "")}%)`
+            `product_title.ilike.%${safeQuery}%,product_code.ilike.%${safeQuery}%`
           )
           .order("updated_at", { ascending: false })
           .limit(10);
@@ -274,6 +313,44 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     return () => clearTimeout(timer);
   }, [productQuery, organizationId]);
 
+  const getPlaceholder = (f: FieldSpec) => {
+    if (typeSlug !== "eu-doc-serialised") {
+      return f.placeholder;
+    }
+
+    if (selectedProduct?.eu_doc_product_type === "pto-compressor") {
+      if (f.name === "commercialName") return "e.g., VariMount 350";
+      if (f.name === "modelType") return "e.g., VM-A-0001";
+    }
+
+    if (f.name === "commercialName") return "e.g., Blast Machine BP200L";
+    if (f.name === "modelType") return "e.g., BP-A-5000";
+
+    return f.placeholder;
+  };
+
+  const selectProduct = (product: ProductSearchResult) => {
+    setProductId(product.id);
+    setSelectedProduct(product);
+    setProductLabel(productDisplayName(product));
+    setProductQuery("");
+    setProductResults([]);
+
+    if (typeSlug === "eu-doc-serialised") {
+      setForm((current) => ({
+        ...current,
+        ...serialisedProductFields(product),
+      }));
+    }
+    setGeneratedPdfUrl(null);
+  };
+
+  const clearProductSelection = () => {
+    setProductLabel("");
+    setProductId("");
+    setSelectedProduct(null);
+  };
+
   const renderField = (f: FieldSpec) => {
     // Special case: model uses the product search input; store chosen title in form.model
     if (f.name === "model") {
@@ -283,8 +360,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
             placeholder="Search product by name or code..."
             value={productLabel || productQuery}
             onChange={(e) => {
-              setProductLabel("");
-              setProductId("");
+              clearProductSelection();
               setForm((s) => ({ ...s, model: "" }));
               setProductQuery(e.target.value);
             }}
@@ -307,15 +383,16 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
                       type="button"
                       className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent"
                       onClick={() => {
-                        setProductId(p.id);
-                        const titleOnly = p.product_title;
-                        setProductLabel(titleOnly);
-                        setForm((s) => ({ ...s, model: titleOnly }));
-                        setProductQuery("");
-                        setProductResults([]);
+                        selectProduct(p);
+                        setForm((s) => ({
+                          ...s,
+                          model: productDisplayName(p),
+                        }));
                       }}
                     >
-                      <span className="font-medium">{p.product_title}</span>
+                      <span className="font-medium">
+                        {productDisplayName(p)}
+                      </span>
                       {p.product_code && (
                         <span className="text-muted-foreground text-xs">
                           ({p.product_code})
@@ -375,9 +452,106 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       <Input
         type="text"
         value={form[f.name] ?? ""}
-        placeholder={f.placeholder}
+        placeholder={getPlaceholder(f)}
         onChange={(e) => setForm((s) => ({ ...s, [f.name]: e.target.value }))}
       />
+    );
+  };
+
+  const renderEuDocProductSelector = () => {
+    if (!requiresEuDocProduct) {
+      return null;
+    }
+
+    const certificateNo = selectedProduct?.eu_doc_certificate_no?.trim() || "";
+
+    return (
+      <div className="space-y-2 rounded-md border p-4">
+        <div className="space-y-1">
+          <Label>Product</Label>
+          <p className="text-sm text-muted-foreground">
+            Select the datasheet product that controls type, PED category,
+            module, and certificate number.
+          </p>
+        </div>
+        <div className="relative">
+          <Input
+            placeholder="Search product by name or code..."
+            value={productLabel || productQuery}
+            onChange={(e) => {
+              clearProductSelection();
+              setProductQuery(e.target.value);
+            }}
+          />
+          {productQuery.length >= 2 && (
+            <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow">
+              <div className="max-h-64 overflow-auto text-sm">
+                {isSearchingProducts ? (
+                  <div className="px-3 py-2 text-muted-foreground">
+                    Searching...
+                  </div>
+                ) : productResults.length === 0 ? (
+                  <div className="px-3 py-2 text-muted-foreground">
+                    No results
+                  </div>
+                ) : (
+                  productResults.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      disabled={Boolean(euDocHoldReason(typeSlug, product.eu_doc_product_type))}
+                      className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => selectProduct(product)}
+                    >
+                      <span className="font-medium">
+                        {productDisplayName(product)}
+                        {product.product_code ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {product.product_code}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {productTypeLabel(product.eu_doc_product_type)} |{" "}
+                        {pedCategoryLabel(product.eu_doc_ped_category)}
+                        {euDocHoldReason(typeSlug, product.eu_doc_product_type) ? " | On hold" : ""}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        {selectedProduct && (
+          <div className="grid grid-cols-1 gap-2 rounded-md bg-muted/40 p-3 text-sm sm:grid-cols-3">
+            <div>
+              <span className="block font-medium">Product type</span>
+              <span className="text-muted-foreground">
+                {productTypeLabel(selectedProduct.eu_doc_product_type)}
+              </span>
+            </div>
+            <div>
+              <span className="block font-medium">PED route</span>
+              <span className="text-muted-foreground">
+                {pedCategoryLabel(selectedProduct.eu_doc_ped_category)}
+              </span>
+            </div>
+            <div>
+              <span className="block font-medium">Certificate</span>
+              <span
+                className={
+                  certificateNo
+                    ? "text-muted-foreground"
+                    : "font-medium text-destructive"
+                }
+              >
+                {certificateNo || "Missing - generation blocked"}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -386,11 +560,16 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
     setIsSubmitting(true);
     setGeneratedPdfUrl(null);
     try {
+      if (holdReason) throw new Error(holdReason);
       // Lightweight validation for required fields present in schema
       const parse = typeDef.schema.safeParse(form);
       if (!parse.success) {
         const first = parse.error.issues[0];
         throw new Error(first?.message || "Please fill required fields");
+      }
+
+      if (requiresEuDocProduct && !productId) {
+        throw new Error("Select a product before generating this DoC.");
       }
 
       const res = await fetch(
@@ -402,6 +581,7 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
             certification: form,
             organizationId,
             productId: productId || null,
+            ...(requiresEuDocProduct ? { documentMode } : {}),
           }),
         }
       );
@@ -409,7 +589,8 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
       if (!res.ok) throw new Error(data?.error || "Failed to generate PDF");
       if (data?.url) {
         setGeneratedPdfUrl(data.url);
-        toast.success(`✅ ${typeDef.title} PDF generated!`, {
+        router.refresh();
+        toast.success(`${requiresEuDocProduct && documentMode === "test" ? "Test" : typeDef.title} PDF generated`, {
           description: "Click the button to open your generated PDF.",
           action: (
             <Button
@@ -438,7 +619,23 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
         <CardTitle>New {typeDef.title} Certificate</CardTitle>
       </CardHeader>
       <CardContent>
+        {holdReason ? (
+          <p role="status" className="text-sm text-muted-foreground">{holdReason}</p>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
+          {requiresEuDocProduct && (
+            <fieldset className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <legend className="mb-2 text-sm font-medium">Document status</legend>
+              {(["test", "issued"] as const).map((mode) => (
+                <label key={mode} className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="documentMode" value={mode} checked={documentMode === mode}
+                    onChange={() => { setDocumentMode(mode); setGeneratedPdfUrl(null); }} />
+                  {mode === "test" ? "Test / not for issue (unsigned)" : "Issue signed DoC"}
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {renderEuDocProductSelector()}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {typeDef.fieldLayout.map((f) => (
               <div key={f.name} className="space-y-1.5">
@@ -478,10 +675,11 @@ export default function GenericCertificationForm({ typeSlug }: Props) {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {isSubmitting ? "Generating..." : "Generate PDF"}
+              {isSubmitting ? "Generating..." : requiresEuDocProduct && documentMode === "test" ? "Generate test PDF" : "Generate PDF"}
             </Button>
           </div>
         </form>
+        )}
       </CardContent>
     </Card>
   );

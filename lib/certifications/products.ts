@@ -1,9 +1,11 @@
+import { supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
+
 export type EuDocProduct = {
   id: string;
   product_title: string | null;
   product_code: string | null;
-  eu_doc_product_type: "blast-machine" | "pto-compressor" | null;
-  eu_doc_ped_category: "cat-ii" | "cat-iii" | null;
+  eu_doc_product_type: EuDocProductType | null;
+  eu_doc_ped_category: EuDocPedCategory | null;
   eu_doc_certificate_no: string | null;
 };
 
@@ -19,4 +21,13 @@ export function isAvailableBlastProduct(product: EuDocProduct) {
   return product.eu_doc_product_type === "blast-machine" &&
     (product.eu_doc_ped_category === "cat-ii" || product.eu_doc_ped_category === "cat-iii") &&
     Boolean(product.eu_doc_certificate_no?.trim());
+}
+
+export function isAvailableDeclarationProduct(type: string, product: EuDocProduct) {
+  const profile = supplementalDeclarationProfile(type);
+  if (!profile) return isAvailableBlastProduct(product);
+  return product.product_code?.trim() === profile.productCode &&
+    product.eu_doc_product_type === profile.productType &&
+    product.eu_doc_ped_category === profile.pedCategory &&
+    !product.eu_doc_certificate_no?.trim();
 }

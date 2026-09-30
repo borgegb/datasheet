@@ -121,8 +121,8 @@ interface ProductData {
   optional_logos: any | null; // Use 'any' or a specific type for JSONB
   catalog_id: string | null; // ADD BACK
   category_ids?: string[] | null; // ADD (as array of strings)
-  eu_doc_product_type: "blast-machine" | "pto-compressor" | null;
-  eu_doc_ped_category: "cat-ii" | "cat-iii" | null;
+  eu_doc_product_type: "blast-machine" | "pto-compressor" | "air-filter" | null;
+  eu_doc_ped_category: "cat-i" | "cat-ii" | "cat-iii" | "sep" | null;
   eu_doc_certificate_no: string | null;
 }
 // ---------------------------------
@@ -1547,7 +1547,7 @@ export default function DatasheetGeneratorForm({
             <fieldset disabled={profile?.role !== "owner"} className="space-y-4 border-t pt-4">
               <div>
                 <Label className="text-base font-semibold">
-                  EU Declaration of Conformity Settings
+                  Declaration Settings
                 </Label>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {profile?.role === "owner" ? "Product certification mapping" : "Managed by organization owners"}
@@ -1574,6 +1574,7 @@ export default function DatasheetGeneratorForm({
                       <SelectItem value="pto-compressor">
                         PTO-driven air compressor
                       </SelectItem>
+                      <SelectItem value="air-filter">Respirator air filter</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1582,15 +1583,18 @@ export default function DatasheetGeneratorForm({
                   <Select
                     value={euDocPedCategory || "none"}
                     disabled={profile?.role !== "owner"}
-                    onValueChange={(value) =>
-                      setEuDocPedCategory(value === "none" ? "" : value)
-                    }
+                    onValueChange={(value) => {
+                      setEuDocPedCategory(value === "none" ? "" : value);
+                      if (value === "cat-i" || value === "sep") setEuDocCertificateNo("");
+                    }}
                   >
                     <SelectTrigger id="eu-doc-ped-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Not configured</SelectItem>
+                      <SelectItem value="cat-i">Cat. I / Module A (20L)</SelectItem>
+                      <SelectItem value="sep">Article 4(3) / SEP (air filter)</SelectItem>
                       <SelectItem value="cat-ii">Cat. II / Module A2</SelectItem>
                       <SelectItem value="cat-iii">
                         Cat. III / Module B + C2
@@ -1604,11 +1608,12 @@ export default function DatasheetGeneratorForm({
                   </Label>
                   <Input
                     id="eu-doc-certificate-no"
+                    disabled={euDocPedCategory === "cat-i" || euDocPedCategory === "sep"}
                     value={euDocCertificateNo}
                     onChange={(event) =>
                       setEuDocCertificateNo(event.target.value)
                     }
-                    placeholder="e.g., HPiVS-iP1283-001-I-03-00"
+                    placeholder={euDocPedCategory === "cat-i" || euDocPedCategory === "sep" ? "Not applicable" : "e.g., HPiVS-iP1283-001-I-03-00"}
                   />
                 </div>
               </div>

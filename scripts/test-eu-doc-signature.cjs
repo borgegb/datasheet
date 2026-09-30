@@ -386,7 +386,109 @@ async function run() {
     ['manual-blast-iii', 'eu-doc-owner-manual-blasting', { productType: 'blast-machine', pedCategory: 'cat-iii', certificateNo: blast.eu_doc_certificate_no, productTitle: blast.product_title, productCode: blast.product_code }],
     ['manual-pto', 'eu-doc-owner-manual-pto-compressors', { productType: 'pto-compressor', pedCategory: 'cat-ii', certificateNo: 'TEST-ONLY-NOT-ISSUED', productTitle: 'VariMount 350', productCode: 'VM-A-0001' }],
   ];
+  const supplementalVariants = [
+    ['20l-manual', 'eu-doc-20l-manual', 'BP-A-1000', 'blast-machine', 'cat-i'],
+    ['20l-serialised', 'eu-doc-20l-serialised', 'BP-A-1000', 'blast-machine', 'cat-i'],
+    ['sep-manual', 'sep-air-filter-manual', 'AF-A-0001', 'air-filter', 'sep'],
+    ['sep-serialised', 'sep-air-filter-serialised', 'AF-A-0001', 'air-filter', 'sep'],
+  ];
+  const declarations = load('lib/certifications/declarations.ts');
+  const products = load('lib/certifications/products.ts');
+  const registry = load('app/dashboard/certifications/registry.ts');
+  const release = load('lib/certifications/release.ts');
+  for (const [name, type, code, productType, category] of supplementalVariants) {
+    const profile = declarations.supplementalDeclarationProfile(type);
+    const product = { ...blast, product_code: code, eu_doc_product_type: productType, eu_doc_ped_category: category, eu_doc_certificate_no: null };
+    const serialised = declarations.isSerialisedDeclaration(type);
+    const data = { ...unit, declarationNumber: `${profile.numberPrefix}-OM01`, commercialName: profile.commercialName, modelType: profile.modelType, serialNumber: 'AP-26-00321' };
+    await check(`${name} uses only its configured product and classification`, () => {
+      assert.ok(products.isAvailableDeclarationProduct(type, product));
+      assert.equal(products.isAvailableDeclarationProduct(type, blast), false);
+      assert.equal(products.isAvailableDeclarationProduct('eu-doc-serialised', product), false);
+      assert.equal(declarations.certificationMappingError(productType, category, '', code), null);
+      assert.ok(declarations.certificationMappingError(productType, category, 'INCORRECT-NB-CERT', code));
+      assert.ok(declarations.certificationMappingError(productType, category, '', 'UNSUPPORTED'));
+      assert.equal(registry.CERT_TYPES[type].fieldLayout.some(f => f.name === 'serialNumber'), serialised);
+      assert.equal(registry.CERT_TYPES[type].fieldLayout.some(f => f.name === 'yearOfConstruction'), serialised);
+    });
+    for (const mode of ['test', 'issued']) await check(`${name} ${mode} keeps signature and numbering controls`, async () => {
+      const { response, body, calls } = await routeProbe({ type, product, data, documentMode: mode, signaturePath: mode === 'test' ? null : signaturePath });
+      assert.equal(response.status, 200, JSON.stringify(body));
+      const number = serialised ? `${profile.numberPrefix}-26_321` : data.declarationNumber;
+      assert.equal(calls.records[0].data.declarationNumber, (mode === 'test' ? 'TEST-' : '') + number);
+      assert.equal(calls.downloads.length, mode === 'test' ? 0 : 1);
+      if (!serialised) {
+        assert.equal(calls.builder[1].serialNumber, undefined);
+        assert.equal(calls.builder[1].yearOfConstruction, undefined);
+      }
+    });
+    for (const [caseName, overrides] of [
+      ['missing signature', { signaturePath: null }],
+      ['viewer', { role: 'viewer' }],
+      ['cross-org product', { product: { ...product, organization_id: 'foreign' } }],
+      ['wrong product code', { product: { ...product, product_code: 'WRONG' } }],
+      ['wrong category', { product: { ...product, eu_doc_ped_category: 'cat-iii' } }],
+      ['unexpected NB certificate', { product: { ...product, eu_doc_certificate_no: 'WRONG' } }],
+    ]) await check(`${name} rejects ${caseName}`, async () => {
+      const { response, calls } = await routeProbe({ type, product, data, ...overrides });
+      assert.ok(response.status >= 400); assert.equal(calls.uploads.length, 0);
+    });
+    await check(`${name} renders two safe unsigned pages with the reference content`, async () => {
+      const texts = [], images = [];
+      const drawText = PDFPage.prototype.drawText, drawImage = PDFPage.prototype.drawImage;
+      PDFPage.prototype.drawText = function(value, opts) { texts.push({ value, page: this.doc.getPages().indexOf(this), ...opts }); return drawText.call(this, value, opts); };
+      PDFPage.prototype.drawImage = function(value, opts) { images.push({ page: this.doc.getPages().indexOf(this), ...opts }); return drawImage.call(this, value, opts); };
+      const input = registry.CERT_TYPES[type].schema.parse({ ...data,
+        declarationNumber: 'TEST-' + (serialised ? release.serialisedDeclarationNumber(data.serialNumber, type) : data.declarationNumber),
+      });
+      const mapping = { productCode: code, productTitle: profile.commercialName, productType, pedCategory: category, certificateNo: '' };
+      let bytes;
+      try {
+        bytes = await builder.buildEuDeclarationOfConformityPdf(type, input, { templateRevision: '99' }, mapping, png, { isTest: true });
+      } finally { PDFPage.prototype.drawText = drawText; PDFPage.prototype.drawImage = drawImage; }
+      assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
+      const content = texts.map(t => t.value).join('\n');
+      assert.equal(texts.filter(t => t.value === 'TEST / NOT FOR ISSUE - UNSIGNED').length, 2);
+      assert.equal(content.includes('2810'), false);
+      assert.equal(content.includes('HPi'), false);
+      assert.equal(texts.some(t => t.value === 'Serial number'), serialised);
+      assert.equal(texts.some(t => t.value === 'Year of construction'), serialised);
+      assert.equal(images.length, category === 'sep' ? 2 : 3, 'logos and optional CE only, never the signature in test mode');
+      assert.ok(content.includes(profile.revision));
+      if (category === 'sep') {
+        assert.ok(content.includes("MANUFACTURER'S DECLARATION"));
+        assert.ok(content.includes('12.3 bar g'));
+        assert.ok(content.includes('TSF-RAF-01'));
+        assert.ok(content.includes('EN 12021:2014'));
+        assert.equal(content.includes('2006/42/EC'), false);
+        assert.equal(content.includes('EC / EU DECLARATION OF CONFORMITY'), false);
+      } else {
+        assert.ok(content.includes('Cat. I'));
+        assert.ok(content.includes('172 bar L'));
+        assert.ok(content.includes('EN 13445-3:2014'));
+        assert.ok(content.includes('EN ISO 4126-1:2013+A1:2016'));
+      }
+      for (const text of texts) {
+        assert.ok(text.x + text.font.widthOfTextAtSize(text.value, text.size) <= 568, `right overflow: ${text.value}`);
+        if (!text.value.startsWith('www.') && !text.value.startsWith('Page ')) assert.ok(text.y > 65, `footer collision: ${text.value}`);
+      }
+      const output = process.env.EU_DOC_CLARIFIED_OUTPUT || process.env.EU_DOC_TEST_OUTPUT;
+      if (output) {
+        fs.mkdirSync(output, { recursive: true });
+        fs.writeFileSync(path.join(output, `clarified-${name}.pdf`), bytes);
+      }
+    });
+  }
+  await check('new classifications cannot use the approved Cat II/III endpoint', async () => {
+    for (const [category, code] of [['cat-i', 'BP-A-1000'], ['sep', 'AF-A-0001']]) {
+      const { response } = await routeProbe({ product: { eu_doc_ped_category: category, product_code: code } });
+      assert.equal(response.status, 400);
+    }
+  });
   variants.push(...variants.map(([name, , product]) => [name.replace('manual', 'serial'), 'eu-doc-serialised', product]));
+  variants.push(...supplementalVariants.map(([name, type, code, productType, pedCategory]) => [name, type, {
+    productCode: code, productType, pedCategory, certificateNo: '', productTitle: declarations.supplementalDeclarationProfile(type).commercialName,
+  }]));
   for (const [name, type, product] of variants) await check(`${name} embeds PNG above signature line on page two`, async () => {
     const images = [], lines = [];
     const drawImage = PDFPage.prototype.drawImage, drawLine = PDFPage.prototype.drawLine;

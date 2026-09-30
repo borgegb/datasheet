@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { isAvailableBlastProduct, ORGANIZATION_ACCESS_MESSAGE, type EuDocProductOptions } from "@/lib/certifications/products";
+import { isAvailableDeclarationProduct, ORGANIZATION_ACCESS_MESSAGE, type EuDocProductOptions } from "@/lib/certifications/products";
+import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
 
 async function getUserProfileContext(): Promise<{
   organization_id: string | null;
@@ -54,7 +55,7 @@ export async function fetchCertificationsForOrg() {
   return { data: data as CertificationRow[], error: null };
 }
 
-export async function fetchEuDocProducts(): Promise<EuDocProductOptions> {
+export async function fetchEuDocProducts(type = "eu-doc-serialised"): Promise<EuDocProductOptions> {
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -68,10 +69,10 @@ export async function fetchEuDocProducts(): Promise<EuDocProductOptions> {
     const { data, error } = await supabase.from("products")
       .select("id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no")
       .eq("organization_id", profile.organization_id)
-      .eq("eu_doc_product_type", "blast-machine")
+      .eq("eu_doc_product_type", supplementalDeclarationProfile(type)?.productType || "blast-machine")
       .order("product_title", { ascending: true });
     if (error) return { data: [], error: "Products could not be loaded. Please retry." };
-    return { data: (data ?? []).filter(isAvailableBlastProduct), error: null };
+    return { data: (data ?? []).filter(product => isAvailableDeclarationProduct(type, product)), error: null };
   } catch {
     return { data: [], error: "Products could not be loaded. Please retry." };
   }

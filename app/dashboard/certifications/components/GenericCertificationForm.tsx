@@ -19,6 +19,7 @@ import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
 import type { EuDocProductOptions } from "@/lib/certifications/products";
+import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Popover,
@@ -34,16 +35,10 @@ type ProductSearchResult = {
   id: string;
   product_title: string | null;
   product_code: string | null;
-  eu_doc_product_type?: "blast-machine" | "pto-compressor" | null;
-  eu_doc_ped_category?: "cat-ii" | "cat-iii" | null;
+  eu_doc_product_type?: EuDocProductType | null;
+  eu_doc_ped_category?: EuDocPedCategory | null;
   eu_doc_certificate_no?: string | null;
 };
-
-const EU_DOC_TYPE_SLUGS = new Set([
-  "eu-doc-owner-manual-blasting",
-  "eu-doc-owner-manual-pto-compressors",
-  "eu-doc-serialised",
-]);
 
 function productDisplayName(product: ProductSearchResult) {
   return product.product_title || product.product_code || "Untitled product";
@@ -52,12 +47,15 @@ function productDisplayName(product: ProductSearchResult) {
 function productTypeLabel(productType: ProductSearchResult["eu_doc_product_type"]) {
   if (productType === "blast-machine") return "Mobile abrasive blast machine";
   if (productType === "pto-compressor") return "PTO-driven air compressor";
+  if (productType === "air-filter") return "Respirator air filter";
   return "Product type missing";
 }
 
 function pedCategoryLabel(pedCategory: ProductSearchResult["eu_doc_ped_category"]) {
   if (pedCategory === "cat-ii") return "Cat. II / Module A2";
   if (pedCategory === "cat-iii") return "Cat. III / Module B + C2";
+  if (pedCategory === "cat-i") return "Cat. I / Module A";
+  if (pedCategory === "sep") return "Article 4(3) / SEP";
   return "PED category missing";
 }
 
@@ -262,11 +260,13 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   const [organizationId, setOrganizationId] = React.useState<string | null>(
     null
   );
-  const requiresEuDocProduct = EU_DOC_TYPE_SLUGS.has(typeSlug);
+  const requiresEuDocProduct = isDeclarationType(typeSlug);
+  const isSerialised = isSerialisedDeclaration(typeSlug);
+  const supplementalProfile = supplementalDeclarationProfile(typeSlug);
   const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
-  const declarationNumber = typeSlug === "eu-doc-serialised"
-    ? serialisedDeclarationNumber(form.serialNumber) : null;
-  const formValues = typeSlug === "eu-doc-serialised"
+  const declarationNumber = isSerialised
+    ? serialisedDeclarationNumber(form.serialNumber, typeSlug) : null;
+  const formValues = isSerialised
     ? { ...form, declarationNumber: declarationNumber ?? "" } : form;
   const updateField = (name: string, value: string) => {
     setForm((current) => ({ ...current, [name]: value }));
@@ -331,7 +331,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   }, [productQuery, organizationId, requiresEuDocProduct, holdReason]);
 
   const getPlaceholder = (f: FieldSpec) => {
-    if (typeSlug !== "eu-doc-serialised") {
+    if (!isSerialised || supplementalProfile) {
       return f.placeholder;
     }
 
@@ -353,10 +353,11 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     setProductQuery("");
     setProductResults([]);
 
-    if (typeSlug === "eu-doc-serialised") {
+    if (isSerialised) {
       setForm((current) => ({
         ...current,
         ...serialisedProductFields(product),
+        ...(supplementalProfile ? { commercialName: supplementalProfile.commercialName, modelType: supplementalProfile.modelType } : {}),
       }));
     }
     setGeneratedPdfUrl(null);
@@ -471,7 +472,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         id={f.name}
         type="text"
         value={formValues[f.name] ?? ""}
-        readOnly={typeSlug === "eu-doc-serialised" && f.name === "declarationNumber"}
+        readOnly={isSerialised && f.name === "declarationNumber"}
         placeholder={getPlaceholder(f)}
         onChange={(e) => updateField(f.name, e.target.value)}
       />
@@ -499,7 +500,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
             if (product) selectProduct(product);
           }} disabled={!euDocProducts?.data.length}>
             <SelectTrigger id="eu-doc-product" className="data-[size=default]:h-auto min-h-10 w-full text-left [&_[data-slot=select-value]]:line-clamp-none [&_span]:whitespace-normal">
-              <SelectValue placeholder={euDocProducts?.data.length ? "Select product" : "No configured blast machines available"} />
+              <SelectValue placeholder={euDocProducts?.data.length ? "Select product" : "No configured products available"} />
             </SelectTrigger>
             <SelectContent className="max-w-[calc(100vw-2rem)]">
               {euDocProducts?.data.map((product) => (
@@ -511,7 +512,9 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           </Select>
         )}
         {!euDocProducts?.error && !euDocProducts?.data.length && (
-          <p role="status" className="text-sm text-muted-foreground">An organization owner must configure product type, PED category and certificate number before a product is available.</p>
+          <p role="status" className="text-sm text-muted-foreground">{supplementalProfile
+            ? `An organization owner must configure ${supplementalProfile.productCode} as ${supplementalProfile.kind === "sep" ? "an air filter with SEP classification" : "a blast machine with Cat. I classification"}. No Notified Body certificate number applies.`
+            : "An organization owner must configure product type, PED category and certificate number before a product is available."}</p>
         )}
         {selectedProduct && (
           <div className="grid grid-cols-1 gap-3 border-b py-3 text-sm sm:grid-cols-3 [&>div]:min-w-0 [&>div]:break-words">
@@ -531,12 +534,12 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
               <span className="block font-medium">Certificate</span>
               <span
                 className={
-                  certificateNo
+                  certificateNo || supplementalProfile
                     ? "text-muted-foreground"
                     : "font-medium text-destructive"
                 }
               >
-                {certificateNo || "Missing - generation blocked"}
+                {supplementalProfile ? "Not applicable" : certificateNo || "Missing - generation blocked"}
               </span>
             </div>
           </div>
@@ -551,7 +554,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     setGeneratedPdfUrl(null);
     try {
       if (holdReason) throw new Error(holdReason);
-      if (typeSlug === "eu-doc-serialised" && !declarationNumber) {
+      if (isSerialised && !declarationNumber) {
         throw new Error(SERIAL_NUMBER_FORMAT_MESSAGE);
       }
       // Lightweight validation for required fields present in schema
@@ -609,7 +612,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New {typeDef.title} Certificate</CardTitle>
+        <CardTitle className="text-lg leading-6">New {typeDef.title}</CardTitle>
       </CardHeader>
       <CardContent>
         {holdReason ? (
@@ -623,7 +626,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
                 <label key={mode} className="flex items-center gap-2 text-sm">
                   <input type="radio" name="documentMode" value={mode} checked={documentMode === mode}
                     onChange={() => { setDocumentMode(mode); setGeneratedPdfUrl(null); }} />
-                  {mode === "test" ? "Test / not for issue (unsigned)" : "Issue signed DoC"}
+                  {mode === "test" ? "Test / not for issue (unsigned)" : supplementalProfile?.kind === "sep" ? "Issue signed declaration" : "Issue signed DoC"}
                 </label>
               ))}
             </fieldset>

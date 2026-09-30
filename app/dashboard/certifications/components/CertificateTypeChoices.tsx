@@ -13,6 +13,14 @@ const groups = [
     { slug: "eu-doc-serialised", productType: "pto-compressor", title: "EU DoC - Serialised - PTO Compressors" },
     { slug: "eu-doc-owner-manual-pto-compressors", productType: "pto-compressor" },
   ] },
+  { name: "20L Blast Machine", choices: [
+    { slug: "eu-doc-20l-serialised", productType: "blast-machine" },
+    { slug: "eu-doc-20l-manual", productType: "blast-machine" },
+  ] },
+  { name: "Respirator Air Filter", choices: [
+    { slug: "sep-air-filter-serialised", productType: "air-filter" },
+    { slug: "sep-air-filter-manual", productType: "air-filter" },
+  ] },
   { name: "Hydrostatic Test", choices: [
     { slug: "hydrostatic-test", productType: undefined },
   ] },

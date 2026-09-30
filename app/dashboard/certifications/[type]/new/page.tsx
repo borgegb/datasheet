@@ -6,6 +6,7 @@ import Link from "next/link";
 import GenericCertificationForm from "../../components/GenericCertificationForm";
 import { CERT_TYPES } from "../../registry";
 import { fetchEuDocProducts } from "../../actions";
+import { isDeclarationType } from "@/lib/certifications/declarations";
 
 interface Props {
   params: Promise<{ type: string }>;
@@ -15,8 +16,8 @@ export default async function NewCertificationTypePage({ params }: Props) {
   const { type } = await params;
   const typeDef = CERT_TYPES[type];
   if (!typeDef) return notFound();
-  const euDocProducts = type === "eu-doc-serialised" || type === "eu-doc-owner-manual-blasting"
-    ? await fetchEuDocProducts() : undefined;
+  const euDocProducts = isDeclarationType(type)
+    ? await fetchEuDocProducts(type) : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50">

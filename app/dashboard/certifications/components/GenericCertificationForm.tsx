@@ -20,6 +20,7 @@ import { CERT_TYPES } from "../registry";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
 import type { EuDocProductOptions } from "@/lib/certifications/products";
 import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
+import { hydrostaticAssessmentModules, hydrostaticCertificateNumber, hydrostaticProductFields } from "@/lib/certifications/hydrostatic";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Popover,
@@ -261,6 +262,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     null
   );
   const requiresEuDocProduct = isDeclarationType(typeSlug);
+  const isHydrostatic = typeSlug === "hydrostatic-test";
+  const supportsDocumentMode = requiresEuDocProduct || isHydrostatic;
   const isSerialised = isSerialisedDeclaration(typeSlug);
   const supplementalProfile = supplementalDeclarationProfile(typeSlug);
   const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
@@ -269,7 +272,14 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   const formValues = isSerialised
     ? { ...form, declarationNumber: declarationNumber ?? "" } : form;
   const updateField = (name: string, value: string) => {
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => ({ ...current, [name]: value,
+      ...(isHydrostatic && name === "serialNumber" ? {
+        certificateNumber: hydrostaticCertificateNumber(selectedProduct?.product_code || null, value),
+      } : {}),
+      ...(isHydrostatic && name === "pedCategory" ? {
+        assessmentModules: hydrostaticAssessmentModules(value),
+      } : {}),
+    }));
     setGeneratedPdfUrl(null);
   };
 
@@ -360,6 +370,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         ...(supplementalProfile ? { commercialName: supplementalProfile.commercialName, modelType: supplementalProfile.modelType } : {}),
       }));
     }
+    if (isHydrostatic) setForm(hydrostaticProductFields(product));
     setGeneratedPdfUrl(null);
   };
 
@@ -405,7 +416,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
                         selectProduct(p);
                         setForm((s) => ({
                           ...s,
-                          model: productDisplayName(p),
+                          model: isHydrostatic ? hydrostaticProductFields(p).model : productDisplayName(p),
                         }));
                       }}
                     >
@@ -470,7 +481,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     return (
       <Input
         id={f.name}
-        type="text"
+        type={f.type === "number" ? "number" : "text"}
+        step={f.type === "number" ? "any" : undefined}
         value={formValues[f.name] ?? ""}
         readOnly={isSerialised && f.name === "declarationNumber"}
         placeholder={getPlaceholder(f)}
@@ -577,7 +589,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
             certification: formValues,
             organizationId,
             productId: productId || null,
-            ...(requiresEuDocProduct ? { documentMode } : {}),
+            ...(supportsDocumentMode ? { documentMode } : {}),
           }),
         }
       );
@@ -586,7 +598,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
       if (data?.url) {
         setGeneratedPdfUrl(data.url);
         router.refresh();
-        toast.success(`${requiresEuDocProduct && documentMode === "test" ? "Test" : typeDef.title} PDF generated`, {
+        toast.success(`${supportsDocumentMode && documentMode === "test" ? "Test" : typeDef.title} PDF generated`, {
           description: "Click the button to open your generated PDF.",
           action: (
             <Button
@@ -619,14 +631,14 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           <p role="status" className="text-sm text-muted-foreground">{holdReason}</p>
         ) : (
         <form onSubmit={handleSubmit} onChange={() => setGeneratedPdfUrl(null)} className="space-y-6">
-          {requiresEuDocProduct && (
+          {supportsDocumentMode && (
             <fieldset className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <legend className="mb-2 text-sm font-medium">Document status</legend>
               {(["test", "issued"] as const).map((mode) => (
                 <label key={mode} className="flex items-center gap-2 text-sm">
                   <input type="radio" name="documentMode" value={mode} checked={documentMode === mode}
                     onChange={() => { setDocumentMode(mode); setGeneratedPdfUrl(null); }} />
-                  {mode === "test" ? "Test / not for issue (unsigned)" : supplementalProfile?.kind === "sep" ? "Issue signed declaration" : "Issue signed DoC"}
+                  {mode === "test" ? "Test / not for issue (unsigned)" : isHydrostatic ? "Issue signed certificate" : supplementalProfile?.kind === "sep" ? "Issue signed declaration" : "Issue signed DoC"}
                 </label>
               ))}
             </fieldset>
@@ -634,7 +646,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           {renderEuDocProductSelector()}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {typeDef.fieldLayout.map((f) => (
-              <div key={f.name} className="space-y-1.5">
+              <div key={f.name} className="min-w-0 space-y-1.5">
                 <Label htmlFor={f.name}>{f.label}</Label>
                 {renderField(f)}
               </div>
@@ -665,13 +677,13 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="submit" disabled={isSubmitting || (requiresEuDocProduct && (!productId || Boolean(euDocProducts?.error)))}>
+            <Button type="submit" disabled={isSubmitting || (isHydrostatic && !productId) || (requiresEuDocProduct && (!productId || Boolean(euDocProducts?.error)))}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {isSubmitting ? "Generating..." : requiresEuDocProduct && documentMode === "test" ? "Generate test PDF" : "Generate PDF"}
+              {isSubmitting ? "Generating..." : supportsDocumentMode && documentMode === "test" ? "Generate test PDF" : "Generate PDF"}
             </Button>
           </div>
         </form>

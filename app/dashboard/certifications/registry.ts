@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
+import { hydrostaticSchema } from "@/lib/certifications/hydrostatic";
+import { HYDROSTATIC_CERTIFICATE_TITLE } from "@/lib/certifications/labels";
 
 export type FieldSpec = {
   name: string;
   label: string;
-  type: "text" | "date" | "select";
+  type: "text" | "date" | "select" | "number";
   options?: { label: string; value: string }[];
   placeholder?: string;
   required?: boolean;
@@ -191,42 +193,10 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   },
   "hydrostatic-test": {
     slug: "hydrostatic-test",
-    title: "Hydrostatic Test",
+    title: HYDROSTATIC_CERTIFICATE_TITLE,
     templatePath: "pdf/template/certifications/hydrostatic-test.json",
-    defaults: {
-      titleTop: "EC Declaration of Conformity and",
-      titleBottom: "Certificate of Hydrostatic Test",
-      euDirective: "European Pressure Equipment Directive 97/23/EC",
-      manufacturer:
-        "Applied Concepts Ltd, Roscrea Road, Birr, Co Offaly, Republic of Ireland",
-      equipmentDescription: "Blast Vessel",
-      model: "",
-      serialNumber: "",
-      dateOfTest: "",
-      ped: {
-        header: "PED Category and Conformity Assessment Procedure",
-        columns: ["Equipment", "PED Category", "Assessment module(s)"],
-        row: ["Blast Vessel", "CAT I", "A"],
-      },
-      safeWorkingPressurePSI: 116,
-      designedTemperatureC: 80,
-      hydrostaticTestPressurePSI: 220,
-      signLineLead: "Signed on behalf of Applied Concepts Ltd:",
-      signatoryName: "Mark Clendennen",
-      signatoryTitle: "Authorised Signatory",
-      validityMonths: 24,
-      branding: {
-        companyName: "Applied Concepts",
-        tagline: "LEADERS IN BLASTING TECHNOLOGY",
-        leftRibbonText: "CERTIFICATE",
-        showQcStamp: true,
-      },
-    },
-    schema: z.object({
-      model: z.string().min(1),
-      serialNumber: z.string().min(1),
-      dateOfTest: z.string().min(1),
-    }),
+    defaults: { testMedium: "water", testResult: "" },
+    schema: hydrostaticSchema,
     fieldLayout: [
       {
         name: "model",
@@ -240,7 +210,25 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         type: "text",
         placeholder: "e.g., AC-12345",
       },
-      { name: "dateOfTest", label: "Date of Test", type: "date" },
+      { name: "certificateNumber", label: "Certificate No.", type: "text", required: true },
+      { name: "yearOfManufacture", label: "Year of manufacture", type: "text", required: true },
+      { name: "equipmentDescription", label: "Equipment description", type: "text", required: true },
+      { name: "dateOfTest", label: "Date of Test", type: "date", required: true },
+      { name: "pedCategory", label: "PED category", type: "select", required: true, options: [
+        { label: "Cat. I", value: "cat-i" }, { label: "Cat. II", value: "cat-ii" },
+        { label: "Cat. III", value: "cat-iii" }, { label: "Article 4(3) / SEP", value: "sep" },
+      ] },
+      { name: "assessmentModules", label: "Assessment module(s)", type: "text", required: true },
+      { name: "maxPressureBar", label: "Maximum allowable pressure (bar)", type: "number", required: true },
+      { name: "testPressureBar", label: "Hydrostatic test pressure (bar)", type: "number", required: true },
+      { name: "minTemperatureC", label: "Minimum temperature (C)", type: "number", required: true },
+      { name: "maxTemperatureC", label: "Maximum temperature (C)", type: "number", required: true },
+      { name: "testMedium", label: "Test medium", type: "text", required: true },
+      { name: "holdingMinutes", label: "Holding time (minutes)", type: "number", required: true },
+      { name: "testResult", label: "Test result", type: "select", required: true, options: [
+        { label: "PASS - no leakage / deformation", value: "pass" },
+        { label: "FAIL", value: "fail" },
+      ] },
     ],
   },
 };

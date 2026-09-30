@@ -8,7 +8,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { Template } from "@pdfme/common";
-import { buildCertificationPdf } from "@/lib/pdf/certifications/buildCertificationPdf";
+import { buildHydrostaticTestPdf } from "@/lib/pdf/certifications/buildHydrostaticTestPdf";
 import { buildVm350DeclarationPdf } from "@/lib/pdf/certifications/buildVm350DeclarationPdf";
 import {
   buildEuDeclarationOfConformityPdf,
@@ -20,6 +20,7 @@ import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
 import { isAvailableDeclarationProduct } from "@/lib/certifications/products";
+import { hydrostaticProductFields, type HydrostaticData } from "@/lib/certifications/hydrostatic";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   MAX_SIGNATURE_BYTES,
@@ -104,12 +105,12 @@ async function validateProductId(
   productId: unknown
 ) {
   if (typeof productId !== "string" || !productId.trim()) {
-    return { productId: null, error: null };
+    return { productId: null, product: null, error: null };
   }
 
   const { data, error } = await supabase
     .from("products")
-    .select("id")
+    .select("id, product_title, product_code")
     .eq("id", productId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -117,15 +118,16 @@ async function validateProductId(
   if (error) {
     return {
       productId: null,
+      product: null,
       error: `Could not validate product ownership: ${error.message}`,
     };
   }
 
   if (!data?.id) {
-    return { productId: null, error: "Selected product was not found." };
+    return { productId: null, product: null, error: "Selected product was not found." };
   }
 
-  return { productId: data.id as string, error: null };
+  return { productId: data.id as string, product: data, error: null };
 }
 
 type EuDocProductRow = {
@@ -280,12 +282,6 @@ async function loadTemplate(slug: string): Promise<Template> {
       );
       return template.default as unknown as Template;
     }
-    case "hydrostatic-test": {
-      const template = await import(
-        "@/pdf/template/certifications/hydrostatic-test.json"
-      );
-      return template.default as unknown as Template;
-    }
     default:
       throw new Error(`No PDF template is configured for ${slug}.`);
   }
@@ -322,11 +318,13 @@ export async function POST(
     }
 
     const isEuDoc = isEuDeclarationOfConformityType(type);
+    const isHydrostatic = type === "hydrostatic-test";
+    const usesSignature = isEuDoc || isHydrostatic;
     const documentMode = payload.documentMode ?? "test";
-    if (isEuDoc && documentMode !== "test" && documentMode !== "issued") {
+    if (usesSignature && documentMode !== "test" && documentMode !== "issued") {
       return jsonError("Invalid document status.", 400);
     }
-    const isTest = isEuDoc && documentMode === "test";
+    const isTest = usesSignature && documentMode === "test";
     let merged = { ...typeDef.defaults, ...certification };
     if (isSerialisedDeclaration(type)) {
       const declarationNumber = serialisedDeclarationNumber(merged.serialNumber, type);
@@ -338,11 +336,14 @@ export async function POST(
       const firstIssue = parsed.error.issues[0];
       return jsonError(firstIssue?.message || "Invalid certification data", 400);
     }
-    if (isEuDoc) {
-      // Only accepted form fields may enter a declaration or its saved snapshot.
+    if (usesSignature) {
+      // Only accepted form fields may enter a document or its saved snapshot.
       merged = parsed.data;
-      if (isTest && !merged.declarationNumber.startsWith("TEST-")) {
+      if (isEuDoc && isTest && !merged.declarationNumber.startsWith("TEST-")) {
         merged.declarationNumber = `TEST-${merged.declarationNumber}`;
+      }
+      if (isHydrostatic && isTest && !merged.certificateNumber.startsWith("TEST-")) {
+        merged.certificateNumber = `TEST-${merged.certificateNumber}`;
       }
     }
 
@@ -375,6 +376,10 @@ export async function POST(
         return jsonError(productValidation.error, 400);
       }
       productRecordId = productValidation.productId;
+      if (isHydrostatic) {
+        if (!productValidation.product) return jsonError("Select a product before generating a hydrostatic certificate.", 400);
+        merged.model = hydrostaticProductFields(productValidation.product).model;
+      }
     }
 
     let pdfBytes: Uint8Array;
@@ -387,7 +392,7 @@ export async function POST(
       generatedAt: string;
     } | null = null;
 
-    if (isEuDeclarationOfConformityType(type)) {
+    if (usesSignature) {
       const { settings, signaturePath } = await fetchCertificationSettings(
         adminSupabase,
         organizationId
@@ -395,7 +400,7 @@ export async function POST(
       let signaturePng: Uint8Array | undefined;
       if (!isTest) {
         if (!signaturePath || !isSignaturePathForOrganization(signaturePath, organizationId)) {
-          return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a declaration.", 409);
+          return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a document.", 409);
         }
 
         const { data: signatureFile, error: signatureError } = await adminSupabase.storage
@@ -414,22 +419,25 @@ export async function POST(
           generatedAt: new Date().toISOString(),
         };
       }
-      pdfBytes = await buildEuDeclarationOfConformityPdf(
-        type,
-        merged,
-        settings,
-        euProductCertification,
-        signaturePng,
-        { isTest }
-      );
-      title = buildEuDeclarationTitle(type, merged, euProductCertification);
+      if (isEuDeclarationOfConformityType(type)) {
+        pdfBytes = await buildEuDeclarationOfConformityPdf(
+          type,
+          merged,
+          settings,
+          euProductCertification,
+          signaturePng,
+          { isTest }
+        );
+        title = buildEuDeclarationTitle(type, merged, euProductCertification);
+      } else {
+        pdfBytes = await buildHydrostaticTestPdf(merged as HydrostaticData, { signaturePng, isTest });
+        title = `${typeDef.title} - ${merged.model} - ${merged.serialNumber}`;
+      }
       if (isTest) title = `TEST / NOT FOR ISSUE - ${title}`;
     } else {
+      if (type !== "ec-vm-350-declaration") return jsonError("Unsupported certification type", 400);
       const template = await loadTemplate(typeDef.slug);
-      pdfBytes =
-        type === "ec-vm-350-declaration"
-          ? await buildVm350DeclarationPdf(merged, template)
-          : await buildCertificationPdf(merged, { template });
+      pdfBytes = await buildVm350DeclarationPdf(merged, template);
       title = [
         merged?.model || merged?.equipmentDescription || "",
         merged?.serialNumber || "",
@@ -460,10 +468,10 @@ export async function POST(
         product_id: productRecordId,
         type,
         title: title || null,
-        data: euProductCertification
+        data: usesSignature
           ? {
               ...merged,
-              productCertification: euProductCertification,
+              ...(euProductCertification ? { productCertification: euProductCertification } : {}),
               signature: signatureRecord,
               documentMode,
               generatedBy: userId,

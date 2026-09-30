@@ -15,6 +15,7 @@ import type { CertificationRow } from "../actions";
 import { deleteCertification } from "../actions";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { HYDROSTATIC_CERTIFICATE_TITLE } from "@/lib/certifications/labels";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,7 +108,7 @@ export default function CertificationsTable({ initialData }: Props) {
                     {r.title || `${model}${serial ? ` – ${serial}` : ""}`}
                   </TableCell>
                   <TableCell className="capitalize">
-                    {r.type.replaceAll("-", " ")}
+                    {r.type === "hydrostatic-test" ? HYDROSTATIC_CERTIFICATE_TITLE : r.type.replaceAll("-", " ")}
                   </TableCell>
                   <TableCell className="max-w-[220px] truncate">
                     {model}

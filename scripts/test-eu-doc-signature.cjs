@@ -68,11 +68,15 @@ function testPng() {
 const png = testPng();
 const signatures = load('lib/certifications/signature.ts');
 const builder = load('lib/pdf/certifications/buildEuDeclarationOfConformityPdf.ts');
+const hydrostatic = load('lib/certifications/hydrostatic.ts');
+const hydrostaticBuilder = load('lib/pdf/certifications/buildHydrostaticTestPdf.ts');
 const org = '11111111-1111-4111-8111-111111111111';
 const signaturePath = `${org}/22222222-2222-4222-8222-222222222222.png`;
 const blast = { id: 'product-a', organization_id: org, product_title: 'Blast Machine BP200L', product_code: 'BP-A-5000', eu_doc_product_type: 'blast-machine', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'HPiVS-iP1283-001-I-03-00' };
 const common = { declarationNumber: 'TEST-2026-001', issueDate: '2026-09-07' };
 const unit = { ...common, commercialName: blast.product_title, modelType: blast.product_code, serialNumber: '26-00161', yearOfConstruction: '2026' };
+const blast40 = { ...blast, product_title: 'Applied 40 Litre Blast Machine', product_code: 'BP-A-2000', eu_doc_ped_category: 'cat-ii' };
+const hydroData = { ...hydrostatic.hydrostaticProductFields(blast40), certificateNumber: 'ACL-HT-BP40L-AP-26-00115', serialNumber: 'AP-26-00115', yearOfManufacture: '2026', dateOfTest: '2026-06-05', testResult: 'pass' };
 
 function mockClient(options = {}) {
   const calls = { uploads: [], downloads: [], removals: [], records: [], settings: [], signedUrls: [] };
@@ -118,11 +122,11 @@ async function routeProbe(options = {}) {
     'next/cache': { revalidatePath: (value) => { calls.revalidated = value; } },
     '@supabase/supabase-js': { createClient: () => client },
     '@/lib/supabase/server': { createClient: async () => client },
-    '@/lib/pdf/certifications/buildCertificationPdf': { buildCertificationPdf: async () => new Uint8Array([1]) },
+    '@/lib/pdf/certifications/buildHydrostaticTestPdf': { buildHydrostaticTestPdf: async (...args) => { calls.hydroBuilder = args; return new Uint8Array([1]); } },
     '@/lib/pdf/certifications/buildVm350DeclarationPdf': { buildVm350DeclarationPdf: async () => new Uint8Array([1]) },
     '@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf': { ...builder, buildEuDeclarationOfConformityPdf: async (...args) => { calls.builder = args; return new Uint8Array([1]); } },
   });
-  const payload = { documentMode: options.documentMode ?? 'issued', certification: { ...unit, signature: { generatedBy: 'forged', storagePath: 'wrong.png' }, ...options.data }, productId: options.productId || blast.id, organizationId: 'untrusted-org' };
+  const payload = { documentMode: options.documentMode ?? 'issued', certification: { ...unit, signature: { generatedBy: 'forged', storagePath: 'wrong.png' }, ...options.data }, productId: options.productId === undefined ? blast.id : options.productId, organizationId: 'untrusted-org' };
   const response = await route.POST(new Request('http://localhost/test', { method: 'POST', body: JSON.stringify(payload) }), { params: Promise.resolve({ type: options.type || 'eu-doc-serialised' }) });
   return { response, body: await response.json(), calls };
 }
@@ -324,9 +328,105 @@ async function run() {
     assert.equal(Boolean(result.error), name !== 'missing PDF can finish record cleanup');
     if (options.role || options.path) assert.equal(removed, 0);
   });
-  for (const type of ['hydrostatic-test']) await check(`${type} does not require new signature`, async () => {
-    const { response, calls } = await routeProbe({ type, signaturePath: null, data: { serialNumber: 'AP-26-0001', model: 'Test', dateOfTest: common.issueDate } });
-    assert.equal(response.status, 200); assert.equal(calls.downloads.length, 0);
+  await check('hydrostatic defaults match only the supplied 40L reference, never assume PASS', () => {
+    const fields = hydrostatic.hydrostaticProductFields(blast40);
+    assert.equal(fields.testPressureBar, '20'); assert.equal(fields.maxPressureBar, '8.6');
+    assert.equal(fields.minTemperatureC, '-10'); assert.equal(fields.maxTemperatureC, '80');
+    assert.equal(fields.assessmentModules, 'A2 (NB 2810)'); assert.equal(fields.testResult, '');
+    const switched = { ...hydroData, ...hydrostatic.hydrostaticProductFields(blast) };
+    for (const field of ['serialNumber', 'certificateNumber', 'yearOfManufacture', 'dateOfTest', 'testResult', 'testPressureBar', 'maxPressureBar', 'minTemperatureC', 'maxTemperatureC', 'holdingMinutes']) assert.equal(switched[field], '', field);
+    assert.equal(hydrostatic.hydrostaticCertificateNumber(blast40.product_code, 'AP-26-00115'), hydroData.certificateNumber);
+    assert.equal(hydrostatic.hydrostaticCertificateNumber(blast.product_code, 'AP-26-00115'), 'ACL-HT-BP-A-5000-AP-26-00115');
+    assert.equal(hydrostatic.hydrostaticAssessmentModules('cat-i'), 'A');
+    assert.equal(hydrostatic.hydrostaticAssessmentModules('cat-iii'), 'B + C2 (NB 2810)');
+    assert.equal(hydrostatic.hydrostaticAssessmentModules('sep'), 'Not applicable (Article 4(3))');
+  });
+  await check('hydrostatic display name changes without breaking the existing type', () => {
+    const { CERT_TYPES } = load('app/dashboard/certifications/registry.ts');
+    assert.equal(CERT_TYPES['hydrostatic-test'].slug, 'hydrostatic-test');
+    assert.equal(CERT_TYPES['hydrostatic-test'].title, 'Hydrostatic Certificate');
+  });
+  for (const [name, data] of [
+    ['missing result', { testResult: '' }], ['impossible date', { dateOfTest: '2026-02-30' }],
+    ['reversed temperature', { minTemperatureC: '81' }], ['test pressure below PS', { testPressureBar: '2' }],
+    ['non-numeric pressure', { testPressureBar: '20 bar' }], ['empty pressure', { maxPressureBar: '' }],
+    ['negative time', { holdingMinutes: '-1' }], ['unknown category', { pedCategory: 'cat-iv' }],
+  ]) await check(`hydrostatic rejects ${name}`, async () => {
+    const { response, calls } = await routeProbe({ type: 'hydrostatic-test', product: blast40, data: { ...hydroData, ...data } });
+    assert.equal(response.status, 400); assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0);
+  });
+  for (const [name, options, status] of [
+    ['unsigned preview', { documentMode: 'test', signaturePath: null }, 200],
+    ['owner signed certificate', {}, 200], ['member signed certificate', { role: 'member' }, 200],
+    ['viewer blocked', { role: 'viewer' }, 403], ['anonymous blocked', { anonymous: true }, 401],
+    ['missing signature', { signaturePath: null }, 409],
+    ['foreign signature', { signaturePath: signaturePath.replace(org, 'other-org') }, 409],
+    ['signature unavailable', { downloadError: true }, 409],
+    ['missing product', { productId: null }, 400],
+    ['foreign product', { product: { ...blast40, organization_id: 'foreign' } }, 400],
+    ['invalid status', { documentMode: 'unexpected' }, 400],
+    ['failed record save', { recordError: true }, 500],
+  ]) await check(`hydrostatic ${name}`, async () => {
+    const { response, body, calls } = await routeProbe({ type: 'hydrostatic-test', product: blast40, data: { ...hydroData, model: 'untrusted model', titleTop: 'Forged', documentMode: 'issued' }, ...options });
+    assert.equal(response.status, status, JSON.stringify(body));
+    if (status === 200) {
+      const isTest = options.documentMode === 'test';
+      assert.equal(calls.hydroBuilder[0].model, hydroData.model);
+      assert.equal(calls.hydroBuilder[0].titleTop, undefined);
+      assert.equal(calls.hydroBuilder[0].signature, undefined);
+      assert.equal(calls.hydroBuilder[0].documentMode, undefined);
+      assert.equal(calls.hydroBuilder[1].isTest, isTest);
+      assert.equal(calls.downloads.length, isTest ? 0 : 1);
+      assert.equal(calls.records[0].data.certificateNumber, (isTest ? 'TEST-' : '') + hydroData.certificateNumber);
+      assert.equal(calls.records[0].data.documentMode, isTest ? 'test' : 'issued');
+      assert.equal(calls.records[0].type, 'hydrostatic-test');
+      assert.equal(calls.records[0].title, (isTest ? 'TEST / NOT FOR ISSUE - ' : '') + `Hydrostatic Certificate - ${hydroData.model} - ${hydroData.serialNumber}`);
+      if (isTest) assert.equal(calls.records[0].data.signature, null);
+      else {
+        assert.deepEqual(Buffer.from(calls.hydroBuilder[1].signaturePng), png);
+        assert.equal(calls.records[0].data.signature.sha256, createHash('sha256').update(png).digest('hex'));
+        assert.equal(calls.records[0].data.signature.generatedBy, 'user-a');
+      }
+    } else if (options.recordError) {
+      assert.deepEqual(calls.removals[0].paths, [calls.uploads[0].filePath]);
+      assert.equal(body.url, undefined);
+    } else assert.equal(calls.uploads.length, 0);
+  });
+  for (const [mode, result] of [['test', 'pass'], ['issued', 'pass'], ['issued', 'fail']]) {
+    await check(`hydrostatic ${mode} ${result} renders a single page without legacy content`, async () => {
+      const texts = [], images = [], lines = [];
+      const drawText = PDFPage.prototype.drawText, drawImage = PDFPage.prototype.drawImage, drawLine = PDFPage.prototype.drawLine;
+      PDFPage.prototype.drawText = function(value, opts) { texts.push({ value, ...opts }); return drawText.call(this, value, opts); };
+      PDFPage.prototype.drawImage = function(value, opts) { images.push(opts); return drawImage.call(this, value, opts); };
+      PDFPage.prototype.drawLine = function(opts) { lines.push(opts); return drawLine.call(this, opts); };
+      let bytes;
+      try {
+        bytes = await hydrostaticBuilder.buildHydrostaticTestPdf({ ...hydroData, testResult: result,
+          certificateNumber: (mode === 'test' ? 'TEST-' : '') + hydroData.certificateNumber,
+        }, { isTest: mode === 'test', signaturePng: png });
+      } finally { PDFPage.prototype.drawText = drawText; PDFPage.prototype.drawImage = drawImage; PDFPage.prototype.drawLine = drawLine; }
+      assert.equal((await PDFDocument.load(bytes)).getPageCount(), 1);
+      const content = texts.map(t => t.value).join('\n');
+      for (const expected of ['Certificate of Hydrostatic Test', '2014/68/EU', 'A2 (NB 2810)', '8.6 bar (125 psi)', '-10 °C / +80 °C', '20 bar (290 psi)', '05/06/2026', 'Mark Clendennen']) assert.ok(content.includes(expected), expected);
+      for (const outdated of ['97/23/EC', '24 months', 'EC Declaration', 'Validity']) assert.equal(content.includes(outdated), false);
+      assert.equal(content.includes('TEST / NOT FOR ISSUE'), mode === 'test');
+      assert.equal(content.includes('and conforms'), result === 'pass');
+      assert.equal(content.includes('Approved on behalf'), result === 'pass');
+      assert.equal(images.length, mode === 'test' ? 2 : 3);
+      if (mode === 'issued') assert.ok(images.at(-1).y > lines.at(-1).start.y);
+      for (const item of texts) {
+        assert.ok(item.x + item.font.widthOfTextAtSize(item.value, item.size) <= 548, `right overflow: ${item.value}`);
+        assert.ok(item.y >= 35, `bottom overflow: ${item.value}`);
+      }
+      if (mode === 'test' && process.env.HYDROSTATIC_TEST_OUTPUT) {
+        fs.mkdirSync(process.env.HYDROSTATIC_TEST_OUTPUT, { recursive: true });
+        fs.writeFileSync(path.join(process.env.HYDROSTATIC_TEST_OUTPUT, 'hydrostatic-bp40l-preview.pdf'), bytes);
+      }
+    });
+  }
+  await check('hydrostatic refuses unsigned issuance and overflowing content', async () => {
+    await assert.rejects(hydrostaticBuilder.buildHydrostaticTestPdf(hydroData), /signature is required/);
+    await assert.rejects(hydrostaticBuilder.buildHydrostaticTestPdf({ ...hydroData, model: 'W'.repeat(160), equipmentDescription: 'W'.repeat(100), assessmentModules: 'W'.repeat(60), serialNumber: 'W'.repeat(60), testMedium: 'W'.repeat(40) }, { isTest: true }), /too long for one page/);
   });
   await check('owner uploads immutable organization-scoped signature', async () => {
     const { result, calls } = await actionProbe();

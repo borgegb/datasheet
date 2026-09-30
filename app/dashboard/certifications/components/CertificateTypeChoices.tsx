@@ -21,7 +21,7 @@ const groups = [
     { slug: "sep-air-filter-serialised", productType: "air-filter" },
     { slug: "sep-air-filter-manual", productType: "air-filter" },
   ] },
-  { name: "Hydrostatic Test", choices: [
+  { name: CERT_TYPES["hydrostatic-test"].title, choices: [
     { slug: "hydrostatic-test", productType: undefined },
   ] },
 ];

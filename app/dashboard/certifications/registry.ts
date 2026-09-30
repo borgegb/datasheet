@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
+import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
 
 export type FieldSpec = {
   name: string;
@@ -243,3 +244,25 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
     ],
   },
 };
+
+for (const [slug, title, serialised] of [
+  ["eu-doc-20l-manual", "EU DoC - Owner's Manual - 20L Blast Machine", false],
+  ["eu-doc-20l-serialised", "EU DoC - Serialised - 20L Blast Machine", true],
+  ["sep-air-filter-manual", "SEP Declaration - Owner's Manual - Air Filter", false],
+  ["sep-air-filter-serialised", "SEP Declaration - Serialised - Air Filter", true],
+] as const) {
+  const base = CERT_TYPES[serialised ? "eu-doc-serialised" : "eu-doc-owner-manual-blasting"];
+  const profile = supplementalDeclarationProfile(slug)!;
+  CERT_TYPES[slug] = {
+    ...base,
+    slug,
+    title,
+    defaults: { ...base.defaults },
+    fieldLayout: base.fieldLayout.map(field => ({
+      ...field,
+      placeholder: field.name === "declarationNumber" && !serialised ? `${profile.numberPrefix}-OM01`
+        : field.name === "commercialName" ? profile.commercialName
+        : field.name === "modelType" ? profile.modelType : field.placeholder,
+    })),
+  };
+}

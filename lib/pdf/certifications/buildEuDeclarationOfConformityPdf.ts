@@ -12,20 +12,16 @@ import path from "node:path";
 // @ts-expect-error fontkit does not ship local TypeScript declarations.
 import * as fontkit from "fontkit";
 import type { CertificationSettings } from "@/lib/certifications/settings";
+import { DECLARATION_TYPES, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
+export type { EuDocProductType, EuDocPedCategory } from "@/lib/certifications/declarations";
 
-export const EU_DECLARATION_CERTIFICATION_TYPES = [
-  "eu-doc-owner-manual-blasting",
-  "eu-doc-owner-manual-pto-compressors",
-  "eu-doc-serialised",
-] as const;
+// Includes SEP declarations, which share issuance controls but are not EU DoCs.
+export const EU_DECLARATION_CERTIFICATION_TYPES = DECLARATION_TYPES;
 
 export type EuDeclarationCertificationType =
   (typeof EU_DECLARATION_CERTIFICATION_TYPES)[number];
 
 type EuDeclarationInput = Record<string, unknown>;
-
-export type EuDocProductType = "blast-machine" | "pto-compressor";
-export type EuDocPedCategory = "cat-ii" | "cat-iii";
 
 export type EuDeclarationProductCertification = {
   id?: string;
@@ -102,6 +98,12 @@ export function buildEuDeclarationTitle(
   const declarationNumber = stringValue(data.declarationNumber);
   const productName =
     productCertification?.productTitle || productCertification?.productCode;
+  const supplemental = supplementalDeclarationProfile(type);
+  if (supplemental) {
+    return [supplemental.kind === "sep" ? "Air Filter SEP Declaration" : "20L EU DoC",
+      isSerialisedDeclaration(type) ? "Serialised" : "Owner's Manual", productName,
+      declarationNumber].filter(Boolean).join(" - ");
+  }
 
   if (type === "eu-doc-owner-manual-blasting") {
     return [
@@ -559,7 +561,7 @@ function drawKeyValueRows(options: {
 
 function drawInfoBar(
   page: PDFPage,
-  declaration: ResolvedDeclaration,
+  declaration: Pick<ResolvedDeclaration, "declarationNumber" | "revision" | "issueDate">,
   fonts: FontSet,
   y: number
 ) {
@@ -617,15 +619,19 @@ function drawHeader(
   page: PDFPage,
   fonts: FontSet,
   pageNumber: number,
-  logo: PDFImage | null
+  logo: PDFImage | null,
+  titles?: [string, string]
 ) {
   const title = "EC / EU DECLARATION OF CONFORMITY";
-  page.drawText(title, {
+  page.drawText(titles?.[0] || title, {
     x: MARGIN_X,
-    y: HEADER_TITLE_Y,
+    y: HEADER_TITLE_Y + (titles ? 9 : 0),
     font: fonts.display,
-    size: 16,
+    size: titles ? 12.5 : 16,
     color: BRAND_GREEN,
+  });
+  if (titles) page.drawText(titles[1], {
+    x: MARGIN_X, y: HEADER_TITLE_Y - 7, font: fonts.display, size: 11, color: BRAND_GREEN,
   });
 
   page.drawText(
@@ -874,6 +880,7 @@ function drawCeMarking(options: {
   fonts: FontSet;
   ceLogo: PDFImage | null;
   note: string;
+  includeNotifiedBody?: boolean;
 }) {
   const { page, y, fonts, ceLogo, note } = options;
   let cursorY = drawSectionTitle(page, "CE Marking", y, fonts);
@@ -887,7 +894,7 @@ function drawCeMarking(options: {
       width: ceWidth,
       height: ceLogo.height * scale,
     });
-    page.drawText("2810", {
+    if (options.includeNotifiedBody !== false) page.drawText("2810", {
       x: MARGIN_X + 11,
       y: cursorY - 48,
       font: fonts.bold,
@@ -902,7 +909,7 @@ function drawCeMarking(options: {
       size: 24,
       color: TEXT_COLOR,
     });
-    page.drawText("2810", {
+    if (options.includeNotifiedBody !== false) page.drawText("2810", {
       x: MARGIN_X + 7,
       y: cursorY - 42,
       font: fonts.bold,
@@ -925,6 +932,127 @@ function drawCeMarking(options: {
   return Math.min(cursorY, y - 72);
 }
 
+async function buildSupplementalDeclarationPdf(
+  type: EuDeclarationCertificationType,
+  data: EuDeclarationInput,
+  product: EuDeclarationProductCertification | null,
+  signaturePng: Uint8Array | undefined,
+  options: { isTest?: boolean }
+) {
+  const profile = supplementalDeclarationProfile(type)!;
+  if (!product || product.productCode?.trim() !== profile.productCode ||
+      product.productType !== profile.productType || product.pedCategory !== profile.pedCategory || product.certificateNo.trim()) {
+    throw new Error(`This declaration requires the approved ${profile.productCode} product mapping.`);
+  }
+  const sep = profile.kind === "sep";
+  const serialised = isSerialisedDeclaration(type);
+  const pdfDoc = await PDFDocument.create();
+  const fonts = await loadFontSet(pdfDoc);
+  const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
+  const ceLogo = sep ? null : await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
+  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
+  const titles: [string, string] = sep
+    ? ["MANUFACTURER'S DECLARATION - PED ARTICLE 4(3)", "RESPIRATOR AIR FILTER"]
+    : ["EC / EU DECLARATION OF CONFORMITY", "BLASTING MACHINE 20L"];
+  const address = "Roscrea Rd., Birr, Co. Offaly, R42 XW08, Republic of Ireland";
+  const exclusion = "This declaration relates exclusively to the equipment in the state in which it was placed on the market and excludes components added or operations carried out subsequently by the user.";
+  const page1 = pdfDoc.addPage(PAGE_SIZE);
+  drawHeader(page1, fonts, 1, logo, titles);
+  drawFooter(page1, fonts, 1);
+  let y = drawInfoBar(page1, {
+    declarationNumber: stringValue(data.declarationNumber),
+    issueDate: formatIssueDate(data.issueDate),
+    revision: profile.revision,
+  }, fonts, TOP_Y);
+  y = drawWrappedText({ page: page1, x: MARGIN_X, y, maxWidth: CONTENT_WIDTH, font: fonts.regular, size: 8.7, lineHeight: 11.5,
+    text: sep
+      ? `Applied Concepts Ltd., ${address}, hereby declares under its sole responsibility that the pressure equipment identified below has been designed and manufactured in accordance with the sound engineering practice of a Member State, in order to ensure safe use, as required by Article 4(3) of Directive 2014/68/EU. This is not an EU Declaration of Conformity: Article 4(3) equipment is not subject to a PED conformity assessment and shall not bear the CE marking under that Directive. ${exclusion}`
+      : `Applied Concepts Ltd., ${address}, hereby declares under its sole responsibility that the equipment identified below is in conformity with all the relevant provisions of the Union harmonisation legislation listed in this declaration. ${exclusion}`,
+  });
+
+  // Keep whole table rows and the signature together. Reject excessive user text
+  // instead of allowing a third page or overlap with the fixed brand footer.
+  function rows(page: PDFPage, title: string, values: EquipmentRow[], size = 8.3, labelColor = TEXT_COLOR) {
+    y = drawSectionTitle(page, title, y - 20, fonts, 14);
+    y = drawKeyValueRows({ page, rows: values, x: MARGIN_X, y, width: CONTENT_WIDTH,
+      labelWidth: 138, fonts, size, compact: true, labelColor });
+  }
+  function paragraph(page: PDFPage, title: string, text: string) {
+    y = drawSectionTitle(page, title, y - 20, fonts, 16);
+    y = drawWrappedText({ page, text, x: MARGIN_X, y, maxWidth: CONTENT_WIDTH,
+      font: fonts.regular, size: 8.4, lineHeight: 11.2 });
+  }
+  rows(page1, "Manufacturer", [
+    { label: "Company", value: "Applied Concepts Ltd." }, { label: "Address", value: address },
+  ]);
+  rows(page1, "Object of the Declaration - Equipment Identification", [
+    { label: "Description / function", value: sep
+      ? "In-line compressed-air filter housing for the supply of breathing air to airline respirators (e.g. blast helmets)"
+      : "Mobile abrasive blast machine" },
+    { label: "Commercial name", value: serialised ? stringValue(data.commercialName) : profile.commercialName },
+    { label: "Model / type", value: serialised ? stringValue(data.modelType) : profile.modelType },
+    ...(serialised ? [
+      { label: "Serial number", value: stringValue(data.serialNumber) },
+      { label: "Year of construction", value: stringValue(data.yearOfConstruction) },
+    ] : []),
+  ]);
+  if (sep) {
+    paragraph(page1, "Applicable Legislation",
+      "Directive 2014/68/EU (Pressure Equipment Directive) - Article 4(3), Sound Engineering Practice. The equipment is below the Category I threshold and no conformity assessment module applies.\nOther Union legislation: no other Union harmonisation legislation providing for the CE marking has been identified by Applied Concepts Ltd. as applicable to this product as supplied.");
+    rows(page1, "PED Classification and Basis of Design", [{
+      label: "Pressure Equipment Directive 2014/68/EU",
+      value: "Classification: below Category I - PS = 8.6 bar g; V = 5 L; Group 2 gas; PS x V = 43 bar L <= 50 bar L (Annex II, Table 2).\nApplicable provision: Article 4(3) - Sound Engineering Practice (SEP).\nModule / Notified Body: none - no PED module, Notified Body assessment or certificate applies; CE marking under the PED is not permitted.",
+    }], 8.1);
+  } else {
+    y = drawLegislation(page1, y - 22, fonts, true);
+    rows(page1, "Conformity Assessment Procedure", [
+      { label: "Machinery Directive 2006/42/EC", value: "Internal checks on the manufacture of machinery - Annex VIII (manufacturer's self-assessment). The equipment is not listed in Annex IV of the Directive; no Notified Body is required for the machinery conformity assessment." },
+      { label: "Pressure Equipment Directive 2014/68/EU", value: "PED category: Cat. I (PS = 8.6 bar g; V = 20 L; Group 2 gas; PS x V = 172 bar L).\nModule(s): Module A - Internal production control (Annex III).\nNotified Body: Not applicable - Module A involves no Notified Body.\nCertificate No(s).: Not applicable - manufacturer self-assessment; no certificate is issued (EU Declaration of Conformity only)." },
+    ], 8.1);
+  }
+  if (y < BOTTOM_Y) throw new Error("The equipment details are too long to fit on page one. Shorten the declaration number, commercial name or model.");
+
+  const page2 = pdfDoc.addPage(PAGE_SIZE);
+  drawHeader(page2, fonts, 2, logo, titles);
+  drawFooter(page2, fonts, 2);
+  y = TOP_Y;
+  if (sep) {
+    rows(page2, "Sound Engineering Practice - Basis", [{
+      label: "Design, materials and testing",
+      value: "Design: EN 13445-3:2014 used as reference code (Design by Formula).\nMaterials: pressure-retaining parts supplied with EN 10204 Type 3.1 inspection certificates and cast traceability.\nWelding: WPS 36083.01.001 / WPQR 36083.01; welders to EN ISO 9606-1.\nTesting: each unit hydrostatically tested at 12.3 bar g (1.43 x PS).\nTechnical file: TSF-RAF-01.",
+    }], 8.1);
+    paragraph(page2, "Marking - No CE",
+      "No CE marking is affixed under Directive 2014/68/EU (Article 4(3)). Each unit is permanently marked with the manufacturer's name and address, model, serial/batch number, year of manufacture, PS, TS (0 °C to +80 °C), V and the fluid (compressed air), and is supplied with instructions for use.");
+  } else {
+    y = drawCeMarking({ page: page2, y, fonts, ceLogo, includeNotifiedBody: false,
+      note: "Marking affixed to the product data plate without a Notified Body number: the PED conformity assessment for Category I (Module A - internal production control) and the Machinery Directive self-assessment (Annex VIII) involve no Notified Body in the production phase." });
+  }
+  rows(page2, "Applicable Standards", sep ? [
+    { label: "EN 13445-3:2014", value: "Unfired pressure vessels - Part 3: Design (reference design code for the pressure envelope)." },
+    { label: "EN ISO 9606-1", value: "Qualification testing of welders - Fusion welding - Part 1: Steels." },
+    { label: "EN 12021:2014", value: "Respiratory equipment - Compressed gases for breathing apparatus (reference only: air quality of the complete supply system is outside the scope of this declaration)." },
+  ] : [
+    { label: "EN ISO 12100:2010", value: "Safety of machinery - General principles for design, risk assessment and risk reduction." },
+    { label: "EN ISO 4414:2010", value: "Pneumatic fluid power - General rules and safety requirements (as applicable)." },
+    { label: "EN 13445-3:2014", value: "Unfired pressure vessels - Part 3: Design (reference design code for the pressure envelope)." },
+    { label: "EN ISO 4126-1:2013+A1:2016", value: "Safety devices for protection against excessive pressure - Safety valves (PRV)." },
+  ]);
+  rows(page2, sep ? "Person Responsible for the Technical Documentation" : "Person Authorised to Compile the Technical File", [
+    { label: "Name", value: "Mark Clendennen" },
+    { label: "Position", value: "Managing Director" },
+    { label: "Address", value: `${address} (established in the European Union).` },
+  ], 8.3, BRAND_GREEN);
+  y -= 18;
+  if (y < BOTTOM_Y + 126) throw new Error("The signature section does not fit on page two.");
+  drawSignatureBlock(page2, y, fonts, signature);
+  if (options.isTest) {
+    for (const page of pdfDoc.getPages()) page.drawText("TEST / NOT FOR ISSUE - UNSIGNED", {
+      x: MARGIN_X, y: TOP_Y + 15, font: fonts.bold, size: 10, color: MUTED_COLOR,
+    });
+  }
+  return pdfDoc.save();
+}
+
 export async function buildEuDeclarationOfConformityPdf(
   type: EuDeclarationCertificationType,
   data: EuDeclarationInput,
@@ -933,6 +1061,9 @@ export async function buildEuDeclarationOfConformityPdf(
   signaturePng?: Uint8Array,
   options: { isTest?: boolean } = {}
 ): Promise<Uint8Array> {
+  if (supplementalDeclarationProfile(type)) {
+    return buildSupplementalDeclarationPdf(type, data, productCertification, signaturePng, options);
+  }
   const declaration = resolveDeclaration(
     type,
     data,

@@ -14,12 +14,12 @@ import {
   buildEuDeclarationOfConformityPdf,
   buildEuDeclarationTitle,
   type EuDeclarationProductCertification,
-  type EuDocPedCategory,
-  type EuDocProductType,
   isEuDeclarationOfConformityType,
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
+import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
+import { isAvailableDeclarationProduct } from "@/lib/certifications/products";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   MAX_SIGNATURE_BYTES,
@@ -137,20 +137,6 @@ type EuDocProductRow = {
   eu_doc_certificate_no: string | null;
 };
 
-function normalizeEuDocProductType(value: unknown): EuDocProductType | null {
-  if (value === "blast-machine" || value === "pto-compressor") {
-    return value;
-  }
-  return null;
-}
-
-function normalizeEuDocPedCategory(value: unknown): EuDocPedCategory | null {
-  if (value === "cat-ii" || value === "cat-iii") {
-    return value;
-  }
-  return null;
-}
-
 async function fetchEuDeclarationProductCertification(
   supabase: SupabaseClient,
   organizationId: string,
@@ -236,12 +222,19 @@ async function fetchEuDeclarationProductCertification(
     };
   }
 
-  if (!certificateNo) {
+  const supplemental = supplementalDeclarationProfile(type);
+  if (!supplemental && !certificateNo) {
     return {
       productCertification: null,
       error:
         "Selected product has no EU DoC certificate number. Add the issued certificate number on the datasheet before generating.",
     };
+  }
+
+  if (!isAvailableDeclarationProduct(type, { ...product, eu_doc_product_type: productType, eu_doc_ped_category: pedCategory })) {
+    return { productCertification: null, error: supplemental
+      ? `This declaration requires ${supplemental.productCode}, ${supplemental.pedCategory} settings and no Notified Body certificate number.`
+      : "This generator only supports configured Cat. II / III blast machines." };
   }
 
   return {
@@ -335,8 +328,8 @@ export async function POST(
     }
     const isTest = isEuDoc && documentMode === "test";
     let merged = { ...typeDef.defaults, ...certification };
-    if (type === "eu-doc-serialised") {
-      const declarationNumber = serialisedDeclarationNumber(merged.serialNumber);
+    if (isSerialisedDeclaration(type)) {
+      const declarationNumber = serialisedDeclarationNumber(merged.serialNumber, type);
       if (!declarationNumber) return jsonError(SERIAL_NUMBER_FORMAT_MESSAGE, 400);
       merged.declarationNumber = declarationNumber;
     }
@@ -402,7 +395,7 @@ export async function POST(
       let signaturePng: Uint8Array | undefined;
       if (!isTest) {
         if (!signaturePath || !isSignaturePathForOrganization(signaturePath, organizationId)) {
-          return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a DoC.", 409);
+          return jsonError("An organization owner must configure Mark's signature in Certification Settings before issuing a declaration.", 409);
         }
 
         const { data: signatureFile, error: signatureError } = await adminSupabase.storage

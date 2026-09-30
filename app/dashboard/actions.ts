@@ -1,4 +1,5 @@
 "use server";
+import { normalizeEuDocProductType, normalizeEuDocPedCategory, certificationMappingError } from "@/lib/certifications/declarations";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerActionClient } from "@/lib/supabase/server";
@@ -1340,27 +1341,6 @@ const normalizeOptionalFormString = (
   return trimmedValue.length > 0 ? trimmedValue : null;
 };
 
-type EuDocProductType = "blast-machine" | "pto-compressor";
-type EuDocPedCategory = "cat-ii" | "cat-iii";
-
-const normalizeEuDocProductType = (
-  value: FormDataEntryValue | null
-): EuDocProductType | null => {
-  if (value === "blast-machine" || value === "pto-compressor") {
-    return value;
-  }
-  return null;
-};
-
-const normalizeEuDocPedCategory = (
-  value: FormDataEntryValue | null
-): EuDocPedCategory | null => {
-  if (value === "cat-ii" || value === "cat-iii") {
-    return value;
-  }
-  return null;
-};
-
 // --- Action to Save/Update Datasheet (Product) ---
 export async function saveDatasheet(
   prevState: SaveDatasheetState | null,
@@ -1460,14 +1440,9 @@ export async function saveDatasheet(
     };
   }
 
-  if (canManageCertification && euDocProductType === "pto-compressor" && euDocPedCategory === "cat-iii") {
-    return {
-      data: null,
-      error: {
-        message:
-          "PTO compressor EU DoC settings must use Cat. II / Module A2.",
-      },
-    };
+  if (canManageCertification) {
+    const mappingError = certificationMappingError(euDocProductType, euDocPedCategory, euDocCertificateNo, normalizeOptionalFormString(formData.get("productCode")));
+    if (mappingError) return { data: null, error: { message: mappingError } };
   }
 
   const productData = {

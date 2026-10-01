@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
+import { certificateDateSchema, manufactureYearSchema, serialMatchesYear, unitSerialSchema } from "@/lib/certifications/unit";
 import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
 import { hydrostaticSchema } from "@/lib/certifications/hydrostatic";
 import { HYDROSTATIC_CERTIFICATE_TITLE } from "@/lib/certifications/labels";
@@ -23,8 +23,7 @@ export type CertificationTypeDef = {
 };
 
 const declarationNumber = z.string().trim().min(1, "Declaration No. is required").max(80, "Declaration No. must be 80 characters or fewer");
-const issueDate = z.string().trim().min(1, "Date of issue is required").max(40)
-  .refine((value) => !Number.isNaN(Date.parse(value)), "Date of issue must be a valid date");
+const issueDate = certificateDateSchema;
 
 export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   "ec-vm-350-declaration": {
@@ -141,11 +140,10 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       issueDate,
       commercialName: z.string().trim().min(1, "Commercial name is required").max(160, "Commercial name must be 160 characters or fewer"),
       modelType: z.string().trim().min(1, "Model / type is required").max(80, "Model / type must be 80 characters or fewer"),
-      serialNumber: z.string().trim().refine((value) => serialisedDeclarationNumber(value) !== null, SERIAL_NUMBER_FORMAT_MESSAGE),
-      yearOfConstruction: z
-        .string()
-        .trim()
-        .regex(/^\d{4}$/, "Year must use four digits"),
+      serialNumber: unitSerialSchema,
+      yearOfConstruction: manufactureYearSchema,
+    }).refine(data => serialMatchesYear(data.serialNumber, data.yearOfConstruction), {
+      message: "Serial number year must match the year of manufacture", path: ["serialNumber"],
     }),
     fieldLayout: [
       {
@@ -184,7 +182,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       },
       {
         name: "yearOfConstruction",
-        label: "Year of construction",
+        label: "Year of manufacture",
         type: "text",
         placeholder: "e.g., 2025",
         required: true,
@@ -195,7 +193,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
     slug: "hydrostatic-test",
     title: HYDROSTATIC_CERTIFICATE_TITLE,
     templatePath: "pdf/template/certifications/hydrostatic-test.json",
-    defaults: { testMedium: "water", testResult: "" },
+    defaults: { testMedium: "Water", testPressureBar: "20", holdingMinutes: "15", testResult: "" },
     schema: hydrostaticSchema,
     fieldLayout: [
       {

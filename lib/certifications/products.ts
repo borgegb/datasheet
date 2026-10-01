@@ -7,6 +7,7 @@ export type EuDocProduct = {
   eu_doc_product_type: EuDocProductType | null;
   eu_doc_ped_category: EuDocPedCategory | null;
   eu_doc_certificate_no: string | null;
+  hydrostatic_profile?: unknown;
 };
 
 export type EuDocProductOptions = {

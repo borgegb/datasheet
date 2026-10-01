@@ -16,7 +16,7 @@ export default async function NewCertificationTypePage({ params }: Props) {
   const { type } = await params;
   const typeDef = CERT_TYPES[type];
   if (!typeDef) return notFound();
-  const euDocProducts = isDeclarationType(type)
+  const euDocProducts = isDeclarationType(type) || type === "hydrostatic-test"
     ? await fetchEuDocProducts(type) : undefined;
 
   return (

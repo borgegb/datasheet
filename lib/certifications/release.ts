@@ -12,7 +12,7 @@ export function euDocHoldReason(type: string, productType?: string | null) {
 }
 
 export const SERIAL_NUMBER_FORMAT_MESSAGE =
-  "Use a serial number such as AP-26-00321 (or the existing 26-00321 format), with a two-digit year and four or five unit digits.";
+  "Use AP-YY-##### with five serial digits and a year matching the year of manufacture.";
 
 export function serialisedDeclarationNumber(serial: unknown, type = "eu-doc-serialised"): string | null {
   if (typeof serial !== "string") return null;

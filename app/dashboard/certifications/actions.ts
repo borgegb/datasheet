@@ -66,13 +66,17 @@ export async function fetchEuDocProducts(type = "eu-doc-serialised"): Promise<Eu
       return { data: [], error: ORGANIZATION_ACCESS_MESSAGE };
     }
     // Read with the user's session and RLS, never the service-role client.
-    const { data, error } = await supabase.from("products")
-      .select("id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no")
-      .eq("organization_id", profile.organization_id)
-      .eq("eu_doc_product_type", supplementalDeclarationProfile(type)?.productType || "blast-machine")
-      .order("product_title", { ascending: true });
+    const isHydrostatic = type === "hydrostatic-test";
+    let query = supabase.from("products")
+      .select(`id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no${isHydrostatic ? ", hydrostatic_profile" : ""}`)
+      .eq("organization_id", profile.organization_id);
+    query = isHydrostatic
+      ? query.in("eu_doc_product_type", ["blast-machine", "air-receiver"])
+      : query.eq("eu_doc_product_type", supplementalDeclarationProfile(type)?.productType || "blast-machine");
+    const { data, error } = await query.order("product_title", { ascending: true });
     if (error) return { data: [], error: "Products could not be loaded. Please retry." };
-    return { data: (data ?? []).filter(product => isAvailableDeclarationProduct(type, product)), error: null };
+    const products = (data ?? []) as unknown as EuDocProductOptions["data"];
+    return { data: isHydrostatic ? products : products.filter(product => isAvailableDeclarationProduct(type, product)), error: null };
   } catch {
     return { data: [], error: "Products could not be loaded. Please retry." };
   }

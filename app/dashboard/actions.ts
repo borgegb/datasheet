@@ -1,5 +1,6 @@
 "use server";
 import { normalizeEuDocProductType, normalizeEuDocPedCategory, certificationMappingError } from "@/lib/certifications/declarations";
+import { hydrostaticProfileSchema, hydrostaticSetupError, type HydrostaticProfile } from "@/lib/certifications/hydrostatic";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerActionClient } from "@/lib/supabase/server";
@@ -1410,6 +1411,29 @@ export async function saveDatasheet(
     return { data: null, error: { message: "You do not have permission to save datasheets." } };
   }
   const canManageCertification = savingProfile.role === "owner";
+  let hydrostaticProfile: HydrostaticProfile | null = null;
+  if (formData.has("hydrostaticProfile")) {
+    if (!canManageCertification) return { data: null, error: { message: "Only organization owners can change Hydrostatic settings." } };
+    try {
+      const value = JSON.parse(String(formData.get("hydrostaticProfile")));
+      if (value !== null) {
+        const parsed = hydrostaticProfileSchema.safeParse(value);
+        if (!parsed.success) return { data: null, error: { message: parsed.error.issues[0].message } };
+        hydrostaticProfile = parsed.data;
+        if (euDocProductType !== "blast-machine" && euDocProductType !== "air-receiver") {
+          return { data: null, error: { message: "Hydrostatic profiles require a blast machine or air receiver product type." } };
+        }
+        if (hydrostaticProfile.issueEnabled) {
+          const setupError = hydrostaticSetupError({ product_title: null, product_code: null,
+            eu_doc_product_type: euDocProductType, eu_doc_ped_category: euDocPedCategory,
+            eu_doc_certificate_no: euDocCertificateNo, hydrostatic_profile: hydrostaticProfile }, true);
+          if (setupError) return { data: null, error: { message: setupError } };
+        }
+      }
+    } catch {
+      return { data: null, error: { message: "Invalid Hydrostatic settings." } };
+    }
+  }
   if (!canManageCertification) {
     const { data: existing, error: existingError } = editingProductId
       ? await supabase.from("products")
@@ -1472,6 +1496,7 @@ export async function saveDatasheet(
       eu_doc_ped_category: euDocPedCategory,
       eu_doc_certificate_no: euDocCertificateNo,
     } : {}),
+    ...(canManageCertification && formData.has("hydrostaticProfile") ? { hydrostatic_profile: hydrostaticProfile } : {}),
     user_id: userId,
     organization_id: organizationId,
     category_ids: categoryIds,

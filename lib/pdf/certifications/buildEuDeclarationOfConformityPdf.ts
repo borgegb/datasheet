@@ -308,7 +308,7 @@ function resolveDeclaration(
       },
       { label: "Serial number", value: stringValue(data.serialNumber) },
       {
-        label: "Year of construction",
+        label: "Year of manufacture",
         value: stringValue(data.yearOfConstruction),
       },
     ],
@@ -993,7 +993,7 @@ async function buildSupplementalDeclarationPdf(
     { label: "Model / type", value: serialised ? stringValue(data.modelType) : profile.modelType },
     ...(serialised ? [
       { label: "Serial number", value: stringValue(data.serialNumber) },
-      { label: "Year of construction", value: stringValue(data.yearOfConstruction) },
+      { label: "Year of manufacture", value: stringValue(data.yearOfConstruction) },
     ] : []),
   ]);
   if (sep) {

@@ -74,9 +74,10 @@ const org = '11111111-1111-4111-8111-111111111111';
 const signaturePath = `${org}/22222222-2222-4222-8222-222222222222.png`;
 const blast = { id: 'product-a', organization_id: org, product_title: 'Blast Machine BP200L', product_code: 'BP-A-5000', eu_doc_product_type: 'blast-machine', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'HPiVS-iP1283-001-I-03-00' };
 const common = { declarationNumber: 'TEST-2026-001', issueDate: '2026-09-07' };
-const unit = { ...common, commercialName: blast.product_title, modelType: blast.product_code, serialNumber: '26-00161', yearOfConstruction: '2026' };
-const blast40 = { ...blast, product_title: 'Applied 40 Litre Blast Machine', product_code: 'BP-A-2000', eu_doc_ped_category: 'cat-ii' };
-const hydroData = { ...hydrostatic.hydrostaticProductFields(blast40), certificateNumber: 'ACL-HT-BP40L-AP-26-00115', serialNumber: 'AP-26-00115', yearOfManufacture: '2026', dateOfTest: '2026-06-05', testResult: 'pass' };
+const unit = { ...common, commercialName: blast.product_title, modelType: blast.product_code, serialNumber: 'AP-26-00161', yearOfConstruction: '2026' };
+const hydroProfile = { modelCode: 'BP40L', equipmentDescription: 'Blast Vessel', maxPressureBar: '8.6', minTemperatureC: '-10', maxTemperatureC: '80', issueEnabled: true };
+const blast40 = { ...blast, product_title: 'Applied 40 Litre Blast Machine', product_code: 'BP-A-2000', eu_doc_ped_category: 'cat-ii', eu_doc_certificate_no: 'HPiVS-iP1283-001-1', hydrostatic_profile: hydroProfile };
+const hydroData = { ...hydrostatic.hydrostaticProductFields(blast40), certificateNumber: 'ACL-HT-BP40L-AP-26-00115', serialNumber: 'AP-26-00115', yearOfManufacture: '2026', dateOfTest: '2026-06-05', holdingMinutes: '15', testResult: 'pass' };
 
 function mockClient(options = {}) {
   const calls = { uploads: [], downloads: [], removals: [], records: [], settings: [], signedUrls: [] };
@@ -295,6 +296,24 @@ async function run() {
       if (['no-org', 'profile-error'].includes(condition)) assert.match(result.error, /organization owner/);
     });
   }
+  await check('Hydrostatic dropdown includes incomplete local products, filtered by type and organization', async () => {
+    const rows = [blast40, blast, { ...blast, id: 'receiver', eu_doc_product_type: 'air-receiver', eu_doc_ped_category: null }];
+    const client = {
+      auth: { getUser: async () => ({ data: { user: { id: 'user-a' } } }) },
+      from(table) {
+        const filters = {};
+        return {
+          select() { return this; }, eq(key, value) { filters[key] = value; return this; },
+          in(key, values) { assert.equal(key, 'eu_doc_product_type'); assert.deepEqual(values, ['blast-machine', 'air-receiver']); return this; },
+          single: async () => ({ data: { organization_id: org } }),
+          order: async () => { assert.equal(table, 'products'); assert.equal(filters.organization_id, org); return { data: rows }; },
+        };
+      },
+    };
+    const actions = load('app/dashboard/certifications/actions.ts', { '@/lib/supabase/server': { createClient: async () => client }, 'next/cache': { revalidatePath() {} } });
+    const result = await actions.fetchEuDocProducts('hydrostatic-test');
+    assert.equal(result.error, null); assert.deepEqual(result.data, rows);
+  });
   for (const [name, options, expectedDeletes] of [
     ['storage failure keeps the record', { storageError: true }, 0],
     ['silent storage denial keeps the record', { fileRemains: true }, 0],
@@ -328,15 +347,15 @@ async function run() {
     assert.equal(Boolean(result.error), name !== 'missing PDF can finish record cleanup');
     if (options.role || options.path) assert.equal(removed, 0);
   });
-  await check('hydrostatic defaults match only the supplied 40L reference, never assume PASS', () => {
+  await check('hydrostatic values come only from saved profile, never assume PASS', () => {
     const fields = hydrostatic.hydrostaticProductFields(blast40);
     assert.equal(fields.testPressureBar, '20'); assert.equal(fields.maxPressureBar, '8.6');
     assert.equal(fields.minTemperatureC, '-10'); assert.equal(fields.maxTemperatureC, '80');
-    assert.equal(fields.assessmentModules, 'A2 (NB 2810)'); assert.equal(fields.testResult, '');
-    const switched = { ...hydroData, ...hydrostatic.hydrostaticProductFields(blast) };
-    for (const field of ['serialNumber', 'certificateNumber', 'yearOfManufacture', 'dateOfTest', 'testResult', 'testPressureBar', 'maxPressureBar', 'minTemperatureC', 'maxTemperatureC', 'holdingMinutes']) assert.equal(switched[field], '', field);
-    assert.equal(hydrostatic.hydrostaticCertificateNumber(blast40.product_code, 'AP-26-00115'), hydroData.certificateNumber);
-    assert.equal(hydrostatic.hydrostaticCertificateNumber(blast.product_code, 'AP-26-00115'), 'ACL-HT-BP-A-5000-AP-26-00115');
+    assert.equal(fields.assessmentModules, 'A2 (NB 2810)'); assert.equal(fields.testResult, undefined);
+    const unconfigured = hydrostatic.hydrostaticProductFields(blast);
+    for (const field of ['maxPressureBar', 'minTemperatureC', 'maxTemperatureC']) assert.equal(unconfigured[field], '', field);
+    assert.equal(hydrostatic.hydrostaticProductCertificateNumber(blast40, 'AP-26-00115'), hydroData.certificateNumber);
+    assert.equal(hydrostatic.hydrostaticProductCertificateNumber(blast, 'AP-26-00115'), '');
     assert.equal(hydrostatic.hydrostaticAssessmentModules('cat-i'), 'A');
     assert.equal(hydrostatic.hydrostaticAssessmentModules('cat-iii'), 'B + C2 (NB 2810)');
     assert.equal(hydrostatic.hydrostaticAssessmentModules('sep'), 'Not applicable (Article 4(3))');
@@ -346,11 +365,91 @@ async function run() {
     assert.equal(CERT_TYPES['hydrostatic-test'].slug, 'hydrostatic-test');
     assert.equal(CERT_TYPES['hydrostatic-test'].title, 'Hydrostatic Certificate');
   });
+  await check('calendar value is date-only and an 11-character serial works through the route', async () => {
+    const { calendarDateValue } = load('lib/certifications/unit.ts');
+    assert.equal(calendarDateValue(new Date(2026, 9, 1)), '2026-10-01');
+    for (const dateOfTest of ['2026-10-01', '2026-10-01T00:00:00.000Z']) {
+      const { response, calls } = await routeProbe({ type: 'hydrostatic-test', product: blast40,
+        data: { ...hydroData, serialNumber: 'AP-26-00999', dateOfTest } });
+      assert.equal(response.status, 200);
+      assert.equal(calls.records[0].data.dateOfTest, '2026-10-01');
+      assert.equal(calls.records[0].data.certificateNumber, 'ACL-HT-BP40L-AP-26-00999');
+    }
+  });
+  await check('unit serial preserves zeroes and changes year without reusing the old prefix', () => {
+    const { unitSerialNumber } = load('lib/certifications/unit.ts');
+    assert.equal(unitSerialNumber('2026', '00273'), 'AP-26-00273');
+    assert.equal(unitSerialNumber('2027', '00001'), 'AP-27-00001');
+    for (const digits of ['273', '000001', '12a34']) assert.equal(unitSerialNumber('2026', digits), '');
+  });
+  for (const type of ['eu-doc-serialised', 'eu-doc-20l-serialised', 'sep-air-filter-serialised']) {
+    await check(`${type} rejects legacy formats and mismatched manufacture year on new documents`, () => {
+      const { CERT_TYPES } = load('app/dashboard/certifications/registry.ts');
+      for (const serialNumber of ['26-00273', 'AP-26-0273', 'AP-25-00273']) {
+        assert.equal(CERT_TYPES[type].schema.safeParse({ ...unit, serialNumber }).success, false);
+      }
+      assert.ok(CERT_TYPES[type].schema.safeParse({ ...unit, serialNumber: 'AP-26-00273' }).success);
+    });
+  }
+  await check('server ignores forged hydrostatic mapping, specifications, model and certificate number', async () => {
+    const product = { ...blast40, eu_doc_ped_category: 'cat-iii', hydrostatic_profile: { ...hydroProfile, modelCode: 'BP140L' }, product_code: 'BP-A-4000' };
+    const { response, calls } = await routeProbe({ type: 'hydrostatic-test', product,
+      data: { ...hydroData, pedCategory: 'cat-i', assessmentModules: 'Z', model: 'fake', certificateNumber: 'FORGED',
+        equipmentDescription: 'fake', maxPressureBar: '200', minTemperatureC: '99', maxTemperatureC: '-50', testPressureBar: '2', testMedium: 'Air' } });
+    assert.equal(response.status, 200);
+    const saved = calls.records[0].data;
+    assert.equal(saved.pedCategory, 'cat-iii'); assert.equal(saved.assessmentModules, 'B + C2 (NB 2810)');
+    assert.equal(saved.model, 'BP140L / BP-A-4000');
+    assert.equal(saved.certificateNumber, 'ACL-HT-BP140L-AP-26-00115');
+    for (const key of ['equipmentDescription', 'maxPressureBar', 'minTemperatureC', 'maxTemperatureC', 'testPressureBar', 'testMedium']) assert.equal(saved[key], hydroData[key]);
+  });
+  for (const [name, overrides, mode, status] of [
+    ['missing profile', { hydrostatic_profile: null }, 'test', 409],
+    ['incomplete profile', { hydrostatic_profile: { ...hydroProfile, minTemperatureC: '', issueEnabled: false } }, 'test', 409],
+    ['reversed temperatures', { hydrostatic_profile: { ...hydroProfile, minTemperatureC: '90' } }, 'test', 409],
+    ['PS greater than PT', { hydrostatic_profile: { ...hydroProfile, maxPressureBar: '21' } }, 'test', 409],
+    ['missing PED category', { eu_doc_ped_category: null }, 'test', 409],
+    ['PTO not released', { eu_doc_product_type: 'pto-compressor' }, 'test', 409],
+    ['pending product signed', { hydrostatic_profile: { ...hydroProfile, issueEnabled: false } }, 'issued', 409],
+    ['pending product unsigned', { hydrostatic_profile: { ...hydroProfile, issueEnabled: false } }, 'test', 200],
+    ['missing PED certificate signed', { eu_doc_certificate_no: '' }, 'issued', 409],
+    ['air receiver unsigned', { eu_doc_product_type: 'air-receiver', hydrostatic_profile: { ...hydroProfile, issueEnabled: false } }, 'test', 200],
+  ]) await check(`hydrostatic ${name}`, async () => {
+    const { response, calls } = await routeProbe({ type: 'hydrostatic-test', product: { ...blast40, ...overrides }, data: hydroData, documentMode: mode });
+    assert.equal(response.status, status);
+    if (status !== 200) { assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0); }
+  });
+  for (const [name, role, value, success] of [
+    ['owner saves approved profile', 'owner', hydroProfile, true],
+    ['owner saves incomplete draft', 'owner', hydrostatic.EMPTY_HYDROSTATIC_PROFILE, true],
+    ['owner clears profile', 'owner', null, true],
+    ['member cannot change profile', 'member', hydroProfile, false],
+    ['member cannot clear profile', 'member', null, false],
+    ['viewer cannot change profile', 'viewer', hydroProfile, false],
+    ['invalid pressure rejected', 'owner', { ...hydroProfile, maxPressureBar: '-1' }, false],
+    ['incomplete approval rejected', 'owner', { ...hydroProfile, modelCode: '' }, false],
+  ]) await check(name, async () => {
+    const { client } = mockClient({ role });
+    let saved;
+    const originalFrom = client.from;
+    client.from = table => table !== 'products' ? originalFrom(table) : {
+      update(value) { saved = value; return this; }, eq() { return this; }, select() { return this; },
+      single: async () => ({ data: { id: blast.id }, error: null }),
+    };
+    const actions = load('app/dashboard/actions.ts', { '@/lib/supabase/server': { createClient: async () => client }, 'next/cache': { revalidatePath() {} } });
+    const form = new FormData();
+    for (const [key, field] of Object.entries({ editingProductId: blast.id, productTitle: blast40.product_title, productCode: blast40.product_code,
+      description: 'Test product', euDocProductType: 'blast-machine', euDocPedCategory: 'cat-ii', euDocCertificateNo: blast40.eu_doc_certificate_no,
+      hydrostaticProfile: JSON.stringify(value) })) form.set(key, field);
+    const result = await actions.saveDatasheet(null, form);
+    assert.equal(!result.error, success, JSON.stringify(result));
+    if (success) assert.deepEqual(saved.hydrostatic_profile, value);
+    else assert.equal(saved, undefined);
+  });
   for (const [name, data] of [
     ['missing result', { testResult: '' }], ['impossible date', { dateOfTest: '2026-02-30' }],
-    ['reversed temperature', { minTemperatureC: '81' }], ['test pressure below PS', { testPressureBar: '2' }],
-    ['non-numeric pressure', { testPressureBar: '20 bar' }], ['empty pressure', { maxPressureBar: '' }],
-    ['negative time', { holdingMinutes: '-1' }], ['unknown category', { pedCategory: 'cat-iv' }],
+    ['negative time', { holdingMinutes: '-1' }], ['less than 15 minutes', { holdingMinutes: '14.9' }],
+    ['serial year mismatch', { yearOfManufacture: '2025' }], ['four-digit serial', { serialNumber: 'AP-26-0999' }],
   ]) await check(`hydrostatic rejects ${name}`, async () => {
     const { response, calls } = await routeProbe({ type: 'hydrostatic-test', product: blast40, data: { ...hydroData, ...data } });
     assert.equal(response.status, 400); assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0);
@@ -426,7 +525,7 @@ async function run() {
   }
   await check('hydrostatic refuses unsigned issuance and overflowing content', async () => {
     await assert.rejects(hydrostaticBuilder.buildHydrostaticTestPdf(hydroData), /signature is required/);
-    await assert.rejects(hydrostaticBuilder.buildHydrostaticTestPdf({ ...hydroData, model: 'W'.repeat(160), equipmentDescription: 'W'.repeat(100), assessmentModules: 'W'.repeat(60), serialNumber: 'W'.repeat(60), testMedium: 'W'.repeat(40) }, { isTest: true }), /too long for one page/);
+    await assert.rejects(hydrostaticBuilder.buildHydrostaticTestPdf({ ...hydroData, model: 'W'.repeat(160), equipmentDescription: 'W'.repeat(100), assessmentModules: 'W'.repeat(60) }, { isTest: true }), /too long for one page/);
   });
   await check('owner uploads immutable organization-scoped signature', async () => {
     const { result, calls } = await actionProbe();
@@ -552,7 +651,7 @@ async function run() {
       assert.equal(content.includes('2810'), false);
       assert.equal(content.includes('HPi'), false);
       assert.equal(texts.some(t => t.value === 'Serial number'), serialised);
-      assert.equal(texts.some(t => t.value === 'Year of construction'), serialised);
+      assert.equal(texts.some(t => t.value === 'Year of manufacture'), serialised);
       assert.equal(images.length, category === 'sep' ? 2 : 3, 'logos and optional CE only, never the signature in test mode');
       assert.ok(content.includes(profile.revision));
       if (category === 'sep') {

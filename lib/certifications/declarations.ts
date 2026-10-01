@@ -1,4 +1,4 @@
-export type EuDocProductType = "blast-machine" | "pto-compressor" | "air-filter";
+export type EuDocProductType = "blast-machine" | "pto-compressor" | "air-filter" | "air-receiver";
 export type EuDocPedCategory = "cat-i" | "cat-ii" | "cat-iii" | "sep";
 
 export const DECLARATION_TYPES = [
@@ -50,7 +50,7 @@ export function supplementalDeclarationProfile(type: string) {
 }
 
 export function normalizeEuDocProductType(value: unknown): EuDocProductType | null {
-  return value === "blast-machine" || value === "pto-compressor" || value === "air-filter" ? value : null;
+  return value === "blast-machine" || value === "pto-compressor" || value === "air-filter" || value === "air-receiver" ? value : null;
 }
 
 export function normalizeEuDocPedCategory(value: unknown): EuDocPedCategory | null {
@@ -66,7 +66,7 @@ export function certificationMappingError(productType: EuDocProductType | null, 
       return "SEP settings are supported only for the AF-A-0001 air filter.";
     }
   }
-  if (category === "cat-i" && (productType !== "blast-machine" || code?.trim() !== "BP-A-1000")) {
+  if (category === "cat-i" && productType !== "air-receiver" && (productType !== "blast-machine" || code?.trim() !== "BP-A-1000")) {
     return "Cat. I / Module A settings are supported only for the BP-A-1000 20L blast machine.";
   }
   if ((category === "cat-i" || category === "sep") && certificateNo?.trim()) {

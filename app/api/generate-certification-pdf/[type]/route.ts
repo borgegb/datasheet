@@ -19,8 +19,8 @@ import {
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
-import { isAvailableDeclarationProduct } from "@/lib/certifications/products";
-import { hydrostaticProductFields, type HydrostaticData } from "@/lib/certifications/hydrostatic";
+import { isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
+import { hydrostaticProductFields, hydrostaticProductCertificateNumber, hydrostaticSetupError, type HydrostaticData } from "@/lib/certifications/hydrostatic";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   MAX_SIGNATURE_BYTES,
@@ -102,7 +102,8 @@ async function getAuthenticatedOrganizationId() {
 async function validateProductId(
   supabase: SupabaseClient,
   organizationId: string,
-  productId: unknown
+  productId: unknown,
+  hydrostatic = false
 ) {
   if (typeof productId !== "string" || !productId.trim()) {
     return { productId: null, product: null, error: null };
@@ -110,7 +111,7 @@ async function validateProductId(
 
   const { data, error } = await supabase
     .from("products")
-    .select("id, product_title, product_code")
+    .select(`id, product_title, product_code${hydrostatic ? ", eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile" : ""}`)
     .eq("id", productId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -123,11 +124,12 @@ async function validateProductId(
     };
   }
 
-  if (!data?.id) {
+  const product = data as unknown as EuDocProduct | null;
+  if (!product?.id) {
     return { productId: null, product: null, error: "Selected product was not found." };
   }
 
-  return { productId: data.id as string, product: data, error: null };
+  return { productId: product.id, product, error: null };
 }
 
 type EuDocProductRow = {
@@ -326,6 +328,18 @@ export async function POST(
     }
     const isTest = usesSignature && documentMode === "test";
     let merged = { ...typeDef.defaults, ...certification };
+    const adminSupabase = getAdminClient();
+    let productRecordId: string | null = null;
+    if (isHydrostatic) {
+      const result = await validateProductId(adminSupabase, organizationId, productId, true);
+      if (result.error || !result.product) return jsonError(result.error || "Select a product before generating a hydrostatic certificate.", 400);
+      const setupError = hydrostaticSetupError(result.product, !isTest);
+      if (setupError) return jsonError(setupError, 409);
+      productRecordId = result.productId;
+      // Client-supplied engineering values never determine a certificate's content.
+      merged = { ...merged, ...hydrostaticProductFields(result.product),
+        certificateNumber: hydrostaticProductCertificateNumber(result.product, merged.serialNumber) };
+    }
     if (isSerialisedDeclaration(type)) {
       const declarationNumber = serialisedDeclarationNumber(merged.serialNumber, type);
       if (!declarationNumber) return jsonError(SERIAL_NUMBER_FORMAT_MESSAGE, 400);
@@ -347,8 +361,6 @@ export async function POST(
       }
     }
 
-    const adminSupabase = getAdminClient();
-    let productRecordId: string | null = null;
     let euProductCertification: EuDeclarationProductCertification | null = null;
 
     if (isEuDeclarationOfConformityType(type)) {
@@ -366,7 +378,7 @@ export async function POST(
 
       euProductCertification = productValidation.productCertification;
       productRecordId = euProductCertification.id || null;
-    } else {
+    } else if (!isHydrostatic) {
       const productValidation = await validateProductId(
         adminSupabase,
         organizationId,
@@ -376,10 +388,6 @@ export async function POST(
         return jsonError(productValidation.error, 400);
       }
       productRecordId = productValidation.productId;
-      if (isHydrostatic) {
-        if (!productValidation.product) return jsonError("Select a product before generating a hydrostatic certificate.", 400);
-        merged.model = hydrostaticProductFields(productValidation.product).model;
-      }
     }
 
     let pdfBytes: Uint8Array;

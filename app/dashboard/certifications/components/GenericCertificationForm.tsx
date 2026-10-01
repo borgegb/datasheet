@@ -17,10 +17,11 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
-import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
+import { euDocHoldReason, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
 import type { EuDocProductOptions } from "@/lib/certifications/products";
 import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
-import { hydrostaticAssessmentModules, hydrostaticCertificateNumber, hydrostaticProductFields } from "@/lib/certifications/hydrostatic";
+import { HYDROSTATIC_FIXED_FIELDS, hydrostaticProductCertificateNumber, hydrostaticProductFields, hydrostaticSetupError } from "@/lib/certifications/hydrostatic";
+import { calendarDateValue, unitSerialNumber, UNIT_SERIAL_MESSAGE } from "@/lib/certifications/unit";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Popover,
@@ -39,6 +40,7 @@ type ProductSearchResult = {
   eu_doc_product_type?: EuDocProductType | null;
   eu_doc_ped_category?: EuDocPedCategory | null;
   eu_doc_certificate_no?: string | null;
+  hydrostatic_profile?: unknown;
 };
 
 function productDisplayName(product: ProductSearchResult) {
@@ -49,6 +51,7 @@ function productTypeLabel(productType: ProductSearchResult["eu_doc_product_type"
   if (productType === "blast-machine") return "Mobile abrasive blast machine";
   if (productType === "pto-compressor") return "PTO-driven air compressor";
   if (productType === "air-filter") return "Respirator air filter";
+  if (productType === "air-receiver") return "Air receiver";
   return "Product type missing";
 }
 
@@ -92,7 +95,7 @@ function DateField({
   onChange: (nextValue: string) => void;
 }) {
   const [open, setOpen] = React.useState(false);
-  const dateObj = value ? new Date(value) : undefined;
+  const dateObj = value ? new Date(`${value.slice(0, 10)}T00:00:00`) : undefined;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -117,17 +120,7 @@ function DateField({
           selected={dateObj}
           captionLayout="dropdown"
           onSelect={(date) => {
-            onChange(
-              date
-                ? new Date(
-                    Date.UTC(
-                      date.getFullYear(),
-                      date.getMonth(),
-                      date.getDate()
-                    )
-                  ).toISOString()
-                : ""
-            );
+            onChange(date ? calendarDateValue(date) : "");
             setOpen(false);
           }}
         />
@@ -254,6 +247,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     React.useState<ProductSearchResult | null>(null);
   const [isSearchingProducts, setIsSearchingProducts] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [serialDigits, setSerialDigits] = React.useState("");
   const [documentMode, setDocumentMode] = React.useState<"test" | "issued">("test");
   const [generatedPdfUrl, setGeneratedPdfUrl] = React.useState<string | null>(
     null
@@ -265,26 +260,28 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   const isHydrostatic = typeSlug === "hydrostatic-test";
   const supportsDocumentMode = requiresEuDocProduct || isHydrostatic;
   const isSerialised = isSerialisedDeclaration(typeSlug);
+  const hasUnitSerial = isSerialised || isHydrostatic;
+  const usesProductDropdown = requiresEuDocProduct || isHydrostatic;
+  const yearField = isHydrostatic ? "yearOfManufacture" : "yearOfConstruction";
+  const serialNumber = hasUnitSerial ? unitSerialNumber(form[yearField], serialDigits) : form.serialNumber;
   const supplementalProfile = supplementalDeclarationProfile(typeSlug);
   const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
+  const setupError = isHydrostatic && selectedProduct ? hydrostaticSetupError(selectedProduct, documentMode === "issued") : null;
   const declarationNumber = isSerialised
-    ? serialisedDeclarationNumber(form.serialNumber, typeSlug) : null;
-  const formValues = isSerialised
-    ? { ...form, declarationNumber: declarationNumber ?? "" } : form;
+    ? serialisedDeclarationNumber(serialNumber, typeSlug) : null;
+  const formValues: Record<string, any> = { ...form,
+    ...(hasUnitSerial ? { serialNumber } : {}),
+    ...(isSerialised ? { declarationNumber: declarationNumber ?? "" } : {}),
+    ...(isHydrostatic && selectedProduct ? { certificateNumber: hydrostaticProductCertificateNumber(selectedProduct, serialNumber) } : {}),
+  };
   const updateField = (name: string, value: string) => {
-    setForm((current) => ({ ...current, [name]: value,
-      ...(isHydrostatic && name === "serialNumber" ? {
-        certificateNumber: hydrostaticCertificateNumber(selectedProduct?.product_code || null, value),
-      } : {}),
-      ...(isHydrostatic && name === "pedCategory" ? {
-        assessmentModules: hydrostaticAssessmentModules(value),
-      } : {}),
-    }));
+    setForm((current) => ({ ...current, [name]: value }));
+    setSubmitError(null);
     setGeneratedPdfUrl(null);
   };
 
   React.useEffect(() => {
-    if (requiresEuDocProduct || holdReason) return;
+    if (usesProductDropdown || holdReason) return;
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
       const user = data?.user;
@@ -296,13 +293,13 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         .single();
       setOrganizationId(profile?.organization_id ?? null);
     });
-  }, [requiresEuDocProduct, holdReason]);
+  }, [usesProductDropdown, holdReason]);
 
   // Debounced product search
   React.useEffect(() => {
     let timer: any;
     const run = async () => {
-      if (requiresEuDocProduct || holdReason) return;
+      if (usesProductDropdown || holdReason) return;
       if (!organizationId) return;
       const q = productQuery.trim();
       if (q.length < 2) {
@@ -338,7 +335,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     };
     timer = setTimeout(run, 250);
     return () => clearTimeout(timer);
-  }, [productQuery, organizationId, requiresEuDocProduct, holdReason]);
+  }, [productQuery, organizationId, usesProductDropdown, holdReason]);
 
   const getPlaceholder = (f: FieldSpec) => {
     if (!isSerialised || supplementalProfile) {
@@ -357,6 +354,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   };
 
   const selectProduct = (product: ProductSearchResult) => {
+    setSerialDigits("");
+    setSubmitError(null);
     setProductId(product.id);
     setSelectedProduct(product);
     setProductLabel(productDisplayName(product));
@@ -370,7 +369,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         ...(supplementalProfile ? { commercialName: supplementalProfile.commercialName, modelType: supplementalProfile.modelType } : {}),
       }));
     }
-    if (isHydrostatic) setForm(hydrostaticProductFields(product));
+    if (isHydrostatic) setForm({ ...typeDef.defaults, ...hydrostaticProductFields(product),
+      serialNumber: "", yearOfManufacture: "", dateOfTest: "", testResult: "" });
     setGeneratedPdfUrl(null);
   };
 
@@ -381,6 +381,19 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   };
 
   const renderField = (f: FieldSpec) => {
+    if (hasUnitSerial && f.name === "serialNumber") {
+      return (
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 font-mono text-sm" aria-label="Serial prefix">AP-{String(form[yearField] || "").slice(-2) || "YY"}-</span>
+          <Input id={f.name} value={serialDigits} inputMode="numeric" maxLength={5} placeholder="00273"
+            aria-label="Serial number (five digits)" className="min-w-0 font-mono"
+            onChange={event => { setSerialDigits(sanitizeSerialChunk(event.target.value, 5)); setGeneratedPdfUrl(null); setSubmitError(null); }} />
+        </div>
+      );
+    }
+    if (isHydrostatic && HYDROSTATIC_FIXED_FIELDS.includes(f.name)) {
+      return <Input id={f.name} readOnly value={f.name === "pedCategory" ? (f.options?.find(option => option.value === formValues[f.name])?.label || "") : formValues[f.name] ?? ""} className="bg-muted/40" />;
+    }
     // Special case: model uses the product search input; store chosen title in form.model
     if (f.name === "model") {
       return (
@@ -483,6 +496,9 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         id={f.name}
         type={f.type === "number" ? "number" : "text"}
         step={f.type === "number" ? "any" : undefined}
+        min={isHydrostatic && f.name === "holdingMinutes" ? 15 : undefined}
+        maxLength={f.name === yearField ? 4 : undefined}
+        inputMode={f.name === yearField ? "numeric" : undefined}
         value={formValues[f.name] ?? ""}
         readOnly={isSerialised && f.name === "declarationNumber"}
         placeholder={getPlaceholder(f)}
@@ -492,7 +508,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   };
 
   const renderEuDocProductSelector = () => {
-    if (!requiresEuDocProduct) {
+    if (!usesProductDropdown) {
       return null;
     }
 
@@ -524,10 +540,13 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           </Select>
         )}
         {!euDocProducts?.error && !euDocProducts?.data.length && (
-          <p role="status" className="text-sm text-muted-foreground">{supplementalProfile
-            ? `An organization owner must configure ${supplementalProfile.productCode} as ${supplementalProfile.kind === "sep" ? "an air filter with SEP classification" : "a blast machine with Cat. I classification"}. No Notified Body certificate number applies.`
+          <p role="alert" className="text-sm text-destructive">{supplementalProfile?.kind === "sep"
+            ? "SEP generation is blocked: no matching air-filter product is configured in your organization. Ask an organization owner to confirm the air-filter catalogue record and its SEP mapping."
+            : supplementalProfile ? `An organization owner must configure ${supplementalProfile.productCode} as a blast machine with Cat. I classification. No Notified Body certificate number applies.`
+            : isHydrostatic ? "No blast machine or air receiver products are configured in your organization. Contact an organization owner."
             : "An organization owner must configure product type, PED category and certificate number before a product is available."}</p>
         )}
+        {setupError && <p role="alert" className="text-sm text-destructive">{setupError}</p>}
         {selectedProduct && (
           <div className="grid grid-cols-1 gap-3 border-b py-3 text-sm sm:grid-cols-3 [&>div]:min-w-0 [&>div]:break-words">
             <div>
@@ -563,11 +582,13 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitError(null);
     setGeneratedPdfUrl(null);
     try {
       if (holdReason) throw new Error(holdReason);
-      if (isSerialised && !declarationNumber) {
-        throw new Error(SERIAL_NUMBER_FORMAT_MESSAGE);
+      if (setupError) throw new Error(setupError);
+      if (hasUnitSerial && !serialNumber) {
+        throw new Error(UNIT_SERIAL_MESSAGE);
       }
       // Lightweight validation for required fields present in schema
       const parse = typeDef.schema.safeParse(formValues);
@@ -615,6 +636,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         throw new Error("No URL returned");
       }
     } catch (err: any) {
+      setSubmitError(err.message || "Failed to generate PDF");
       toast.error(err.message || "Failed to generate PDF");
     } finally {
       setIsSubmitting(false);
@@ -645,13 +667,17 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           )}
           {renderEuDocProductSelector()}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {typeDef.fieldLayout.map((f) => (
+            {[
+              ...(hasUnitSerial ? [yearField, "serialNumber"].flatMap(name => typeDef.fieldLayout.filter(field => field.name === name)) : []),
+              ...typeDef.fieldLayout.filter(field => !(isHydrostatic && field.name === "model") && !(hasUnitSerial && (field.name === yearField || field.name === "serialNumber"))),
+            ].map((f) => (
               <div key={f.name} className="min-w-0 space-y-1.5">
                 <Label htmlFor={f.name}>{f.label}</Label>
                 {renderField(f)}
               </div>
             ))}
           </div>
+          {submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}
           {generatedPdfUrl && (
             <div className="rounded-md border border-primary/30 bg-primary/5 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -677,7 +703,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="submit" disabled={isSubmitting || (isHydrostatic && !productId) || (requiresEuDocProduct && (!productId || Boolean(euDocProducts?.error)))}>
+            <Button type="submit" disabled={isSubmitting || Boolean(setupError) || (usesProductDropdown && (!productId || Boolean(euDocProducts?.error)))}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

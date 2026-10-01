@@ -1,5 +1,8 @@
 "use client";
 
+import HydrostaticProductSettings from "./HydrostaticProductSettings";
+import type { HydrostaticProfile } from "@/lib/certifications/hydrostatic";
+
 import {
   useState,
   useEffect,
@@ -121,9 +124,10 @@ interface ProductData {
   optional_logos: any | null; // Use 'any' or a specific type for JSONB
   catalog_id: string | null; // ADD BACK
   category_ids?: string[] | null; // ADD (as array of strings)
-  eu_doc_product_type: "blast-machine" | "pto-compressor" | "air-filter" | null;
+  eu_doc_product_type: "blast-machine" | "pto-compressor" | "air-filter" | "air-receiver" | null;
   eu_doc_ped_category: "cat-i" | "cat-ii" | "cat-iii" | "sep" | null;
   eu_doc_certificate_no: string | null;
+  hydrostatic_profile?: HydrostaticProfile | null;
 }
 // ---------------------------------
 
@@ -251,6 +255,7 @@ export default function DatasheetGeneratorForm({
   const [euDocCertificateNo, setEuDocCertificateNo] = useState(
     initialData?.eu_doc_certificate_no || ""
   );
+  const [hydrostaticProfile, setHydrostaticProfile] = useState<HydrostaticProfile | null>(initialData?.hydrostatic_profile || null);
 
   // --- Enhanced Shipping State ---
   const [shippingMethod, setShippingMethod] = useState<"pallet" | "package">(
@@ -758,6 +763,7 @@ export default function DatasheetGeneratorForm({
       setEuDocProductType(initialData.eu_doc_product_type || "");
       setEuDocPedCategory(initialData.eu_doc_ped_category || "");
       setEuDocCertificateNo(initialData.eu_doc_certificate_no || "");
+      setHydrostaticProfile(initialData.hydrostatic_profile || null);
 
       // Parse shipping info - enhanced to handle new shipping structure
       if (initialData.shipping_info) {
@@ -1575,6 +1581,7 @@ export default function DatasheetGeneratorForm({
                         PTO-driven air compressor
                       </SelectItem>
                       <SelectItem value="air-filter">Respirator air filter</SelectItem>
+                      <SelectItem value="air-receiver">Air receiver (Hydrostatic only)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1593,7 +1600,7 @@ export default function DatasheetGeneratorForm({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Not configured</SelectItem>
-                      <SelectItem value="cat-i">Cat. I / Module A (20L)</SelectItem>
+                      <SelectItem value="cat-i">Cat. I / Module A</SelectItem>
                       <SelectItem value="sep">Article 4(3) / SEP (air filter)</SelectItem>
                       <SelectItem value="cat-ii">Cat. II / Module A2</SelectItem>
                       <SelectItem value="cat-iii">
@@ -1630,6 +1637,7 @@ export default function DatasheetGeneratorForm({
             </fieldset>
 
             {/* Section 2: Descriptions & Specs */}
+            <HydrostaticProductSettings value={hydrostaticProfile} onChange={setHydrostaticProfile} disabled={profile?.role !== "owner"} />
             <div className="space-y-6">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">

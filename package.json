@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:eu-doc-signature": "node scripts/test-eu-doc-signature.cjs"
+    "test:eu-doc-signature": "node scripts/test-eu-doc-signature.cjs",
+    "test:product-matrix": "node scripts/test-product-matrix.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -56,6 +57,7 @@
     "react-easy-crop": "^4.0.0",
     "recharts": "^2.15.2",
     "sonner": "^2.0.3",
+    "sharp": "0.34.1",
     "tailwind-merge": "^3.2.0",
     "tw-animate-css": "^1.2.5",
     "vaul": "^1.1.2",

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
@@ -18,9 +19,9 @@ import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
 import { euDocHoldReason, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
-import type { EuDocProductOptions } from "@/lib/certifications/products";
+import { certificateModelName, declarationIssueError, type EuDocProductOptions } from "@/lib/certifications/products";
 import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
-import { HYDROSTATIC_FIXED_FIELDS, hydrostaticProductCertificateNumber, hydrostaticProductFields, hydrostaticSetupError } from "@/lib/certifications/hydrostatic";
+import { HYDROSTATIC_FIXED_FIELDS, OPTIONAL_HYDROSTATIC_NOTE, hydrostaticRequirement, hydrostaticProductCertificateNumber, hydrostaticProductFields, hydrostaticSetupError } from "@/lib/certifications/hydrostatic";
 import { calendarDateValue, unitSerialNumber, UNIT_SERIAL_MESSAGE } from "@/lib/certifications/unit";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -41,6 +42,7 @@ type ProductSearchResult = {
   eu_doc_ped_category?: EuDocPedCategory | null;
   eu_doc_certificate_no?: string | null;
   hydrostatic_profile?: unknown;
+  certification_issue_enabled?: boolean | null;
 };
 
 function productDisplayName(product: ProductSearchResult) {
@@ -105,7 +107,7 @@ function DateField({
           type="button"
           variant="outline"
           data-empty={!dateObj}
-          className="data-[empty=true]:text-muted-foreground w-full justify-between font-normal"
+          className="data-[empty=true]:text-muted-foreground w-full justify-between pr-4 font-normal"
         >
           <span className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4" />
@@ -266,7 +268,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   const serialNumber = hasUnitSerial ? unitSerialNumber(form[yearField], serialDigits) : form.serialNumber;
   const supplementalProfile = supplementalDeclarationProfile(typeSlug);
   const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
-  const setupError = isHydrostatic && selectedProduct ? hydrostaticSetupError(selectedProduct, documentMode === "issued") : null;
+  const setupError = selectedProduct ? (isHydrostatic ? hydrostaticSetupError(selectedProduct, documentMode === "issued")
+    : documentMode === "issued" ? declarationIssueError(selectedProduct) : null) : null;
   const declarationNumber = isSerialised
     ? serialisedDeclarationNumber(serialNumber, typeSlug) : null;
   const formValues: Record<string, any> = { ...form,
@@ -366,7 +369,8 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
       setForm((current) => ({
         ...current,
         ...serialisedProductFields(product),
-        ...(supplementalProfile ? { commercialName: supplementalProfile.commercialName, modelType: supplementalProfile.modelType } : {}),
+        commercialName: product.product_title || supplementalProfile?.commercialName || "",
+        modelType: certificateModelName(product),
       }));
     }
     if (isHydrostatic) setForm({ ...typeDef.defaults, ...hydrostaticProductFields(product),
@@ -463,11 +467,9 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
     }
 
     if (f.type === "select") {
-      // Minimal select using native input to avoid extra deps
       return (
-        <select
+        <NativeSelect
           id={f.name}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={form[f.name] ?? ""}
           onChange={(e) => updateField(f.name, e.target.value)}
         >
@@ -477,7 +479,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
               {opt.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       );
     }
 
@@ -500,7 +502,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
         maxLength={f.name === yearField ? 4 : undefined}
         inputMode={f.name === yearField ? "numeric" : undefined}
         value={formValues[f.name] ?? ""}
-        readOnly={isSerialised && f.name === "declarationNumber"}
+        readOnly={isSerialised && ["declarationNumber", "commercialName", "modelType"].includes(f.name)}
         placeholder={getPlaceholder(f)}
         onChange={(e) => updateField(f.name, e.target.value)}
       />
@@ -527,13 +529,13 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
             const product = euDocProducts?.data.find((item) => item.id === id);
             if (product) selectProduct(product);
           }} disabled={!euDocProducts?.data.length}>
-            <SelectTrigger id="eu-doc-product" className="data-[size=default]:h-auto min-h-10 w-full text-left [&_[data-slot=select-value]]:line-clamp-none [&_span]:whitespace-normal">
+            <SelectTrigger id="eu-doc-product" className="data-[size=default]:h-auto min-h-10 w-full pr-4 text-left [&_[data-slot=select-value]]:line-clamp-none [&_span]:whitespace-normal">
               <SelectValue placeholder={euDocProducts?.data.length ? "Select product" : "No configured products available"} />
             </SelectTrigger>
             <SelectContent className="max-w-[calc(100vw-2rem)]">
               {euDocProducts?.data.map((product) => (
                 <SelectItem key={product.id} value={product.id} className="whitespace-normal break-words">
-                  {productDisplayName(product)}{product.product_code ? ` (${product.product_code})` : ""}
+                  {certificateModelName(product)}{product.product_title ? ` - ${product.product_title}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -543,10 +545,16 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           <p role="alert" className="text-sm text-destructive">{supplementalProfile?.kind === "sep"
             ? "SEP generation is blocked: no matching air-filter product is configured in your organization. Ask an organization owner to confirm the air-filter catalogue record and its SEP mapping."
             : supplementalProfile ? `An organization owner must configure ${supplementalProfile.productCode} as a blast machine with Cat. I classification. No Notified Body certificate number applies.`
-            : isHydrostatic ? "No blast machine or air receiver products are configured in your organization. Contact an organization owner."
+            : isHydrostatic ? "No blast machine, air receiver or air filter products are configured in your organization. Contact an organization owner."
             : "An organization owner must configure product type, PED category and certificate number before a product is available."}</p>
         )}
         {setupError && <p role="alert" className="text-sm text-destructive">{setupError}</p>}
+        {isHydrostatic && selectedProduct && hydrostaticRequirement(selectedProduct) === "optional" && (
+          <p role="note" className="text-sm text-muted-foreground">{OPTIONAL_HYDROSTATIC_NOTE}</p>
+        )}
+        {selectedProduct?.certification_issue_enabled === false && documentMode === "test" && (
+          <p role="note" className="text-sm text-muted-foreground">Certification pending. Unsigned test documents only.</p>
+        )}
         {selectedProduct && (
           <div className="grid grid-cols-1 gap-3 border-b py-3 text-sm sm:grid-cols-3 [&>div]:min-w-0 [&>div]:break-words">
             <div>
@@ -565,12 +573,12 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
               <span className="block font-medium">Certificate</span>
               <span
                 className={
-                  certificateNo || supplementalProfile
+                  certificateNo || supplementalProfile || ["cat-i", "sep"].includes(selectedProduct.eu_doc_ped_category || "")
                     ? "text-muted-foreground"
                     : "font-medium text-destructive"
                 }
               >
-                {supplementalProfile ? "Not applicable" : certificateNo || "Missing - generation blocked"}
+                {supplementalProfile || ["cat-i", "sep"].includes(selectedProduct.eu_doc_ped_category || "") ? "Not applicable" : certificateNo || (selectedProduct.certification_issue_enabled === false ? "Pending - unsigned only" : "Missing - generation blocked")}
               </span>
             </div>
           </div>

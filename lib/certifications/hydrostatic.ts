@@ -18,7 +18,7 @@ export const hydrostaticSchema = z.object({
   maxPressureBar: numberField("Maximum allowable pressure", 0.01, 1000),
   minTemperatureC: numberField("Minimum temperature", -273, 1000),
   maxTemperatureC: numberField("Maximum temperature", -273, 1000),
-  testPressureBar: z.literal("20"),
+  testPressureBar: z.enum(["15", "20"]),
   holdingMinutes: numberField("Holding time (minutes)", 15, 1440),
   testMedium: z.literal("Water"),
   testResult: z.enum(["pass", "fail"], { errorMap: () => ({ message: "Select the actual test result" }) }),
@@ -48,6 +48,9 @@ export const hydrostaticProfileSchema = z.object({
   maxPressureBar: numberField("Maximum allowable pressure", 0.01, 20).or(z.literal("")),
   minTemperatureC: numberField("Minimum temperature", -273, 1000).or(z.literal("")),
   maxTemperatureC: numberField("Maximum temperature", -273, 1000).or(z.literal("")),
+  volumeLitres: numberField("Volume", 0.01, 10000).or(z.literal("")).default(""),
+  testPressureBar: z.enum(["15", "20", ""]).default("20"),
+  requirement: z.enum(["mandatory", "optional", "not-applicable"]).default("mandatory"),
   issueEnabled: z.boolean(),
 }).strict().refine(data => !data.minTemperatureC || !data.maxTemperatureC || Number(data.minTemperatureC) <= Number(data.maxTemperatureC), {
   message: "Minimum temperature must not exceed maximum temperature", path: ["minTemperatureC"],
@@ -57,7 +60,8 @@ export const hydrostaticProfileSchema = z.object({
 
 export type HydrostaticProfile = z.infer<typeof hydrostaticProfileSchema>;
 export const EMPTY_HYDROSTATIC_PROFILE: HydrostaticProfile = {
-  modelCode: "", equipmentDescription: "", maxPressureBar: "", minTemperatureC: "", maxTemperatureC: "", issueEnabled: false,
+  modelCode: "", equipmentDescription: "", maxPressureBar: "", minTemperatureC: "", maxTemperatureC: "",
+  volumeLitres: "", testPressureBar: "20", requirement: "mandatory", issueEnabled: false,
 };
 
 export type HydrostaticProduct = {
@@ -67,17 +71,33 @@ export type HydrostaticProduct = {
   eu_doc_ped_category?: string | null;
   eu_doc_certificate_no?: string | null;
   hydrostatic_profile?: unknown;
+  certification_issue_enabled?: boolean | null;
 };
 
+export const OPTIONAL_HYDROSTATIC_NOTE = "Hydrostatic test not mandatory for this product (SEP) - certificate optional.";
+
+export function hydrostaticRequirement(product: HydrostaticProduct) {
+  if (product.eu_doc_product_type === "pto-compressor") return "not-applicable";
+  if (product.eu_doc_product_type === "air-filter") return "optional";
+  return "mandatory";
+}
+
 export function hydrostaticSetupError(product: HydrostaticProduct, issued = false): string | null {
-  if (product.eu_doc_product_type !== "blast-machine" && product.eu_doc_product_type !== "air-receiver") return "Hydrostatic certificates support blast machines and air receivers only.";
-  if (!["cat-i", "cat-ii", "cat-iii"].includes(product.eu_doc_ped_category || "")) return "An organization owner must configure this product's PED category.";
+  if (hydrostaticRequirement(product) === "not-applicable") return "Hydrostatic certificates do not apply to PTO compressors. Select the separate air receiver.";
+  const isSep = product.eu_doc_product_type === "air-filter" && product.eu_doc_ped_category === "sep" && product.product_code === "AF-A-0001";
+  if (!isSep && !["blast-machine", "air-receiver"].includes(product.eu_doc_product_type || "")) return "Hydrostatic certificates support blast machines, air receivers and the AF5L air filter only.";
+  if (!isSep && !["cat-i", "cat-ii", "cat-iii"].includes(product.eu_doc_ped_category || "")) return "An organization owner must configure this product's PED category.";
   const result = hydrostaticProfileSchema.safeParse(product.hydrostatic_profile);
-  if (!result.success || Object.entries(result.data).some(([key, value]) => key !== "issueEnabled" && !value)) {
+  if (!result.success || !result.data.modelCode || !result.data.equipmentDescription || !result.data.maxPressureBar || !result.data.minTemperatureC || !result.data.maxTemperatureC) {
     return "Hydrostatic setup incomplete. An organization owner must confirm the model code, description, pressure and temperature limits on this product.";
   }
+  if (Number(result.data.maxPressureBar) > Number(result.data.testPressureBar)) return "Test pressure must not be below maximum allowable pressure.";
+  if (result.data.testPressureBar !== (isSep ? "15" : "20")) return "Hydrostatic test pressure must be 15 bar for AF5L and 20 bar for blast machines and air receivers.";
+  if (result.data.requirement !== hydrostaticRequirement(product)) return "Hydrostatic applicability must match the product type.";
+  if (issued && product.certification_issue_enabled === false) return "Signed issuance is blocked for this product pending certification. Only unsigned test documents are available.";
   if (issued && !result.data.issueEnabled) return "Signed Hydrostatic certificates are not enabled for this product. Its specifications are pending approval.";
-  if (issued && product.eu_doc_ped_category !== "cat-i" && !product.eu_doc_certificate_no?.trim()) return "This product has no approved PED certificate number. Signed Hydrostatic certificates are blocked.";
+  if (issued && !isSep && product.eu_doc_ped_category !== "cat-i" && !product.eu_doc_certificate_no?.trim()) return "This product has no approved PED certificate number. Signed Hydrostatic certificates are blocked.";
+  if (isSep && product.eu_doc_certificate_no?.trim()) return "SEP products must not have a Notified Body certificate number.";
   return null;
 }
 
@@ -97,7 +117,7 @@ export function hydrostaticProductFields(product: HydrostaticProduct) {
     assessmentModules: hydrostaticAssessmentModules(category),
     maxPressureBar: values.maxPressureBar,
     minTemperatureC: values.minTemperatureC, maxTemperatureC: values.maxTemperatureC,
-    testPressureBar: "20", testMedium: "Water",
+    testPressureBar: values.testPressureBar, testMedium: "Water",
   };
 }
 

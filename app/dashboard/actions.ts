@@ -1411,6 +1411,10 @@ export async function saveDatasheet(
     return { data: null, error: { message: "You do not have permission to save datasheets." } };
   }
   const canManageCertification = savingProfile.role === "owner";
+  if (formData.has("certificationIssueEnabled") && !canManageCertification) {
+    return { data: null, error: { message: "Only organization owners can change signed issuance approval." } };
+  }
+  const certificationIssueEnabled = formData.get("certificationIssueEnabled") === "true";
   let hydrostaticProfile: HydrostaticProfile | null = null;
   if (formData.has("hydrostaticProfile")) {
     if (!canManageCertification) return { data: null, error: { message: "Only organization owners can change Hydrostatic settings." } };
@@ -1420,11 +1424,11 @@ export async function saveDatasheet(
         const parsed = hydrostaticProfileSchema.safeParse(value);
         if (!parsed.success) return { data: null, error: { message: parsed.error.issues[0].message } };
         hydrostaticProfile = parsed.data;
-        if (euDocProductType !== "blast-machine" && euDocProductType !== "air-receiver") {
-          return { data: null, error: { message: "Hydrostatic profiles require a blast machine or air receiver product type." } };
+        if (!euDocProductType) {
+          return { data: null, error: { message: "Select a product type before configuring certificate specifications." } };
         }
         if (hydrostaticProfile.issueEnabled) {
-          const setupError = hydrostaticSetupError({ product_title: null, product_code: null,
+          const setupError = hydrostaticSetupError({ product_title: null, product_code: normalizeOptionalFormString(formData.get("productCode")),
             eu_doc_product_type: euDocProductType, eu_doc_ped_category: euDocPedCategory,
             eu_doc_certificate_no: euDocCertificateNo, hydrostatic_profile: hydrostaticProfile }, true);
           if (setupError) return { data: null, error: { message: setupError } };
@@ -1497,6 +1501,7 @@ export async function saveDatasheet(
       eu_doc_certificate_no: euDocCertificateNo,
     } : {}),
     ...(canManageCertification && formData.has("hydrostaticProfile") ? { hydrostatic_profile: hydrostaticProfile } : {}),
+    ...(canManageCertification && formData.has("certificationIssueEnabled") ? { certification_issue_enabled: certificationIssueEnabled } : {}),
     user_id: userId,
     organization_id: organizationId,
     category_ids: categoryIds,

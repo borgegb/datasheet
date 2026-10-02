@@ -68,10 +68,10 @@ export async function fetchEuDocProducts(type = "eu-doc-serialised"): Promise<Eu
     // Read with the user's session and RLS, never the service-role client.
     const isHydrostatic = type === "hydrostatic-test";
     let query = supabase.from("products")
-      .select(`id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no${isHydrostatic ? ", hydrostatic_profile" : ""}`)
+      .select("id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile, certification_issue_enabled")
       .eq("organization_id", profile.organization_id);
     query = isHydrostatic
-      ? query.in("eu_doc_product_type", ["blast-machine", "air-receiver"])
+      ? query.in("eu_doc_product_type", ["blast-machine", "air-receiver", "air-filter"])
       : query.eq("eu_doc_product_type", supplementalDeclarationProfile(type)?.productType || "blast-machine");
     const { data, error } = await query.order("product_title", { ascending: true });
     if (error) return { data: [], error: "Products could not be loaded. Please retry." };

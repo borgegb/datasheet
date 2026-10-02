@@ -12,6 +12,8 @@ import path from "node:path";
 // @ts-expect-error fontkit does not ship local TypeScript declarations.
 import * as fontkit from "fontkit";
 import type { CertificationSettings } from "@/lib/certifications/settings";
+import type { HydrostaticProfile } from "@/lib/certifications/hydrostatic";
+import { blueSignaturePng } from "@/lib/pdf/certifications/signatureInk";
 import { DECLARATION_TYPES, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 export type { EuDocProductType, EuDocPedCategory } from "@/lib/certifications/declarations";
 
@@ -30,6 +32,9 @@ export type EuDeclarationProductCertification = {
   productType: EuDocProductType;
   pedCategory: EuDocPedCategory;
   certificateNo: string;
+  modelType?: string;
+  equipmentProfile?: HydrostaticProfile | null;
+  issueEnabled?: boolean | null;
 };
 
 type FontSet = {
@@ -171,14 +176,14 @@ function resolvePed(productCertification: EuDeclarationProductCertification) {
     return {
       pedCategory: "Cat. III",
       modules: "Module B + C2",
-      certificateNo: productCertification.certificateNo,
+      certificateNo: productCertification.certificateNo || "Pending certification (test only)",
     };
   }
 
   return {
     pedCategory: "Cat. II",
     modules: "Module A2",
-    certificateNo: productCertification.certificateNo,
+    certificateNo: productCertification.certificateNo || "Pending certification (test only)",
   };
 }
 
@@ -198,7 +203,7 @@ function productCodeOrFallback(
   fallback: string
 ) {
   return (
-    productCertification.productCode?.trim() ||
+    productCertification.modelType?.trim() || productCertification.productCode?.trim() ||
     productCertification.productTitle?.trim() ||
     fallback
   );
@@ -230,7 +235,7 @@ function resolveDeclaration(
       equipmentRows: [
         {
           label: "Description / function",
-          value: "Mobile abrasive blast machine",
+          value: productCertification.equipmentProfile?.equipmentDescription || "Mobile abrasive blast machine",
         },
         {
           label: "Commercial name",
@@ -284,9 +289,9 @@ function resolveDeclaration(
     equipmentRows: [
       {
         label: "Description / function",
-        value: isCompressor
+        value: productCertification.equipmentProfile?.equipmentDescription || (isCompressor
           ? "PTO-driven air compressor"
-          : "Mobile abrasive blast machine",
+          : "Mobile abrasive blast machine"),
       },
       {
         label: "Commercial name",
@@ -946,11 +951,18 @@ async function buildSupplementalDeclarationPdf(
   }
   const sep = profile.kind === "sep";
   const serialised = isSerialisedDeclaration(type);
+  const specs = product.equipmentProfile;
+  const ps = specs?.maxPressureBar || "8.6";
+  const volume = specs?.volumeLitres || (sep ? "5" : "20");
+  const minTemperature = specs?.minTemperatureC || "-10";
+  const maxTemperature = specs?.maxTemperatureC || "80";
+  const pt = specs?.testPressureBar || (sep ? "15" : "20");
+  const psVolume = String(Math.round(Number(ps) * Number(volume) * 100) / 100);
   const pdfDoc = await PDFDocument.create();
   const fonts = await loadFontSet(pdfDoc);
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = sep ? null : await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
-  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
+  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(await blueSignaturePng(signaturePng)) : null;
   const titles: [string, string] = sep
     ? ["MANUFACTURER'S DECLARATION - PED ARTICLE 4(3)", "RESPIRATOR AIR FILTER"]
     : ["EC / EU DECLARATION OF CONFORMITY", "BLASTING MACHINE 20L"];
@@ -986,11 +998,11 @@ async function buildSupplementalDeclarationPdf(
     { label: "Company", value: "Applied Concepts Ltd." }, { label: "Address", value: address },
   ]);
   rows(page1, "Object of the Declaration - Equipment Identification", [
-    { label: "Description / function", value: sep
+    { label: "Description / function", value: specs?.equipmentDescription || (sep
       ? "In-line compressed-air filter housing for the supply of breathing air to airline respirators (e.g. blast helmets)"
-      : "Mobile abrasive blast machine" },
-    { label: "Commercial name", value: serialised ? stringValue(data.commercialName) : profile.commercialName },
-    { label: "Model / type", value: serialised ? stringValue(data.modelType) : profile.modelType },
+      : "Mobile abrasive blast machine") },
+    { label: "Commercial name", value: product.productTitle || (serialised ? stringValue(data.commercialName) : profile.commercialName) },
+    { label: "Model / type", value: product.modelType || (serialised ? stringValue(data.modelType) : profile.modelType) },
     ...(serialised ? [
       { label: "Serial number", value: stringValue(data.serialNumber) },
       { label: "Year of manufacture", value: stringValue(data.yearOfConstruction) },
@@ -1001,13 +1013,13 @@ async function buildSupplementalDeclarationPdf(
       "Directive 2014/68/EU (Pressure Equipment Directive) - Article 4(3), Sound Engineering Practice. The equipment is below the Category I threshold and no conformity assessment module applies.\nOther Union legislation: no other Union harmonisation legislation providing for the CE marking has been identified by Applied Concepts Ltd. as applicable to this product as supplied.");
     rows(page1, "PED Classification and Basis of Design", [{
       label: "Pressure Equipment Directive 2014/68/EU",
-      value: "Classification: below Category I - PS = 8.6 bar g; V = 5 L; Group 2 gas; PS x V = 43 bar L <= 50 bar L (Annex II, Table 2).\nApplicable provision: Article 4(3) - Sound Engineering Practice (SEP).\nModule / Notified Body: none - no PED module, Notified Body assessment or certificate applies; CE marking under the PED is not permitted.",
+      value: `Classification: below Category I - PS = ${ps} bar g; V = ${volume} L; Group 2 gas; PS x V = ${psVolume} bar L <= 50 bar L (Annex II, Table 2).\nApplicable provision: Article 4(3) - Sound Engineering Practice (SEP).\nModule / Notified Body: none - no PED module, Notified Body assessment or certificate applies; CE marking under the PED is not permitted.`,
     }], 8.1);
   } else {
     y = drawLegislation(page1, y - 22, fonts, true);
     rows(page1, "Conformity Assessment Procedure", [
       { label: "Machinery Directive 2006/42/EC", value: "Internal checks on the manufacture of machinery - Annex VIII (manufacturer's self-assessment). The equipment is not listed in Annex IV of the Directive; no Notified Body is required for the machinery conformity assessment." },
-      { label: "Pressure Equipment Directive 2014/68/EU", value: "PED category: Cat. I (PS = 8.6 bar g; V = 20 L; Group 2 gas; PS x V = 172 bar L).\nModule(s): Module A - Internal production control (Annex III).\nNotified Body: Not applicable - Module A involves no Notified Body.\nCertificate No(s).: Not applicable - manufacturer self-assessment; no certificate is issued (EU Declaration of Conformity only)." },
+      { label: "Pressure Equipment Directive 2014/68/EU", value: `PED category: Cat. I (PS = ${ps} bar g; V = ${volume} L; Group 2 gas; PS x V = ${psVolume} bar L).\nModule(s): Module A - Internal production control (Annex III).\nNotified Body: Not applicable - Module A involves no Notified Body.\nCertificate No(s).: Not applicable - manufacturer self-assessment; no certificate is issued (EU Declaration of Conformity only).` },
     ], 8.1);
   }
   if (y < BOTTOM_Y) throw new Error("The equipment details are too long to fit on page one. Shorten the declaration number, commercial name or model.");
@@ -1019,10 +1031,10 @@ async function buildSupplementalDeclarationPdf(
   if (sep) {
     rows(page2, "Sound Engineering Practice - Basis", [{
       label: "Design, materials and testing",
-      value: "Design: EN 13445-3:2014 used as reference code (Design by Formula).\nMaterials: pressure-retaining parts supplied with EN 10204 Type 3.1 inspection certificates and cast traceability.\nWelding: WPS 36083.01.001 / WPQR 36083.01; welders to EN ISO 9606-1.\nTesting: each unit hydrostatically tested at 12.3 bar g (1.43 x PS).\nTechnical file: TSF-RAF-01.",
+      value: `Design: EN 13445-3:2014 used as reference code (Design by Formula).\nMaterials: pressure-retaining parts supplied with EN 10204 Type 3.1 inspection certificates and cast traceability.\nWelding: WPS 36083.01.001 / WPQR 36083.01; welders to EN ISO 9606-1.\nHydrostatic certificate optional: PT ${pt} bar, Water, holding time at least 15 minutes when performed.\nTechnical file: TSF-RAF-01.`,
     }], 8.1);
     paragraph(page2, "Marking - No CE",
-      "No CE marking is affixed under Directive 2014/68/EU (Article 4(3)). Each unit is permanently marked with the manufacturer's name and address, model, serial/batch number, year of manufacture, PS, TS (0 °C to +80 °C), V and the fluid (compressed air), and is supplied with instructions for use.");
+      `No CE marking is affixed under Directive 2014/68/EU (Article 4(3)). Each unit is permanently marked with the manufacturer's name and address, model, serial/batch number, year of manufacture, PS, TS (${minTemperature} °C to +${maxTemperature} °C), V and the fluid (compressed air), and is supplied with instructions for use.`);
   } else {
     y = drawCeMarking({ page: page2, y, fonts, ceLogo, includeNotifiedBody: false,
       note: "Marking affixed to the product data plate without a Notified Body number: the PED conformity assessment for Category I (Module A - internal production control) and the Machinery Directive self-assessment (Annex VIII) involve no Notified Body in the production phase." });
@@ -1061,6 +1073,12 @@ export async function buildEuDeclarationOfConformityPdf(
   signaturePng?: Uint8Array,
   options: { isTest?: boolean } = {}
 ): Promise<Uint8Array> {
+  if (!options.isTest && productCertification?.issueEnabled === false) {
+    throw new Error("Signed issuance is blocked for this product pending certification.");
+  }
+  if (!options.isTest && productCertification && ["cat-ii", "cat-iii"].includes(productCertification.pedCategory) && !productCertification.certificateNo.trim()) {
+    throw new Error("An approved PED certificate number is required for signed issuance.");
+  }
   if (supplementalDeclarationProfile(type)) {
     return buildSupplementalDeclarationPdf(type, data, productCertification, signaturePng, options);
   }
@@ -1074,7 +1092,7 @@ export async function buildEuDeclarationOfConformityPdf(
   const fonts = await loadFontSet(pdfDoc);
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
-  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
+  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(await blueSignaturePng(signaturePng)) : null;
 
   let page1: PDFPage;
   let y = TOP_Y;

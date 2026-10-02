@@ -17,10 +17,11 @@ import {
   isEuDeclarationOfConformityType,
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
+import { SIGNATURE_INK } from "@/lib/pdf/certifications/signatureInk";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
-import { isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
-import { hydrostaticProductFields, hydrostaticProductCertificateNumber, hydrostaticSetupError, type HydrostaticData } from "@/lib/certifications/hydrostatic";
+import { certificateModelName, declarationIssueError, isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
+import { hydrostaticProfileSchema, hydrostaticProductFields, hydrostaticProductCertificateNumber, hydrostaticSetupError, type HydrostaticData } from "@/lib/certifications/hydrostatic";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   MAX_SIGNATURE_BYTES,
@@ -111,7 +112,7 @@ async function validateProductId(
 
   const { data, error } = await supabase
     .from("products")
-    .select(`id, product_title, product_code${hydrostatic ? ", eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile" : ""}`)
+    .select(`id, product_title, product_code${hydrostatic ? ", eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile, certification_issue_enabled" : ""}`)
     .eq("id", productId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -139,13 +140,16 @@ type EuDocProductRow = {
   eu_doc_product_type: string | null;
   eu_doc_ped_category: string | null;
   eu_doc_certificate_no: string | null;
+  hydrostatic_profile?: unknown;
+  certification_issue_enabled?: boolean | null;
 };
 
 async function fetchEuDeclarationProductCertification(
   supabase: SupabaseClient,
   organizationId: string,
   productId: unknown,
-  type: string
+  type: string,
+  isTest: boolean
 ): Promise<{
   productCertification: EuDeclarationProductCertification | null;
   error: string | null;
@@ -160,7 +164,7 @@ async function fetchEuDeclarationProductCertification(
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no"
+      "id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile, certification_issue_enabled"
     )
     .eq("id", productId)
     .eq("organization_id", organizationId)
@@ -227,7 +231,9 @@ async function fetchEuDeclarationProductCertification(
   }
 
   const supplemental = supplementalDeclarationProfile(type);
-  if (!supplemental && !certificateNo) {
+  const issueError = !isTest ? declarationIssueError({ ...product, eu_doc_ped_category: pedCategory }) : null;
+  if (issueError) return { productCertification: null, error: issueError };
+  if (!supplemental && !certificateNo && product.certification_issue_enabled !== false) {
     return {
       productCertification: null,
       error:
@@ -241,6 +247,7 @@ async function fetchEuDeclarationProductCertification(
       : "This generator only supports configured Cat. II / III blast machines." };
   }
 
+  const profile = hydrostaticProfileSchema.safeParse(product.hydrostatic_profile);
   return {
     productCertification: {
       id: product.id,
@@ -249,6 +256,9 @@ async function fetchEuDeclarationProductCertification(
       productType,
       pedCategory,
       certificateNo,
+      issueEnabled: product.certification_issue_enabled,
+      modelType: certificateModelName(product),
+      equipmentProfile: profile.success ? profile.data : null,
     },
     error: null,
   };
@@ -369,7 +379,8 @@ export async function POST(
           adminSupabase,
           organizationId,
           productId,
-          type
+          type,
+          isTest
         );
 
       if (productValidation.error || !productValidation.productCertification) {
@@ -378,6 +389,10 @@ export async function POST(
 
       euProductCertification = productValidation.productCertification;
       productRecordId = euProductCertification.id || null;
+      if (isSerialisedDeclaration(type)) {
+        merged.commercialName = euProductCertification.productTitle || supplementalDeclarationProfile(type)?.commercialName || "";
+        merged.modelType = euProductCertification.modelType || euProductCertification.productCode || "";
+      }
     } else if (!isHydrostatic) {
       const productValidation = await validateProductId(
         adminSupabase,
@@ -398,6 +413,7 @@ export async function POST(
       sha256: string;
       generatedBy: string | null;
       generatedAt: string;
+      renderedInk: string;
     } | null = null;
 
     if (usesSignature) {
@@ -425,6 +441,7 @@ export async function POST(
           sha256: createHash("sha256").update(signaturePng).digest("hex"),
           generatedBy: userId,
           generatedAt: new Date().toISOString(),
+          renderedInk: SIGNATURE_INK,
         };
       }
       if (isEuDeclarationOfConformityType(type)) {

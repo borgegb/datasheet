@@ -304,7 +304,7 @@ async function run() {
         const filters = {};
         return {
           select() { return this; }, eq(key, value) { filters[key] = value; return this; },
-          in(key, values) { assert.equal(key, 'eu_doc_product_type'); assert.deepEqual(values, ['blast-machine', 'air-receiver']); return this; },
+          in(key, values) { assert.equal(key, 'eu_doc_product_type'); assert.deepEqual(values, ['blast-machine', 'air-receiver', 'air-filter']); return this; },
           single: async () => ({ data: { organization_id: org } }),
           order: async () => { assert.equal(table, 'products'); assert.equal(filters.organization_id, org); return { data: rows }; },
         };
@@ -443,7 +443,7 @@ async function run() {
       hydrostaticProfile: JSON.stringify(value) })) form.set(key, field);
     const result = await actions.saveDatasheet(null, form);
     assert.equal(!result.error, success, JSON.stringify(result));
-    if (success) assert.deepEqual(saved.hydrostatic_profile, value);
+    if (success) assert.deepEqual(saved.hydrostatic_profile, value === null ? null : hydrostatic.hydrostaticProfileSchema.parse(value));
     else assert.equal(saved, undefined);
   });
   for (const [name, data] of [
@@ -656,7 +656,8 @@ async function run() {
       assert.ok(content.includes(profile.revision));
       if (category === 'sep') {
         assert.ok(content.includes("MANUFACTURER'S DECLARATION"));
-        assert.ok(content.includes('12.3 bar g'));
+        assert.ok(content.includes('PT 15 bar'));
+        assert.equal(content.includes('12.3 bar g'), false);
         assert.ok(content.includes('TSF-RAF-01'));
         assert.ok(content.includes('EN 12021:2014'));
         assert.equal(content.includes('2006/42/EC'), false);
@@ -739,4 +740,5 @@ async function run() {
   if (process.env.EU_DOC_TEST_OUTPUT) fs.writeFileSync(path.join(process.env.EU_DOC_TEST_OUTPUT, 'signature-test-only.png'), png);
 }
 
-run().catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { load, routeProbe, mockClient, png, blast40, hydroData, hydroProfile, org, unit };
+if (require.main === module) run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,0 +1,16 @@
+{
+  "source": "Rafael, 2026-10-02: ACL-Applied-Studio-Product-Matrix - Copy.xlsx, Product Matrix and Rules",
+  "columns": ["model", "code", "description", "volume", "ps", "category", "type", "pt", "requirement", "approved"],
+  "rows": [
+    ["BP20L", "BP-A-1000", "Blast Machine", "20", "8.6", "cat-i", "blast-machine", "20", "mandatory", true],
+    ["BP40L", "BP-A-2000", "Blast Machine", "40", "8.6", "cat-ii", "blast-machine", "20", "mandatory", true],
+    ["BP100L", "BP-A-3000", "Blast Machine", "100", "8.6", "cat-ii", "blast-machine", "20", "mandatory", true],
+    ["BP100LA", "BP-A-6000", "Blast Machine", "100", "8.6", "cat-ii", "blast-machine", "20", "mandatory", true],
+    ["BP140L", "BP-A-4000", "Blast Machine", "140", "8.6", "cat-iii", "blast-machine", "20", "mandatory", true],
+    ["BP200L", "BP-A-5000", "Blast Machine", "200", "8.6", "cat-iii", "blast-machine", "20", "mandatory", true],
+    ["BP200LX", "BP-A-5200", "Blast Machine", "200", "12", "cat-iii", "blast-machine", "20", "mandatory", false],
+    ["AR32L", "VM-A-0003", "Air Receiver", "32", "12", "cat-ii", "air-receiver", "20", "mandatory", false],
+    ["VM350", "VM-A-0001", "PTO Compressor", "32", "12", "cat-ii", "pto-compressor", null, "not-applicable", false],
+    ["AF5L", "AF-A-0001", "Air Filter (Respirator)", "5", "8.6", "sep", "air-filter", "15", "optional", true]
+  ]
+}

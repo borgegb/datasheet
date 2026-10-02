@@ -128,6 +128,7 @@ interface ProductData {
   eu_doc_ped_category: "cat-i" | "cat-ii" | "cat-iii" | "sep" | null;
   eu_doc_certificate_no: string | null;
   hydrostatic_profile?: HydrostaticProfile | null;
+  certification_issue_enabled?: boolean | null;
 }
 // ---------------------------------
 
@@ -256,6 +257,7 @@ export default function DatasheetGeneratorForm({
     initialData?.eu_doc_certificate_no || ""
   );
   const [hydrostaticProfile, setHydrostaticProfile] = useState<HydrostaticProfile | null>(initialData?.hydrostatic_profile || null);
+  const [certificationIssueEnabled, setCertificationIssueEnabled] = useState(initialData ? initialData.certification_issue_enabled !== false : false);
 
   // --- Enhanced Shipping State ---
   const [shippingMethod, setShippingMethod] = useState<"pallet" | "package">(
@@ -764,6 +766,7 @@ export default function DatasheetGeneratorForm({
       setEuDocPedCategory(initialData.eu_doc_ped_category || "");
       setEuDocCertificateNo(initialData.eu_doc_certificate_no || "");
       setHydrostaticProfile(initialData.hydrostatic_profile || null);
+      setCertificationIssueEnabled(initialData.certification_issue_enabled !== false);
 
       // Parse shipping info - enhanced to handle new shipping structure
       if (initialData.shipping_info) {
@@ -1445,6 +1448,7 @@ export default function DatasheetGeneratorForm({
             disabled={profile?.role !== "owner"}
           />
           <input type="hidden" name="euDocCertificateNo" value={euDocCertificateNo} disabled={profile?.role !== "owner"} />
+          <input type="hidden" name="certificationIssueEnabled" value={String(certificationIssueEnabled)} disabled={profile?.role !== "owner"} />
           {/* -------------------------------------------- */}
 
           <div className="space-y-8">
@@ -1569,7 +1573,7 @@ export default function DatasheetGeneratorForm({
                       setEuDocProductType(value === "none" ? "" : value)
                     }
                   >
-                    <SelectTrigger id="eu-doc-product-type">
+                    <SelectTrigger id="eu-doc-product-type" className="pr-4">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1595,7 +1599,7 @@ export default function DatasheetGeneratorForm({
                       if (value === "cat-i" || value === "sep") setEuDocCertificateNo("");
                     }}
                   >
-                    <SelectTrigger id="eu-doc-ped-category">
+                    <SelectTrigger id="eu-doc-ped-category" className="pr-4">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1624,6 +1628,11 @@ export default function DatasheetGeneratorForm({
                   />
                 </div>
               </div>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-0.5" checked={certificationIssueEnabled}
+                  onChange={event => setCertificationIssueEnabled(event.target.checked)} />
+                Product approved for signed documents
+              </label>
               {euDocProductType === "pto-compressor" &&
                 euDocPedCategory === "cat-iii" && (
                   <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">

@@ -17,7 +17,7 @@ import {
   isEuDeclarationOfConformityType,
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
-import { SIGNATURE_INK } from "@/lib/pdf/certifications/signatureInk";
+import { signatureInkForDocument, type SignatureInk } from "@/lib/pdf/certifications/signatureInk";
 import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
 import { certificateModelName, declarationIssueError, isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
@@ -340,12 +340,14 @@ export async function POST(
     let merged = { ...typeDef.defaults, ...certification };
     const adminSupabase = getAdminClient();
     let productRecordId: string | null = null;
+    let signatureInk: SignatureInk = "original";
     if (isHydrostatic) {
       const result = await validateProductId(adminSupabase, organizationId, productId, true);
       if (result.error || !result.product) return jsonError(result.error || "Select a product before generating a hydrostatic certificate.", 400);
       const setupError = hydrostaticSetupError(result.product, !isTest);
       if (setupError) return jsonError(setupError, 409);
       productRecordId = result.productId;
+      signatureInk = signatureInkForDocument(type, result.product.product_code);
       // Client-supplied engineering values never determine a certificate's content.
       merged = { ...merged, ...hydrostaticProductFields(result.product),
         certificateNumber: hydrostaticProductCertificateNumber(result.product, merged.serialNumber) };
@@ -441,7 +443,7 @@ export async function POST(
           sha256: createHash("sha256").update(signaturePng).digest("hex"),
           generatedBy: userId,
           generatedAt: new Date().toISOString(),
-          renderedInk: SIGNATURE_INK,
+          renderedInk: signatureInk,
         };
       }
       if (isEuDeclarationOfConformityType(type)) {
@@ -455,7 +457,7 @@ export async function POST(
         );
         title = buildEuDeclarationTitle(type, merged, euProductCertification);
       } else {
-        pdfBytes = await buildHydrostaticTestPdf(merged as HydrostaticData, { signaturePng, isTest });
+        pdfBytes = await buildHydrostaticTestPdf(merged as HydrostaticData, { signaturePng, isTest, signatureInk });
         title = `${typeDef.title} - ${merged.model} - ${merged.serialNumber}`;
       }
       if (isTest) title = `TEST / NOT FOR ISSUE - ${title}`;

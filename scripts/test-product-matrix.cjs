@@ -30,7 +30,7 @@ async function main() {
     const model = product.id;
     for (const mode of ['test', 'issued']) await check(`${model} Hydrostatic ${mode} approval and product values`, async () => {
       const { response, body, calls } = await routeProbe({ type: 'hydrostatic-test', product, productId: model,
-        documentMode: mode, data: { ...hydroData, model: 'FORGED', assessmentModules: 'Z', testPressureBar: '999' } });
+        documentMode: mode, data: { ...hydroData, model: 'FORGED', assessmentModules: 'Z', testPressureBar: '999', signatureInk: '#1746A2' } });
       const allowed = product.eu_doc_product_type !== 'pto-compressor' && (mode === 'test' || product.certification_issue_enabled);
       assert.equal(response.status, allowed ? 200 : 409, JSON.stringify(body));
       if (!allowed) { assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0); return; }
@@ -40,7 +40,10 @@ async function main() {
       assert.equal(saved.pedCategory, product.eu_doc_ped_category);
       assert.equal(saved.assessmentModules, hydro.hydrostaticAssessmentModules(product.eu_doc_ped_category));
       assert.equal(saved.certificateNumber, `${mode === 'test' ? 'TEST-' : ''}ACL-HT-${model}-AP-26-00115`);
-      if (mode === 'issued') assert.equal(saved.signature.renderedInk, '#1746A2');
+      if (mode === 'issued') {
+        assert.equal(saved.signature.renderedInk, model === 'BP40L' ? '#1746A2' : 'original');
+        assert.equal(calls.hydroBuilder[1].signatureInk, saved.signature.renderedInk);
+      }
     });
     if (product.eu_doc_product_type === 'air-receiver') continue;
     const type = product.eu_doc_product_type === 'air-filter' ? 'sep-air-filter-serialised'
@@ -53,6 +56,7 @@ async function main() {
       if (!allowed) { assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0); return; }
       assert.equal(calls.records[0].data.modelType, `${model} / ${product.product_code}`);
       assert.equal(calls.records[0].data.commercialName, product.product_title);
+      if (mode === 'issued') assert.equal(calls.records[0].data.signature.renderedInk, 'original');
     });
   }
   const af = fixtures.find(p => p.id === 'AF5L');
@@ -136,7 +140,7 @@ async function main() {
   });
   console.log(`\n${count} product-matrix checks passed. No live writes or real signatures.`);
   if (output) {
-    const pdf = await PDFDocument.load(await htBuilder.buildHydrostaticTestPdf(hydroData, { signaturePng: png }));
+    const pdf = await PDFDocument.load(await htBuilder.buildHydrostaticTestPdf(hydroData, { signaturePng: png, signatureInk: ink.SIGNATURE_INK }));
     pdf.getPage(0).drawText('SYNTHETIC SIGNATURE TEST - NOT FOR ISSUE', { x: 108, y: 620, size: 10, color: rgb(0.1, 0.1, 0.1) });
     fs.writeFileSync(path.join(output, 'hydro-blue-ink-test.pdf'), await pdf.save());
   }

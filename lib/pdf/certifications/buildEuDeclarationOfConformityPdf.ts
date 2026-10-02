@@ -13,7 +13,6 @@ import path from "node:path";
 import * as fontkit from "fontkit";
 import type { CertificationSettings } from "@/lib/certifications/settings";
 import type { HydrostaticProfile } from "@/lib/certifications/hydrostatic";
-import { blueSignaturePng } from "@/lib/pdf/certifications/signatureInk";
 import { DECLARATION_TYPES, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 export type { EuDocProductType, EuDocPedCategory } from "@/lib/certifications/declarations";
 
@@ -962,7 +961,7 @@ async function buildSupplementalDeclarationPdf(
   const fonts = await loadFontSet(pdfDoc);
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = sep ? null : await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
-  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(await blueSignaturePng(signaturePng)) : null;
+  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
   const titles: [string, string] = sep
     ? ["MANUFACTURER'S DECLARATION - PED ARTICLE 4(3)", "RESPIRATOR AIR FILTER"]
     : ["EC / EU DECLARATION OF CONFORMITY", "BLASTING MACHINE 20L"];
@@ -1092,7 +1091,7 @@ export async function buildEuDeclarationOfConformityPdf(
   const fonts = await loadFontSet(pdfDoc);
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
-  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(await blueSignaturePng(signaturePng)) : null;
+  const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
 
   let page1: PDFPage;
   let y = TOP_Y;

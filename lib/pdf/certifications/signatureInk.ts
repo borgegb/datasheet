@@ -2,6 +2,12 @@ import sharp from "sharp";
 import { validateSignaturePng } from "@/lib/certifications/signature";
 
 export const SIGNATURE_INK = "#1746A2";
+export type SignatureInk = typeof SIGNATURE_INK | "original";
+
+export function signatureInkForDocument(type: string, productCode?: string | null): SignatureInk {
+  // Rafael requested blue in his BP40L Hydrostatic feedback, not for other PDFs.
+  return type === "hydrostatic-test" && productCode === "BP-A-2000" ? SIGNATURE_INK : "original";
+}
 
 // Preserve the stored original and audit hash. Only the rendered ink changes;
 // white background and antialiasing become transparent coverage.

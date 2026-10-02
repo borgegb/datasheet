@@ -4,9 +4,9 @@ import path from "node:path";
 // @ts-expect-error fontkit does not ship local TypeScript declarations.
 import * as fontkit from "fontkit";
 import { hydrostaticSchema, type HydrostaticData } from "@/lib/certifications/hydrostatic";
-import { blueSignaturePng } from "@/lib/pdf/certifications/signatureInk";
+import { blueSignaturePng, SIGNATURE_INK, type SignatureInk } from "@/lib/pdf/certifications/signatureInk";
 
-type BuildOptions = { signaturePng?: Uint8Array; isTest?: boolean };
+type BuildOptions = { signaturePng?: Uint8Array; isTest?: boolean; signatureInk?: SignatureInk };
 const WIDTH = 595.28, HEIGHT = 841.89;
 const LEFT = 108, RIGHT = 547;
 const BLACK = rgb(0.05, 0.05, 0.05), GREY = rgb(0.38, 0.38, 0.38);
@@ -105,7 +105,8 @@ export async function buildHydrostaticTestPdf(data: HydrostaticData, options: Bu
   text(`${input.testResult === "pass" ? "Approved" : "Recorded"} on behalf of Applied Concepts Ltd:`, LEFT, y, 9.5, bold);
   y += 21;
   if (!options.isTest && options.signaturePng) {
-    const signature = await doc.embedPng(await blueSignaturePng(options.signaturePng));
+    const signature = await doc.embedPng(options.signatureInk === SIGNATURE_INK
+      ? await blueSignaturePng(options.signaturePng) : options.signaturePng);
     const scale = Math.min(142 / signature.width, 34 / signature.height);
     page.drawImage(signature, { x: LEFT + 5, y: HEIGHT - y - 34, width: signature.width * scale, height: signature.height * scale });
   }

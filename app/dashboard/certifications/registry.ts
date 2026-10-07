@@ -3,6 +3,7 @@ import { certificateDateSchema, manufactureYearSchema, serialMatchesYear, unitSe
 import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
 import { hydrostaticSchema } from "@/lib/certifications/hydrostatic";
 import { HYDROSTATIC_CERTIFICATE_TITLE } from "@/lib/certifications/labels";
+import { DOCUMENT_REVISIONS, documentRevisionSchema } from "@/lib/certifications/revision";
 
 export type FieldSpec = {
   name: string;
@@ -24,6 +25,13 @@ export type CertificationTypeDef = {
 
 const declarationNumber = z.string().trim().min(1, "Declaration No. is required").max(80, "Declaration No. must be 80 characters or fewer");
 const issueDate = certificateDateSchema;
+const revisionField: FieldSpec = {
+  name: "revision",
+  label: "Revision",
+  type: "select",
+  options: DOCUMENT_REVISIONS.map(value => ({ label: value, value })),
+  required: true,
+};
 
 export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   "ec-vm-350-declaration": {
@@ -72,10 +80,12 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
     title: "EU DoC - Owner's Manual - Blast Machines",
     templatePath: "",
     defaults: {
+      revision: "01",
       declarationNumber: "",
       issueDate: "",
     },
     schema: z.object({
+      revision: documentRevisionSchema,
       declarationNumber,
       issueDate,
     }),
@@ -93,6 +103,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         type: "date",
         required: true,
       },
+      revisionField,
     ],
   },
   "eu-doc-owner-manual-pto-compressors": {
@@ -100,10 +111,12 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
     title: "EU DoC - Owner's Manual - PTO Compressors",
     templatePath: "",
     defaults: {
+      revision: "01",
       declarationNumber: "",
       issueDate: "",
     },
     schema: z.object({
+      revision: documentRevisionSchema,
       declarationNumber,
       issueDate,
     }),
@@ -121,6 +134,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         type: "date",
         required: true,
       },
+      revisionField,
     ],
   },
   "eu-doc-serialised": {
@@ -128,6 +142,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
     title: "EU DoC - Serialised - Blast Machines",
     templatePath: "",
     defaults: {
+      revision: "01",
       declarationNumber: "",
       issueDate: "",
       commercialName: "",
@@ -136,6 +151,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       yearOfConstruction: "",
     },
     schema: z.object({
+      revision: documentRevisionSchema,
       declarationNumber,
       issueDate,
       commercialName: z.string().trim().min(1, "Commercial name is required").max(160, "Commercial name must be 160 characters or fewer"),
@@ -187,6 +203,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         placeholder: "e.g., 2025",
         required: true,
       },
+      revisionField,
     ],
   },
   "hydrostatic-test": {

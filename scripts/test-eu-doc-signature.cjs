@@ -653,7 +653,7 @@ async function run() {
       assert.equal(texts.some(t => t.value === 'Serial number'), serialised);
       assert.equal(texts.some(t => t.value === 'Year of manufacture'), serialised);
       assert.equal(images.length, category === 'sep' ? 2 : 3, 'logos and optional CE only, never the signature in test mode');
-      assert.ok(content.includes(profile.revision));
+      assert.ok(texts.some(t => t.value === input.revision));
       if (category === 'sep') {
         assert.ok(content.includes("MANUFACTURER'S DECLARATION"));
         assert.ok(content.includes('PT 15 bar'));

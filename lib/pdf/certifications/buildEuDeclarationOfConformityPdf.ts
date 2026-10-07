@@ -13,6 +13,7 @@ import path from "node:path";
 import * as fontkit from "fontkit";
 import type { CertificationSettings } from "@/lib/certifications/settings";
 import type { HydrostaticProfile } from "@/lib/certifications/hydrostatic";
+import { documentRevisionSchema } from "@/lib/certifications/revision";
 import { DECLARATION_TYPES, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 export type { EuDocProductType, EuDocPedCategory } from "@/lib/certifications/declarations";
 
@@ -221,7 +222,7 @@ function resolveDeclaration(
   const common = {
     declarationNumber: stringValue(data.declarationNumber),
     issueDate: formatIssueDate(data.issueDate),
-    revision: settings.templateRevision,
+    revision: data.revision === undefined ? settings.templateRevision : documentRevisionSchema.parse(data.revision),
     ceNote:
       "Marking affixed to the product data plate. The Notified Body number (2810) accompanies the CE marking by virtue of the PED production-phase conformity assessment (Module A2 for Category II, Module B+C2 for Category III). For machines covered solely by self-assessment under Directive 2006/42/EC, the CE marking is affixed without a Notified Body number.",
   };
@@ -973,7 +974,7 @@ async function buildSupplementalDeclarationPdf(
   let y = drawInfoBar(page1, {
     declarationNumber: stringValue(data.declarationNumber),
     issueDate: formatIssueDate(data.issueDate),
-    revision: profile.revision,
+    revision: data.revision === undefined ? profile.revision : documentRevisionSchema.parse(data.revision),
   }, fonts, TOP_Y);
   y = drawWrappedText({ page: page1, x: MARGIN_X, y, maxWidth: CONTENT_WIDTH, font: fonts.regular, size: 8.7, lineHeight: 11.5,
     text: sep

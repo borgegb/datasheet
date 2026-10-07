@@ -473,7 +473,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
           value={form[f.name] ?? ""}
           onChange={(e) => updateField(f.name, e.target.value)}
         >
-          <option value="">Select…</option>
+          {f.name !== "revision" && <option value="">Select…</option>}
           {(f.options || []).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}

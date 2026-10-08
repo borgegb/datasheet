@@ -446,6 +446,7 @@ export default function KanbanCardsTable({
           <Button
             variant="outline"
             title="Print selected cards"
+            size={selectedCount > 0 ? "default" : "icon"}
             aria-label={`Print selected cards (${selectedCount})`}
             aria-busy={isBulkPrinting}
             onClick={handleBulkPrint}
@@ -458,11 +459,12 @@ export default function KanbanCardsTable({
             ) : (
               <Printer className="h-4 w-4" aria-hidden="true" />
             )}
-            <span>{selectedCount}</span>
+            {selectedCount > 0 ? <span>{selectedCount}</span> : null}
           </Button>
           <Button
             variant="outline"
             title="Download selected cards"
+            size={selectedCount > 0 ? "default" : "icon"}
             aria-label={`Download selected cards (${selectedCount})`}
             aria-busy={isBulkDownloading}
             onClick={handleBulkDownload}
@@ -473,7 +475,7 @@ export default function KanbanCardsTable({
             ) : (
               <Download className="h-4 w-4" aria-hidden="true" />
             )}
-            <span>{selectedCount}</span>
+            {selectedCount > 0 ? <span>{selectedCount}</span> : null}
           </Button>
           <Button variant="outline" size="icon" asChild>
             <Link

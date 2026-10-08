@@ -104,6 +104,75 @@ export async function printPdfFromUrl(
   }
 }
 
+/** Call directly from the click handler so the popup opens before any await. */
+export async function printPdfFromRequest(
+  url: string,
+  request: RequestInit,
+  fileName = "document.pdf"
+): Promise<void> {
+  const printWindow = openPdfPopup(fileName);
+
+  try {
+    const response = await fetch(url, request);
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error || "Failed to prepare PDF for printing.");
+    }
+    const blob = await response.blob();
+    if (printWindow.closed) {
+      throw new Error("Print window was closed before the PDF could open.");
+    }
+
+    const pdfUrl = URL.createObjectURL(blob);
+    const doc = printWindow.document;
+    doc.body.replaceChildren();
+    doc.body.style.cssText =
+      "margin:0;height:100vh;display:flex;flex-direction:column;font-family:sans-serif";
+    const toolbar = doc.createElement("div");
+    toolbar.style.cssText =
+      "padding:12px;display:flex;flex-wrap:wrap;gap:16px;align-items:center";
+    const printButton = doc.createElement("button");
+    printButton.textContent = "Print";
+    const download = doc.createElement("a");
+    download.textContent = "Download PDF";
+    download.href = pdfUrl;
+    download.download = fileName;
+    const hint = doc.createElement("span");
+    hint.textContent =
+      "If printing does not start, use the PDF viewer's print button or download the PDF.";
+    toolbar.append(printButton, download, hint);
+
+    const frame = doc.createElement("iframe");
+    frame.title = fileName;
+    frame.style.cssText = "width:100%;flex:1;border:0";
+    const print = () => {
+      try {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      } catch {
+        // The viewer and download link remain available if automatic printing
+        // is restricted by the browser's built-in PDF viewer.
+      }
+    };
+    printButton.addEventListener("click", print);
+    frame.addEventListener("load", () => printWindow.setTimeout(print, 350), {
+      once: true,
+    });
+    frame.src = pdfUrl;
+    doc.body.append(toolbar, frame);
+    // Keep the wrapper open and navigate only the iframe, so this cleanup
+    // cannot revoke the PDF while the initial viewer is still loading.
+    printWindow.addEventListener(
+      "beforeunload",
+      () => URL.revokeObjectURL(pdfUrl),
+      { once: true }
+    );
+  } catch (error) {
+    if (!printWindow.closed) printWindow.close();
+    throw error;
+  }
+}
+
 export async function downloadPdfFromUrl(
   pdfUrl: string,
   fileName = "document.pdf"

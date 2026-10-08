@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
     ],
   },
   outputFileTracingIncludes: {
+    "/api/print-kanban-pdfs": [
+      "./pdf/fonts/**/*",
+      "./pdf/template/kanban/**/*",
+    ],
     "/api/generate-certification-pdf/**": [
       "./pdf/assets/**/*",
       "./pdf/fonts/**/*",

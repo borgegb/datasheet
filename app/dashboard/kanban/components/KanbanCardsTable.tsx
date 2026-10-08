@@ -49,7 +49,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { deleteKanbanCards } from "../actions";
 import type { KanbanCard } from "../actions";
-import { printPdfFromUrl } from "@/lib/client/print-pdf";
+import { printPdfFromRequest, printPdfFromUrl } from "@/lib/client/print-pdf";
 
 interface KanbanCardsTableProps {
   cards: KanbanCard[];
@@ -82,6 +82,7 @@ export default function KanbanCardsTable({
   );
   const [selectedCardIds, setSelectedCardIds] = useState(() => new Set<string>());
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [isBulkPrinting, setIsBulkPrinting] = useState(false);
   const [isRoutePending, startRouteTransition] = useTransition();
 
   useEffect(() => {
@@ -356,6 +357,37 @@ export default function KanbanCardsTable({
     }
   };
 
+  const handleBulkPrint = async () => {
+    const selectedIds = cards
+      .filter((card) => selectedCardIds.has(card.id))
+      .map((card) => card.id);
+    if (selectedIds.length === 0 || isBulkPrinting) return;
+
+    setIsBulkPrinting(true);
+    const toastId = toast.loading(
+      `Preparing ${selectedIds.length} selected cards for printing...`
+    );
+    try {
+      await printPdfFromRequest(
+        "/api/print-kanban-pdfs",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanCardIds: selectedIds }),
+        },
+        `kanban-cards-${new Date().toISOString().slice(0, 10)}.pdf`
+      );
+      toast.success("Selected cards are ready in the print window.", {
+        id: toastId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again.";
+      toast.error(`Failed to print selected cards: ${message}`, { id: toastId });
+    } finally {
+      setIsBulkPrinting(false);
+    }
+  };
+
   const getHeaderColorBadge = (color: string) => {
     const colorMap = {
       red: "bg-red-500 text-white",
@@ -398,7 +430,7 @@ export default function KanbanCardsTable({
   return (
     <div className="space-y-4">
       {/* Search and Actions Bar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -410,11 +442,26 @@ export default function KanbanCardsTable({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleBulkPrint}
+            disabled={
+              selectedCount === 0 || isBulkPrinting || isBulkDownloading || isRoutePending
+            }
+          >
+            {isBulkPrinting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
+            {isBulkPrinting ? "Preparing Print..." : "Print Selected"}
+            {selectedCount > 0 ? ` (${selectedCount})` : ""}
+          </Button>
           <Button
             variant="outline"
             onClick={handleBulkDownload}
-            disabled={selectedCount === 0 || isBulkDownloading}
+            disabled={selectedCount === 0 || isBulkDownloading || isBulkPrinting}
           >
             {isBulkDownloading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -432,6 +479,11 @@ export default function KanbanCardsTable({
           </Button>
         </div>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        Select cards on this page to print them together in one PDF. Selection
+        resets when you change pages or search.
+      </p>
 
       {/* Table */}
       <div className="rounded-md border">

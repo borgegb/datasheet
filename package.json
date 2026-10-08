@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test:eu-doc-signature": "node scripts/test-eu-doc-signature.cjs",
     "test:product-matrix": "node scripts/test-product-matrix.cjs",
-    "test:document-revisions": "node scripts/test-document-revisions.cjs"
+    "test:document-revisions": "node scripts/test-document-revisions.cjs",
+    "test:kanban-batch-print": "node scripts/test-kanban-batch-print.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

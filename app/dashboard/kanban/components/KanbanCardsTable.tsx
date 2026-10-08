@@ -445,36 +445,43 @@ export default function KanbanCardsTable({
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
+            title="Print selected cards"
+            aria-label={`Print selected cards (${selectedCount})`}
+            aria-busy={isBulkPrinting}
             onClick={handleBulkPrint}
             disabled={
               selectedCount === 0 || isBulkPrinting || isBulkDownloading || isRoutePending
             }
           >
             {isBulkPrinting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Printer className="mr-2 h-4 w-4" />
+              <Printer className="h-4 w-4" aria-hidden="true" />
             )}
-            {isBulkPrinting ? "Preparing Print..." : "Print Selected"}
-            {selectedCount > 0 ? ` (${selectedCount})` : ""}
+            <span>{selectedCount}</span>
           </Button>
           <Button
             variant="outline"
+            title="Download selected cards"
+            aria-label={`Download selected cards (${selectedCount})`}
+            aria-busy={isBulkDownloading}
             onClick={handleBulkDownload}
             disabled={selectedCount === 0 || isBulkDownloading || isBulkPrinting}
           >
             {isBulkDownloading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="h-4 w-4" aria-hidden="true" />
             )}
-            Download Selected
-            {selectedCount > 0 ? ` (${selectedCount})` : ""}
+            <span>{selectedCount}</span>
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/kanban/batch">
-              <Upload className="mr-2 h-4 w-4" />
-              Batch Upload
+          <Button variant="outline" size="icon" asChild>
+            <Link
+              href="/dashboard/kanban/batch"
+              title="Batch upload"
+              aria-label="Batch upload"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
             </Link>
           </Button>
         </div>

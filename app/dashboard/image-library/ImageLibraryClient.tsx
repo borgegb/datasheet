@@ -121,9 +121,8 @@ export default function ImageLibraryClient({
         onFilterChange={setFilters}
         totalImages={images.length}
         filteredCount={filteredImages.length}
+        status={<StorageLoadingStatus loading={storage.loading} error={storage.error} onRetry={storage.retry} />}
       />
-
-      <StorageLoadingStatus loading={storage.loading} error={storage.error} onRetry={storage.retry} />
 
       <ImageGrid
         key={JSON.stringify(filters)}

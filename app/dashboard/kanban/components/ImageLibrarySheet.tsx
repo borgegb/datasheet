@@ -364,7 +364,7 @@ function ImageCard({
               : image.source.replaceAll("_", " ")}
           </Badge>
           <p className="text-xs text-muted-foreground">
-            {new Date(image.uploadedAt).toLocaleDateString()}
+            {new Date(image.uploadedAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}
           </p>
         </div>
       </div>

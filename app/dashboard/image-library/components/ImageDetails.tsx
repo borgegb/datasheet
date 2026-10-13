@@ -191,7 +191,7 @@ export default function ImageDetails({
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Uploaded</span>
                   <span className="text-sm text-muted-foreground">
-                    {new Date(image.uploadedAt).toLocaleDateString()}
+                    {new Date(image.uploadedAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

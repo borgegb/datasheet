@@ -100,7 +100,7 @@ export default function ImageCard({
           {image.sourceName}
         </p>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-start gap-2">
           <Badge
             variant="secondary"
             className={cn("text-xs capitalize", getSourceColor())}

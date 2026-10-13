@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Sheet,
   SheetContent,
@@ -8,8 +8,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,19 +24,11 @@ import { Search, ImageIcon, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-interface ImageItem {
-  id: string;
-  path: string;
-  url?: string;
-  source:
-    | "products"
-    | "kanban_cards"
-    | "production_kanban_cards"
-    | "catalogs"
-    | "storage_unlinked";
-  sourceName: string;
-  uploadedAt: string;
-}
+import type { ImageItem } from "@/app/dashboard/image-library/types";
+import { createLibraryImageLoader, mergeUnlinkedImages } from "@/lib/image-library/storage";
+import { createClient } from "@/lib/supabase/client";
+import { useLibraryStorage } from "@/hooks/use-library-storage";
+import StorageLoadingStatus from "@/app/dashboard/image-library/components/StorageLoadingStatus";
 
 interface ImageLibrarySheetProps {
   open: boolean;
@@ -56,48 +48,58 @@ export default function ImageLibrarySheet({
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const [loadImageUrl] = useState(() => createLibraryImageLoader(createClient()));
+  const [loadedOrganization, setLoadedOrganization] = useState<string>();
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(40);
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "alphabetical">(
     "newest"
   );
 
-  // Fetch images when sheet opens
+  const storage = useLibraryStorage(open && loadedOrganization === organizationId ? organizationId : undefined);
+  const allImages = useMemo(() => mergeUnlinkedImages(images, storage.images), [images, storage.images]);
+
   useEffect(() => {
-    if (open) {
-      fetchImages();
-    }
-  }, [open, organizationId]);
+    setVisibleCount(40);
+  }, [open, organizationId, searchQuery, sourceFilter, sortOrder]);
 
-  const fetchImages = async () => {
+  // Cancel stale responses when the picker closes or changes organization.
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
     setIsLoading(true);
-    try {
-      const response = await fetch("/api/image-library", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch images");
-      }
-
+    setLoadedOrganization(undefined);
+    setLoadError(null);
+    setImages([]);
+    fetch("/api/image-library", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId }),
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("Failed to fetch images");
       const data = await response.json();
-      const safe = (data.images || []).filter((img: ImageItem) => !!img.path);
-      setImages(safe);
-      setFilteredImages(safe);
-    } catch (error) {
-      console.error("Error fetching images:", error);
-      setImages([]);
-      setFilteredImages([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      if (data.error) throw new Error(data.error);
+      if (!controller.signal.aborted) {
+        setImages((data.images || []).filter((img: ImageItem) => !!img.path));
+        setLoadedOrganization(organizationId);
+      }
+    }).catch((error) => {
+      if (!controller.signal.aborted) {
+        console.error("Error fetching images:", error);
+        setLoadError("Images could not be loaded.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setIsLoading(false);
+    });
+    return () => controller.abort();
+  }, [open, organizationId, attempt]);
 
   // Filter and sort images
   useEffect(() => {
-    let filtered = [...images];
+    let filtered = [...allImages];
 
     // Apply source filter
     if (sourceFilter !== "all") {
@@ -126,70 +128,7 @@ export default function ImageLibrarySheet({
     }
 
     setFilteredImages(filtered);
-  }, [searchQuery, images, sourceFilter, sortOrder]);
-
-  // Load image URL on demand
-  const loadImageUrl = async (
-    image: ImageItem,
-    full?: boolean
-  ): Promise<string | null> => {
-    if (!image.path) return null;
-    if (image.url) return image.url;
-
-    setLoadingImages((prev) => new Set(prev).add(image.id));
-
-    try {
-      const response = await fetch("/api/image-library/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagePath: image.path, thumb: !full }),
-      });
-
-      const data = await response.json();
-
-      // Check if it's a policy issue (product images)
-      if (response.status === 403 && data.requiresPolicyUpdate) {
-        console.log("Product image requires policy update:", data.originalPath);
-        // Return null to show the "Image unavailable" state
-        return null;
-      }
-
-      if (!response.ok) {
-        if (response.status === 400) {
-          // Bad request (likely missing/invalid path) → mark as error for this card
-          return null;
-        }
-        throw new Error("Failed to get signed URL");
-      }
-
-      if (data.url) {
-        // Update the image with the URL
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === image.id ? { ...img, url: data.url } : img
-          )
-        );
-        setFilteredImages((prev) =>
-          prev.map((img) =>
-            img.id === image.id ? { ...img, url: data.url } : img
-          )
-        );
-
-        return data.url;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error loading image URL:", error);
-      return null;
-    } finally {
-      setLoadingImages((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(image.id);
-        return newSet;
-      });
-    }
-  };
+  }, [searchQuery, allImages, sourceFilter, sortOrder]);
 
   const handleSelectImage = (image: ImageItem) => {
     // Extract filename from path
@@ -282,6 +221,10 @@ export default function ImageLibrarySheet({
           </div>
         </div>
 
+        <div className="px-6">
+          <StorageLoadingStatus loading={storage.loading} error={loadError || storage.error} onRetry={loadError ? () => setAttempt((value) => value + 1) : storage.retry} />
+        </div>
+
         {/* Images Grid */}
         <ScrollArea className="flex-1 px-6">
           {isLoading ? (
@@ -305,18 +248,22 @@ export default function ImageLibrarySheet({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 py-4">
-              {filteredImages.map((image) => (
+              {filteredImages.slice(0, visibleCount).map((image) => (
                 <ImageCard
                   key={image.id}
                   image={image}
                   isSelected={selectedImage === image.id}
-                  isLoading={loadingImages.has(image.id)}
                   onSelect={() => handleSelectImage(image)}
-                  onLoadImage={(img) => loadImageUrl(img, false)}
+                  onLoadImage={loadImageUrl}
                   getSourceColor={getSourceColor}
                 />
               ))}
             </div>
+          )}
+          {filteredImages.length > visibleCount && (
+            <Button variant="outline" className="mb-4 w-full" onClick={() => setVisibleCount((count) => count + 40)}>
+              Show more images
+            </Button>
           )}
         </ScrollArea>
       </SheetContent>
@@ -328,7 +275,6 @@ export default function ImageLibrarySheet({
 interface ImageCardProps {
   image: ImageItem;
   isSelected: boolean;
-  isLoading: boolean;
   onSelect: () => void;
   onLoadImage: (image: ImageItem) => Promise<string | null>;
   getSourceColor: (source: string) => string;
@@ -337,7 +283,6 @@ interface ImageCardProps {
 function ImageCard({
   image,
   isSelected,
-  isLoading,
   onSelect,
   onLoadImage,
   getSourceColor,
@@ -347,21 +292,19 @@ function ImageCard({
   const [isLoadingImage, setIsLoadingImage] = useState(!image.url);
 
   useEffect(() => {
-    if (!imageUrl && !hasError) {
-      loadImage();
-    }
-  }, []);
-
-  const loadImage = async () => {
-    setIsLoadingImage(true);
-    const url = await onLoadImage(image);
-    if (url) {
+    let active = true;
+    if (image.url) return;
+    onLoadImage(image).then((url) => {
+      if (!active) return;
       setImageUrl(url);
-    } else {
-      setHasError(true);
-    }
-    setIsLoadingImage(false);
-  };
+      setHasError(!url);
+    }).catch(() => {
+      if (active) setHasError(true);
+    }).finally(() => {
+      if (active) setIsLoadingImage(false);
+    });
+    return () => { active = false; };
+  }, [image, onLoadImage]);
 
   return (
     <div
@@ -374,7 +317,7 @@ function ImageCard({
       onClick={onSelect}
     >
       <div className="aspect-square relative bg-muted">
-        {isLoadingImage || isLoading ? (
+        {isLoadingImage ? (
           <div className="w-full h-full flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -382,9 +325,7 @@ function ImageCard({
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4">
             <ImageIcon className="h-8 w-8 mb-2" />
             <p className="text-xs text-center">
-              {image.source === "products"
-                ? "Product image (policy update needed)"
-                : "Image unavailable"}
+              Image unavailable
             </p>
           </div>
         ) : imageUrl ? (
@@ -395,6 +336,7 @@ function ImageCard({
             className="object-cover"
             sizes="(max-width: 540px) 50vw, 270px"
             unoptimized
+            onError={() => setHasError(true)}
           />
         ) : null}
 

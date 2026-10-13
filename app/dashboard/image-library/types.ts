@@ -34,6 +34,7 @@ export interface ImageFilters {
 }
 
 export interface ImageLibraryData {
+  organizationId?: string;
   images: ImageItem[];
   totalCount: number;
   error?: string;

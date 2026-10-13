@@ -90,7 +90,7 @@ export default function ImageFilters({
         </Badge>
         {filters.searchQuery && (
           <Badge variant="outline">
-            Search: "{filters.searchQuery}"
+            Search: &quot;{filters.searchQuery}&quot;
           </Badge>
         )}
       </div>

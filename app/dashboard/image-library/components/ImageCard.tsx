@@ -25,22 +25,20 @@ export default function ImageCard({
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    if (!imageUrl && !hasError) {
-      loadImage();
-    }
-  }, []);
-
-  const loadImage = async () => {
-    setIsLoading(true);
-    const url = await onLoadImage(image);
-
-    if (url) {
+    let active = true;
+    if (image.url) return;
+    onLoadImage(image).then((url) => {
+      if (!active) return;
       setImageUrl(url);
-    } else {
+      setHasError(!url);
+    }).catch(() => {
+      if (!active) return;
       setHasError(true);
-    }
-    setIsLoading(false);
-  };
+    }).finally(() => {
+      if (active) setIsLoading(false);
+    });
+    return () => { active = false; };
+  }, [image, onLoadImage]);
 
   const getSourceIcon = () => {
     switch (image.source) {
@@ -92,6 +90,7 @@ export default function ImageCard({
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+            onError={() => setHasError(true)}
           />
         ) : null}
       </div>

@@ -45,19 +45,19 @@ export default function ImageDetails({
   const descriptionId = "image-details-description";
 
   useEffect(() => {
-    if (image) {
-      loadImageDetails();
-    }
-  }, [image]);
-
-  const loadImageDetails = async () => {
     if (!image) return;
-
+    let active = true;
     setIsLoading(true);
-    // Request full-resolution URL for detail view
-    const url = await onLoadImage(image, true);
-    setImageUrl(url);
-  };
+    setImageUrl(null);
+    onLoadImage(image, true).then((url) => {
+      if (!active) return;
+      setImageUrl(url);
+      if (!url) setIsLoading(false);
+    }).catch(() => {
+      if (active) setIsLoading(false);
+    });
+    return () => { active = false; };
+  }, [image, onLoadImage]);
 
   const handleDownload = async () => {
     if (!imageUrl || !image) return;
@@ -74,7 +74,7 @@ export default function ImageDetails({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success("Image downloaded successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to download image");
     }
   };
@@ -163,7 +163,8 @@ export default function ImageDetails({
                 onError={() => setIsLoading(false)}
               />
             ) : (
-              <Skeleton className="w-full h-full" />
+              isLoading ? <Skeleton className="w-full h-full" /> :
+                <p className="p-4 text-sm text-muted-foreground">Image unavailable</p>
             )}
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center">

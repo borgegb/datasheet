@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:image-library": "node scripts/test-image-library.cjs",
     "test:eu-doc-signature": "node scripts/test-eu-doc-signature.cjs",
     "test:product-matrix": "node scripts/test-product-matrix.cjs",
     "test:document-revisions": "node scripts/test-document-revisions.cjs",

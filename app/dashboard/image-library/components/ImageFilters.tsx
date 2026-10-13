@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,13 +13,15 @@ interface ImageFiltersProps {
   onFilterChange: (filters: FilterType) => void;
   totalImages: number;
   filteredCount: number;
+  status?: ReactNode;
 }
 
 export default function ImageFilters({ 
   filters, 
   onFilterChange, 
   totalImages, 
-  filteredCount 
+  filteredCount,
+  status,
 }: ImageFiltersProps) {
   const handleSourceChange = (value: string) => {
     onFilterChange({ ...filters, source: value as FilterType['source'] });
@@ -82,15 +85,16 @@ export default function ImageFilters({
       </div>
       
       {/* Results count */}
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Badge variant="secondary">
           {filteredCount === totalImages 
             ? `${totalImages} images` 
             : `${filteredCount} of ${totalImages} images`}
         </Badge>
+        {status}
         {filters.searchQuery && (
           <Badge variant="outline">
-            Search: "{filters.searchQuery}"
+            Search: &quot;{filters.searchQuery}&quot;
           </Badge>
         )}
       </div>

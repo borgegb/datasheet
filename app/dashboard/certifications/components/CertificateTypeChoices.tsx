@@ -33,7 +33,8 @@ export default function CertificateTypeChoices() {
         <div key={group.name} role="group" aria-label={group.name} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {group.choices.map((choice) => {
             const title = "title" in choice ? choice.title : CERT_TYPES[choice.slug].title;
-            const held = euDocHoldReason(choice.slug, choice.productType);
+            const held = euDocHoldReason(choice.slug);
+            const href = `/dashboard/certifications/${choice.slug}/new${choice.slug === "eu-doc-serialised" && choice.productType === "pto-compressor" ? "?productType=pto-compressor" : ""}`;
             const className = "h-auto min-h-14 w-full min-w-0 whitespace-normal px-4 py-3 text-center leading-5";
             return held ? (
               <Button key={choice.slug} variant="outline" disabled className={className}>
@@ -41,7 +42,7 @@ export default function CertificateTypeChoices() {
               </Button>
             ) : (
               <Button key={choice.slug} variant="outline" asChild className={className}>
-                <Link href={`/dashboard/certifications/${choice.slug}/new`}>{title}</Link>
+                <Link href={href}>{title}</Link>
               </Button>
             );
           })}

@@ -14,6 +14,7 @@ import * as fontkit from "fontkit";
 import type { CertificationSettings } from "@/lib/certifications/settings";
 import type { HydrostaticProfile } from "@/lib/certifications/hydrostatic";
 import { documentRevisionSchema } from "@/lib/certifications/revision";
+import { allowsBlankDeclarationCertificate } from "@/lib/certifications/release";
 import { DECLARATION_TYPES, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 export type { EuDocProductType, EuDocPedCategory } from "@/lib/certifications/declarations";
 
@@ -172,18 +173,20 @@ function formatIssueDate(value: unknown) {
 }
 
 function resolvePed(productCertification: EuDeclarationProductCertification) {
+  const certificateNo = productCertification.certificateNo ||
+    (allowsBlankDeclarationCertificate(productCertification) ? "" : "Pending certification (test only)");
   if (productCertification.pedCategory === "cat-iii") {
     return {
       pedCategory: "Cat. III",
       modules: "Module B + C2",
-      certificateNo: productCertification.certificateNo || "Pending certification (test only)",
+      certificateNo,
     };
   }
 
   return {
     pedCategory: "Cat. II",
     modules: "Module A2",
-    certificateNo: productCertification.certificateNo || "Pending certification (test only)",
+    certificateNo,
   };
 }
 
@@ -1076,7 +1079,7 @@ export async function buildEuDeclarationOfConformityPdf(
   if (!options.isTest && productCertification?.issueEnabled === false) {
     throw new Error("Signed issuance is blocked for this product pending certification.");
   }
-  if (!options.isTest && productCertification && ["cat-ii", "cat-iii"].includes(productCertification.pedCategory) && !productCertification.certificateNo.trim()) {
+  if (!options.isTest && productCertification && ["cat-ii", "cat-iii"].includes(productCertification.pedCategory) && !productCertification.certificateNo.trim() && !allowsBlankDeclarationCertificate(productCertification)) {
     throw new Error("An approved PED certificate number is required for signed issuance.");
   }
   if (supplementalDeclarationProfile(type)) {

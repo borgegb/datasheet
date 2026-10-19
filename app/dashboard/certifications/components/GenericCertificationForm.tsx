@@ -228,9 +228,10 @@ function Vm350SerialNumberField({
 interface Props {
   typeSlug: string;
   euDocProducts?: EuDocProductOptions;
+  productType?: "blast-machine" | "pto-compressor";
 }
 
-export default function GenericCertificationForm({ typeSlug, euDocProducts }: Props) {
+export default function GenericCertificationForm({ typeSlug, euDocProducts, productType }: Props) {
   const router = useRouter();
   const typeDef = CERT_TYPES[typeSlug];
   if (!typeDef) {
@@ -267,7 +268,9 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   const yearField = isHydrostatic ? "yearOfManufacture" : "yearOfConstruction";
   const serialNumber = hasUnitSerial ? unitSerialNumber(form[yearField], serialDigits) : form.serialNumber;
   const supplementalProfile = supplementalDeclarationProfile(typeSlug);
-  const holdReason = euDocHoldReason(typeSlug, selectedProduct?.eu_doc_product_type);
+  const holdReason = euDocHoldReason(typeSlug);
+  const documentTitle = typeSlug === "eu-doc-serialised" && productType === "pto-compressor"
+    ? "EU DoC - Serialised - PTO Compressors" : typeDef.title;
   const setupError = selectedProduct ? (isHydrostatic ? hydrostaticSetupError(selectedProduct, documentMode === "issued")
     : documentMode === "issued" ? declarationIssueError(selectedProduct) : null) : null;
   const declarationNumber = isSerialised
@@ -578,7 +581,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
                     : "font-medium text-destructive"
                 }
               >
-                {supplementalProfile || ["cat-i", "sep"].includes(selectedProduct.eu_doc_ped_category || "") ? "Not applicable" : certificateNo || (selectedProduct.certification_issue_enabled === false ? "Pending - unsigned only" : "Missing - generation blocked")}
+                {supplementalProfile || ["cat-i", "sep"].includes(selectedProduct.eu_doc_ped_category || "") ? "Not applicable" : certificateNo || (selectedProduct.certification_issue_enabled === false ? "Pending - unsigned only" : declarationIssueError(selectedProduct) ? "Missing - generation blocked" : "Not provided")}
               </span>
             </div>
           </div>
@@ -627,7 +630,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
       if (data?.url) {
         setGeneratedPdfUrl(data.url);
         router.refresh();
-        toast.success(`${supportsDocumentMode && documentMode === "test" ? "Test" : typeDef.title} PDF generated`, {
+        toast.success(`${supportsDocumentMode && documentMode === "test" ? "Test" : documentTitle} PDF generated`, {
           description: "Click the button to open your generated PDF.",
           action: (
             <Button
@@ -654,7 +657,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg leading-6">New {typeDef.title}</CardTitle>
+        <CardTitle className="text-lg leading-6">New {documentTitle}</CardTitle>
       </CardHeader>
       <CardContent>
         {holdReason ? (
@@ -696,7 +699,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts }: Pr
                       Certificate ready
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Open the latest generated {typeDef.title.toLowerCase()}.
+                      Open the latest generated {documentTitle.toLowerCase()}.
                     </p>
                   </div>
                 </div>

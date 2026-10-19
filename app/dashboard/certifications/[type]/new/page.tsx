@@ -10,14 +10,18 @@ import { isDeclarationType } from "@/lib/certifications/declarations";
 
 interface Props {
   params: Promise<{ type: string }>;
+  searchParams: Promise<{ productType?: string }>;
 }
 
-export default async function NewCertificationTypePage({ params }: Props) {
+export default async function NewCertificationTypePage({ params, searchParams }: Props) {
   const { type } = await params;
+  const query = await searchParams;
+  const productType = type === "eu-doc-owner-manual-pto-compressors" ||
+    (type === "eu-doc-serialised" && query.productType === "pto-compressor") ? "pto-compressor" : "blast-machine";
   const typeDef = CERT_TYPES[type];
   if (!typeDef) return notFound();
   const euDocProducts = isDeclarationType(type) || type === "hydrostatic-test"
-    ? await fetchEuDocProducts(type) : undefined;
+    ? await fetchEuDocProducts(type, productType) : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,7 +41,7 @@ export default async function NewCertificationTypePage({ params }: Props) {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="w-full max-w-2xl mx-auto">
-          <GenericCertificationForm typeSlug={type} euDocProducts={euDocProducts} />
+          <GenericCertificationForm key={`${type}-${productType}`} typeSlug={type} productType={productType} euDocProducts={euDocProducts} />
         </div>
       </div>
     </div>

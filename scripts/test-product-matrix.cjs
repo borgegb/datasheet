@@ -51,7 +51,7 @@ async function main() {
     for (const mode of ['test', 'issued']) await check(`${model} declaration ${mode} approval and trusted identity`, async () => {
       const { response, calls, body } = await routeProbe({ type, product, productId: model, documentMode: mode,
         data: { commercialName: 'FORGED', modelType: 'WRONG' } });
-      const allowed = product.eu_doc_product_type !== 'pto-compressor' && (mode === 'test' || product.certification_issue_enabled);
+      const allowed = mode === 'test' || product.certification_issue_enabled;
       assert.equal(response.status, allowed ? 200 : 400, JSON.stringify(body));
       if (!allowed) { assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0); return; }
       assert.equal(calls.records[0].data.modelType, `${model} / ${product.product_code}`);

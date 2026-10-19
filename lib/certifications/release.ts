@@ -1,14 +1,23 @@
 import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
 
-export const PTO_DOC_HOLD_MESSAGE =
-  "PTO Compressor DoCs are on hold pending Applied's revised PED scope and document content.";
-
-export function euDocHoldReason(type: string, productType?: string | null) {
-  return type === "ec-vm-350-declaration" ||
-    type === "eu-doc-owner-manual-pto-compressors" ||
-    (type === "eu-doc-serialised" && productType === "pto-compressor")
-    ? PTO_DOC_HOLD_MESSAGE
+export function euDocHoldReason(type: string) {
+  return type === "ec-vm-350-declaration"
+    ? "The legacy VM350 generator is on hold. Use the PTO Compressor EU DoC generators."
     : null;
+}
+
+// These two products were explicitly released for signed DoCs on 19 October.
+// Keep their absent PED certificate reference blank, never substitute another product's.
+export function allowsBlankDeclarationCertificate(product: {
+  productCode?: string | null;
+  productType?: string | null;
+  pedCategory?: string | null;
+  issueEnabled?: boolean | null;
+}) {
+  return product.issueEnabled === true && (
+    (product.productCode === "VM-A-0001" && product.productType === "pto-compressor" && product.pedCategory === "cat-ii") ||
+    (product.productCode === "BP-A-5200" && product.productType === "blast-machine" && product.pedCategory === "cat-iii")
+  );
 }
 
 export const SERIAL_NUMBER_FORMAT_MESSAGE =

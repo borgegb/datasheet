@@ -18,7 +18,7 @@ import {
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { signatureInkForDocument, type SignatureInk } from "@/lib/pdf/certifications/signatureInk";
-import { euDocHoldReason, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
+import { euDocHoldReason, allowsBlankDeclarationCertificate, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
 import { certificateModelName, declarationIssueError, isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
 import { hydrostaticProfileSchema, hydrostaticProductFields, hydrostaticProductCertificateNumber, hydrostaticSetupError, type HydrostaticData } from "@/lib/certifications/hydrostatic";
@@ -189,7 +189,7 @@ async function fetchEuDeclarationProductCertification(
   const pedCategory = normalizeEuDocPedCategory(product.eu_doc_ped_category);
   const certificateNo = product.eu_doc_certificate_no?.trim() || "";
 
-  const holdReason = euDocHoldReason(type, productType);
+  const holdReason = euDocHoldReason(type);
   if (holdReason) return { productCertification: null, error: holdReason };
 
   if (!productType || !pedCategory) {
@@ -231,9 +231,11 @@ async function fetchEuDeclarationProductCertification(
   }
 
   const supplemental = supplementalDeclarationProfile(type);
-  const issueError = !isTest ? declarationIssueError({ ...product, eu_doc_ped_category: pedCategory }) : null;
+  const issueError = !isTest ? declarationIssueError({ ...product, eu_doc_product_type: productType, eu_doc_ped_category: pedCategory }) : null;
   if (issueError) return { productCertification: null, error: issueError };
-  if (!supplemental && !certificateNo && product.certification_issue_enabled !== false) {
+  const allowsBlankCertificate = allowsBlankDeclarationCertificate({ productCode: product.product_code, productType,
+    pedCategory, issueEnabled: product.certification_issue_enabled });
+  if (!supplemental && !certificateNo && product.certification_issue_enabled !== false && !allowsBlankCertificate) {
     return {
       productCertification: null,
       error:
@@ -244,7 +246,7 @@ async function fetchEuDeclarationProductCertification(
   if (!isAvailableDeclarationProduct(type, { ...product, eu_doc_product_type: productType, eu_doc_ped_category: pedCategory })) {
     return { productCertification: null, error: supplemental
       ? `This declaration requires ${supplemental.productCode}, ${supplemental.pedCategory} settings and no Notified Body certificate number.`
-      : "This generator only supports configured Cat. II / III blast machines." };
+      : "This generator requires a configured Cat. II / III blast machine or Cat. II PTO compressor, matching the document type." };
   }
 
   const profile = hydrostaticProfileSchema.safeParse(product.hydrostatic_profile);

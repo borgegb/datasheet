@@ -183,10 +183,10 @@ async function run() {
     ['missing settings schema', { settingsReadError: true }, 500],
     ['missing product certificate', { product: { eu_doc_certificate_no: '' } }, 400],
     ['cross-org product', { product: { organization_id: 'other' } }, 400],
-    ['PTO manual on hold', { type: 'eu-doc-owner-manual-pto-compressors' }, 409],
+    ['PTO manual rejects a blast machine', { type: 'eu-doc-owner-manual-pto-compressors' }, 400],
     ['legacy VM350 on hold', { type: 'ec-vm-350-declaration' }, 409],
     ['legacy VM350 test on hold', { type: 'ec-vm-350-declaration', documentMode: 'test' }, 409],
-    ['PTO serialised on hold with certificate', { product: { eu_doc_product_type: 'pto-compressor', eu_doc_ped_category: 'cat-ii', eu_doc_certificate_no: 'VALID-COMPRESSOR-CERT' } }, 400],
+    ['PTO serialised rejects Cat. III', { product: { eu_doc_product_type: 'pto-compressor', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'VALID-COMPRESSOR-CERT' } }, 400],
     ['invalid mode', { documentMode: 'signed-test' }, 400],
     ['viewer test', { role: 'viewer', documentMode: 'test' }, 403],
   ];

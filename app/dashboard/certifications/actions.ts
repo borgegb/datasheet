@@ -55,7 +55,7 @@ export async function fetchCertificationsForOrg() {
   return { data: data as CertificationRow[], error: null };
 }
 
-export async function fetchEuDocProducts(type = "eu-doc-serialised"): Promise<EuDocProductOptions> {
+export async function fetchEuDocProducts(type = "eu-doc-serialised", productType = "blast-machine"): Promise<EuDocProductOptions> {
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -67,16 +67,20 @@ export async function fetchEuDocProducts(type = "eu-doc-serialised"): Promise<Eu
     }
     // Read with the user's session and RLS, never the service-role client.
     const isHydrostatic = type === "hydrostatic-test";
+    const declarationProductType = supplementalDeclarationProfile(type)?.productType ||
+      (type === "eu-doc-owner-manual-pto-compressors" || (type === "eu-doc-serialised" && productType === "pto-compressor")
+        ? "pto-compressor" : "blast-machine");
     let query = supabase.from("products")
       .select("id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile, certification_issue_enabled")
       .eq("organization_id", profile.organization_id);
     query = isHydrostatic
       ? query.in("eu_doc_product_type", ["blast-machine", "air-receiver", "air-filter"])
-      : query.eq("eu_doc_product_type", supplementalDeclarationProfile(type)?.productType || "blast-machine");
+      : query.eq("eu_doc_product_type", declarationProductType);
     const { data, error } = await query.order("product_title", { ascending: true });
     if (error) return { data: [], error: "Products could not be loaded. Please retry." };
     const products = (data ?? []) as unknown as EuDocProductOptions["data"];
-    return { data: isHydrostatic ? products : products.filter(product => isAvailableDeclarationProduct(type, product)), error: null };
+    return { data: isHydrostatic ? products : products.filter(product =>
+      product.eu_doc_product_type === declarationProductType && isAvailableDeclarationProduct(type, product)), error: null };
   } catch {
     return { data: [], error: "Products could not be loaded. Please retry." };
   }

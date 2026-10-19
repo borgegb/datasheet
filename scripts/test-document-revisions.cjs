@@ -26,18 +26,14 @@ async function main() {
       assert.deepEqual(field.options.map(o => o.value), DOCUMENT_REVISIONS);
       assert.equal(definition.schema.parse(unit).revision, '01');
     });
-    // The selector must not release the existing PTO hold.
-    if (type === 'eu-doc-owner-manual-pto-compressors') {
-      const result = await routeProbe({ type, data: { revision: '02' } });
-      assert.equal(result.response.status, 409);
-      assert.equal(result.calls.uploads.length, 0);
-      continue;
-    }
     const profile = supplementalDeclarationProfile(type);
     const product = profile ? { ...blast40, product_code: profile.productCode,
       product_title: profile.commercialName, eu_doc_product_type: profile.productType,
       eu_doc_ped_category: profile.pedCategory, eu_doc_certificate_no: null,
-      hydrostatic_profile: null } : blast40;
+      hydrostatic_profile: null } : type === 'eu-doc-owner-manual-pto-compressors'
+      ? { ...blast40, product_code: 'VM-A-0001', product_title: 'PTO Compressor VM350',
+        eu_doc_product_type: 'pto-compressor', eu_doc_certificate_no: null, certification_issue_enabled: true }
+      : blast40;
 
     for (const revision of DOCUMENT_REVISIONS) for (const documentMode of ['test', 'issued']) {
       await check(`${type}: ${documentMode} revision ${revision} stored and passed to PDF`, async () => {

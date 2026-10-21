@@ -38,12 +38,12 @@ const payload = { batchId: "d3d28304-38c1-4b7d-93e1-b89bfbaf453d", rows: [{
   preferred_supplier: "Supplier", order_quantity: "", lead_time: "", header_color: "orange",
 }] };
 const saved = [];
-let writes = 0, uploads = 0, authenticated = true, organization = "org1", readFailure = false;
+let writes = 0, uploads = 0, authenticated = true, organization = "org1", role = "owner", readFailure = false;
 const client = {
   auth: { getUser: async () => ({ data: { user: authenticated ? { id: "user1" } : null } }) },
   storage: { from: () => ({ upload: async () => { uploads++; return {}; } }) },
   from(table) {
-    if (table === "profiles") return { select() { return this; }, eq() { return this; }, single: async () => ({ data: { organization_id: organization } }) };
+    if (table === "profiles") return { select() { return this; }, eq() { return this; }, single: async () => ({ data: { organization_id: organization, role } }) };
     assert.equal(table, "kanban_cards");
     return {
       select() { return this; },
@@ -74,6 +74,9 @@ async function main() {
   organization = null;
   assert.equal((await api.POST(request())).status, 403);
   organization = "org1";
+  role = "viewer";
+  assert.equal((await api.POST(request())).status, 403);
+  role = "owner";
   assert.equal((await api.POST(request({ ...payload, rows: [] }))).status, 400);
   assert.equal((await api.POST(request({ ...payload, rows: Array(4).fill(payload.rows[0]) }))).status, 400);
   assert.equal((await api.POST(request({ ...payload, rows: [{ ...payload.rows[0], targetId: "existing" }] }))).status, 400);

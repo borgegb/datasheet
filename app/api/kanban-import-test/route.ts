@@ -18,8 +18,9 @@ export async function POST(request: Request) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return fail("Sign in before importing test copies.", 401);
   const { data: profile, error: profileError } = await supabase.from("profiles")
-    .select("organization_id").eq("id", user.id).single();
+    .select("organization_id,role").eq("id", user.id).single();
   if (profileError || !profile?.organization_id) return fail("Your organisation could not be verified.", 403);
+  if (!["owner", "member"].includes(profile.role)) return fail("An organisation editor must confirm test imports.", 403);
   const org = profile.organization_id as string;
   try {
     if (Number(request.headers.get("content-length")) > 3_500_000)
@@ -37,14 +38,17 @@ export async function POST(request: Request) {
       if (!(image instanceof File)) return fail("Invalid test image.", 400);
       bytesTotal += image.size;
       if (bytesTotal > 3_000_000) return fail("Test images must total less than 3 MB.", 413);
-      const bytes = Buffer.from(await image.arrayBuffer());
+      let bytes = Buffer.from(await image.arrayBuffer());
       const metadata = await sharp(bytes, { limitInputPixels: 25_000_000 }).metadata();
       if (!metadata.format || !["png", "jpeg", "webp"].includes(metadata.format))
         return fail("Use PNG, JPEG or WebP images for the test.", 400);
+      // The card PDF renderer accepts PNG/JPEG; convert WebP during import.
+      const format = metadata.format === "webp" ? "png" : metadata.format;
+      if (metadata.format === "webp") bytes = Buffer.from(await sharp(bytes, { limitInputPixels: 25_000_000 }).png().toBuffer());
       const digest = createHash("sha256").update(bytes).digest("hex");
-      const path = `${org}/kanban/test-imports/${user.id}/${payload.batchId}/${digest}.${metadata.format}`;
+      const path = `${org}/kanban/test-imports/${user.id}/${payload.batchId}/${digest}.${format}`;
       paths.push(path);
-      uploads.push({ path, bytes, contentType: `image/${metadata.format}` });
+      uploads.push({ path, bytes, contentType: `image/${format}` });
     }
     const expected = prepareTestCards(payload, org, user.id, paths);
     // Always look at all three slots: reusing a batch ID with fewer rows must

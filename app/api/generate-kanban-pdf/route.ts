@@ -3,6 +3,7 @@ export const memory = 1024;
 export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
+import { KanbanPdfLayoutError } from "@/lib/pdf/kanban/fitKanbanTemplate";
 import {
   KanbanRouteError,
   createKanbanPdfSignedUrl,
@@ -43,6 +44,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url });
   } catch (error) {
+    if (error instanceof KanbanPdfLayoutError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
     console.error("Error in POST /api/generate-kanban-pdf:", error);
 
     if (error instanceof KanbanRouteError) {

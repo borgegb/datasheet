@@ -35,6 +35,7 @@ const cards = ['red', 'blue', 'purple'].map((header_color, i) => ({
   description: `Batch print sample ${i + 1}`, location: `A-${i + 1}`, order_quantity: i + 1,
   preferred_supplier: 'Test Supplier', lead_time: '2 days', header_color,
 }));
+const layoutModule = load('lib/pdf/kanban/fitKanbanTemplate.ts');
 
 async function probe(payload, options = {}) {
   const calls = { filters: [], rendered: [], writes: 0 };
@@ -52,10 +53,12 @@ async function probe(payload, options = {}) {
     storage: { from() { calls.writes++; throw new Error('Batch printing must not write PDFs'); } },
   };
   const stubs = {
+    '@/lib/pdf/kanban/fitKanbanTemplate': layoutModule,
     '@/lib/supabase/server': { createClient: async () => client },
     '@supabase/supabase-js': { createClient: () => client },
     '@/lib/pdf/kanban/buildKanbanBatchPdf': { buildKanbanBatchPdf: async (selected) => {
       calls.rendered.push(...selected.map(c => c.id));
+      if (options.layoutError) throw new layoutModule.KanbanPdfLayoutError(selected[0].part_no);
       if (options.renderError) throw new Error('render failed');
       return new TextEncoder().encode('%PDF-test');
     } },
@@ -106,6 +109,12 @@ async function main() {
     try { assert.equal((await probe({ kanbanCardIds: [id(1)] }, { renderError: true })).response.status, 500); }
     finally { console.error = original; }
   });
+  await check('oversized card returns an actionable 422, not a partial print batch', async () => {
+    const { response, calls } = await probe({ kanbanCardIds: [id(1)] }, { layoutError: true });
+    assert.equal(response.status, 422);
+    assert.match((await response.json()).error, /Shorten.*description/);
+    assert.equal(calls.writes, 0);
+  });
   await check('accepts the maximum 100-card selection in order', async () => {
     const batch = Array.from({ length: 100 }, (_, n) => ({ ...cards[n % 3], id: id(n + 1) }));
     const ids = batch.map(card => card.id);
@@ -139,9 +148,66 @@ async function main() {
     try { assert.equal((await PDFDocument.load(await buildKanbanBatchPdf([cards[0]]))).getPageCount(), 1); }
     finally { console.log = original; }
   });
+  const samples = [
+    ['SP000329', '1" BSP Combined Moisture Separator/Pressure Regulator', 'UA02/R01-C01', 'Ningbo Xinchao Automatization Component Co Ltd'],
+    ['SP000330', '1/2" BSP Combined Moisture Separator/Pressure Regulator', 'UA02/R01-C02', 'Ningbo Xinchao Automatization Component Co Ltd'],
+    ['BP-A-0003', 'Applied Wheel Assist Kit', 'UA02/R01-C03', ''],
+  ];
+  const renderSamples = [];
+  for (const labelled of [false, true]) {
+    await check(`three imported cards each fit A6 with complete fields (${labelled ? 'test labels' : 'original values'})`, async () => {
+      const original = console.log;
+      console.log = () => {};
+      try {
+        for (const [i, [part, description, location, supplier]] of samples.entries()) {
+          const card = { ...cards[0], id: id(i + 10), header_color: 'orange', order_quantity: null, lead_time: '',
+            part_no: labelled ? `TEST-IMPORT-96D92942-${i + 1}` : part,
+            description: labelled ? `[TEST COPY of ${part}] ${description}` : description,
+            location: labelled ? `TEST / ${location}` : location, preferred_supplier: supplier };
+          const rendered = await buildKanbanPdf([card]);
+          const doc = await PDFDocument.load(rendered);
+          assert.equal(doc.getPageCount(), 1);
+          const {width, height} = doc.getPage(0).getSize();
+          assert.ok(Math.abs(width - 105 * 72 / 25.4) < 0.1);
+          assert.ok(Math.abs(height - 148 * 72 / 25.4) < 0.1);
+          renderSamples.push({ name: `${labelled ? 'labelled' : 'original'}-${i + 1}.pdf`, bytes: rendered });
+        }
+      } finally { console.log = original; }
+    });
+  }
+  await check('long descriptions, supplier names and unbroken references fit without altering text', async () => {
+    const { getDefaultFont } = require('@pdfme/common');
+    const source = require('../pdf/template/kanban/template-orange.json');
+    const before = JSON.stringify(source);
+    const font = getDefaultFont(); font.Roboto.fallback = false;
+    font['Inter-Regular'] = { data: fs.readFileSync(path.join(root, 'pdf/fonts/Inter-Regular.ttf')), subset: true, fallback: true };
+    const rows = [['Part No:', 'SP-' + '1234567890'.repeat(6)],
+      ['Description:', 'Stainless steel pressure regulator with adjustable mounting bracket, moisture separator and replaceable filter. '.repeat(3)],
+      ['Location:', 'UA02/R01-C01'], ['Order Qty:', '250'],
+      ['Preferred Supplier:', 'International Pneumatic and Hydraulic Components Manufacturing and Distribution Company Limited'],
+      ['Lead Time:', '10–15 working days'], ['Signature:', '']];
+    const beforeRows = JSON.stringify(rows);
+    const fitted = await layoutModule.fitKanbanTemplate(source, rows, font, 'long-sample');
+    const textCells = fitted.schemas[0].filter(s => s.name.startsWith('cell-text-'));
+    assert.deepEqual(textCells.map(s => s.content), rows.flat());
+    for (const schema of fitted.schemas[0]) assert.ok(schema.position.y + schema.height <= 146);
+    for (const cell of textCells) assert.ok(cell.fontSize >= 9);
+    assert.equal(JSON.stringify(rows), beforeRows);
+    assert.equal(JSON.stringify(source), before);
+    await assert.rejects(() => layoutModule.fitKanbanTemplate(source, [['Description:', 'Very long text '.repeat(1000)]], font, 'TOO-LONG'),
+      error => error instanceof layoutModule.KanbanPdfLayoutError && error.message.includes('TOO-LONG'));
+    const original = console.log; console.log = () => {};
+    try {
+      const longCard = {...cards[0], part_no: rows[0][1], description: rows[1][1], preferred_supplier: rows[4][1], lead_time: rows[5][1]};
+      const rendered = await buildKanbanPdf([longCard, cards[1]]);
+      assert.equal((await PDFDocument.load(rendered)).getPageCount(), 2);
+      renderSamples.push({name: 'long-and-short.pdf', bytes: rendered});
+    } finally { console.log = original; }
+  });
   if (process.env.KANBAN_PRINT_TEST_OUTPUT) {
     fs.mkdirSync(process.env.KANBAN_PRINT_TEST_OUTPUT, { recursive: true });
     fs.writeFileSync(path.join(process.env.KANBAN_PRINT_TEST_OUTPUT, 'mixed-colours.pdf'), bytes);
+    for (const sample of renderSamples) fs.writeFileSync(path.join(process.env.KANBAN_PRINT_TEST_OUTPUT, sample.name), sample.bytes);
   }
   console.log(`\n${passed} batch print checks passed. No live database or storage writes.`);
 }

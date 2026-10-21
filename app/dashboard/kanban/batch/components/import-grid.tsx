@@ -419,6 +419,27 @@ export function ImportGrid({
   notify: GridMeta["notify"];
   filterKey: string;
 }) {
+  const viewport = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return;
+    // Text inputs have their own horizontal scroll area. Route wheel gestures
+    // to the grid before the browser scrolls the text inside an individual cell.
+    const scrollGrid = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return;
+      const horizontal = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+      if (!horizontal) return;
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientWidth : 1;
+      element.scrollLeft += horizontal * unit;
+      if (!event.shiftKey) {
+        const verticalUnit = event.deltaMode === 2 ? element.clientHeight : unit;
+        element.scrollTop += event.deltaY * verticalUnit;
+      }
+    };
+    element.addEventListener("wheel", scrollGrid, { capture: true, passive: false });
+    return () => element.removeEventListener("wheel", scrollGrid, { capture: true });
+  }, []);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
@@ -451,7 +472,7 @@ export function ImportGrid({
   });
   const visibleSelected = data.filter((a) => selection[a.row.id]).length;
   return (
-    <div className="overflow-hidden rounded-xl border bg-background shadow-xs">
+    <div className="relative isolate min-w-0 max-w-full overflow-hidden rounded-xl border bg-background shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
         <span>
           {data.length.toLocaleString()} rows in this view · Click a cell to
@@ -485,6 +506,7 @@ export function ImportGrid({
         </button>
       </div>
       <div
+        ref={viewport}
         className="max-h-[58vh] min-h-[280px] overflow-auto overscroll-contain"
         tabIndex={0}
         aria-label="Editable batch rows"

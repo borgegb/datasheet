@@ -30,7 +30,7 @@ export default async function BatchKanbanPage() {
           </Link>
         </div>
       ) : (
-        <KanbanImportReview reference={result.data!} />
+        <KanbanImportReview reference={result.data!} testImportEnabled={process.env.NODE_ENV === "development" || process.env.VERCEL_ENV === "preview"} />
       )}
     </div>
   );

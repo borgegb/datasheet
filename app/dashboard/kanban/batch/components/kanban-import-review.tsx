@@ -53,6 +53,7 @@ import { KANBAN_ALLOWED_HEADER_COLORS } from "@/lib/kanban/colors";
 import { ImportGrid, FIELD_LABELS, type RowChange } from "./import-grid";
 import { ImportRowDetails } from "./import-row-details";
 import { cn } from "@/lib/utils";
+import { TestImportPanel, type TestImportSession } from "./test-import-panel";
 
 type Filter = "all" | "missing" | "matches" | "errors" | "skipped";
 const selectStyle =
@@ -61,9 +62,11 @@ const selectStyle =
 export function KanbanImportReview({
   reference,
   demo = false,
+  testImportEnabled = false,
 }: {
   reference: ImportReference;
   demo?: boolean;
+  testImportEnabled?: boolean;
 }) {
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [fileName, setFileName] = useState("");
@@ -85,6 +88,7 @@ export function KanbanImportReview({
   const [bulkValue, setBulkValue] = useState("");
   const [onlyEmpty, setOnlyEmpty] = useState(true);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const testSession = useRef<TestImportSession | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const urls = useRef<string[]>([]);
@@ -425,8 +429,9 @@ export function KanbanImportReview({
       <div className="flex items-start gap-2 rounded-lg border border-blue-200/60 bg-blue-50/50 px-3 py-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-100">
         <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
         <span>
-          This preview prepares a batch for review. Export your changes to keep
-          them; database import is not enabled yet.
+          {testImportEnabled
+            ? "Review your batch, export your changes, or confirm a small test using up to three labelled card copies."
+            : "This preview prepares a batch for review. Export your changes to keep them; database import is not enabled here."}
         </span>
       </div>
       {error && (
@@ -765,7 +770,7 @@ export function KanbanImportReview({
         </DialogContent>
       </Dialog>
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Review the proposed batch</DialogTitle>
             <DialogDescription>
@@ -809,10 +814,16 @@ export function KanbanImportReview({
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
             This preview exports a ZIP containing the reviewed spreadsheet,
-            actions and supplied images. It does not create products, save cards
-            or generate PDFs. Database saving will be added after this workflow
-            is agreed.
+            actions and supplied images. Full-batch saving is not enabled yet.
           </p>
+          {testImportEnabled && !demo && (
+            <TestImportPanel
+              session={testSession}
+              rows={(Object.values(selection).some(Boolean)
+                ? assessed.filter(a => selection[a.row.id] && !a.errors.length)
+                : included.filter(a => !a.errors.length)).map(a => a.row)}
+            />
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewOpen(false)}>
               Back to editing

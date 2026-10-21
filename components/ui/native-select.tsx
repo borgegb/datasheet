@@ -2,9 +2,9 @@ import type { ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function NativeSelect({ className, ...props }: ComponentProps<"select">) {
+export function NativeSelect({ className, wrapperClassName, ...props }: ComponentProps<"select"> & { wrapperClassName?: string }) {
   return (
-    <div className="relative min-w-0">
+    <div className={cn("relative min-w-0", wrapperClassName)}>
       <select
         className={cn("h-9 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-12 text-sm disabled:opacity-50", className)}
         {...props}

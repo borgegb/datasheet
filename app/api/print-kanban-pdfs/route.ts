@@ -4,6 +4,7 @@ import {
   getAuthenticatedKanbanRouteContext,
 } from "@/lib/kanban/pdf-server";
 import { buildKanbanBatchPdf } from "@/lib/pdf/kanban/buildKanbanBatchPdf";
+import { KanbanPdfLayoutError } from "@/lib/pdf/kanban/fitKanbanTemplate";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -42,6 +43,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof KanbanPdfLayoutError) {
+      return Response.json({ error: error.message }, { status: 422 });
+    }
     if (error instanceof KanbanRouteError) {
       return Response.json({ error: error.message }, { status: error.status });
     }

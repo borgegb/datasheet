@@ -13,7 +13,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 isolate">
         <SiteHeader />
         {/* Render the specific page content here */}
         {children}

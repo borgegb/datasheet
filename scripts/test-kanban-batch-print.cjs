@@ -192,6 +192,11 @@ async function main() {
     assert.deepEqual(textCells.map(s => s.content), rows.flat());
     for (const schema of fitted.schemas[0]) assert.ok(schema.position.y + schema.height <= 146);
     for (const cell of textCells) assert.ok(cell.fontSize >= 9);
+    for (const cell of textCells.filter(s => s.name.endsWith('-0'))) assert.equal(cell.fontSize, 16);
+    assert.ok(textCells.some(s => s.name.endsWith('-1') && s.fontSize < 16));
+    const shortFitted = await layoutModule.fitKanbanTemplate(source, rows.map(([label]) => [label, 'Short']), font, 'short-sample');
+    const shortLabels = shortFitted.schemas[0].filter(s => s.name.startsWith('cell-text-') && s.name.endsWith('-0'));
+    assert.deepEqual(shortLabels.map(s => [s.content, s.fontSize]), textCells.filter(s => s.name.endsWith('-0')).map(s => [s.content, s.fontSize]));
     assert.equal(JSON.stringify(rows), beforeRows);
     assert.equal(JSON.stringify(source), before);
     await assert.rejects(() => layoutModule.fitKanbanTemplate(source, [['Description:', 'Very long text '.repeat(1000)]], font, 'TOO-LONG'),

@@ -67,19 +67,22 @@ export async function fitKanbanTemplate(
     const textWidths = widths.map(width => width - padding.left - padding.right - borderWidth.left - borderWidth.right);
     // pdfme 5's table measurement ignores horizontal padding/borders when
     // wrapping. Measure narrower columns to match the actual text boxes.
-    const measureWidth = textWidths.reduce((sum, width) => sum + width, 0);
-    const measure = {
-      ...info,
-      width: measureWidth,
-      headWidthPercentages: textWidths.map(width => width / measureWidth * 100),
-    };
-    const measured = await getDynamicHeightsForTable(JSON.stringify(productInfo), {
-      schema: measure,
-      basePdf: template.basePdf,
-      options: { font },
-      _cache: cache,
-    });
-    const heights = measured.slice(1).map(height => height + borderWidth.top + borderWidth.bottom);
+    // Labels retain the template's font size on every card. Measure each
+    // column separately so only right-hand values adapt to longer content.
+    const columnHeights = await Promise.all(textWidths.map((width, columnIndex) =>
+      getDynamicHeightsForTable(JSON.stringify(productInfo.map(row => [row[columnIndex]])), {
+        schema: {
+          ...info, width, head: [""], headWidthPercentages: [100],
+          bodyStyles: { ...info.bodyStyles, fontSize: columnIndex === 0 ? originalFontSize : candidate.fontSize },
+        },
+        basePdf: template.basePdf,
+        options: { font },
+        _cache: cache,
+      })
+    ));
+    const heights = productInfo.map((_, rowIndex) =>
+      Math.max(...columnHeights.map(heights => heights[rowIndex + 1])) + borderWidth.top + borderWidth.bottom
+    );
     const height = heights.reduce((sum, row) => sum + row, 0);
     // Keep a physical bottom margin, including space for the table border.
     const bottom = template.basePdf.height - Math.max(2, template.basePdf.padding[2]);
@@ -99,6 +102,7 @@ export async function fitKanbanTemplate(
           });
           cells.push({
             ...info.bodyStyles,
+            fontSize: columnIndex === 0 ? originalFontSize : candidate.fontSize,
             name: `cell-text-${rowIndex}-${columnIndex}`,
             type: "text", readOnly: true, content,
             position: { x: x + padding.left + borderWidth.left, y: y + padding.top + borderWidth.top },

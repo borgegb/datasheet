@@ -38,10 +38,11 @@ const payload = { batchId: "d3d28304-38c1-4b7d-93e1-b89bfbaf453d", rows: [{
   preferred_supplier: "Supplier", order_quantity: "", lead_time: "", header_color: "orange",
 }] };
 const saved = [];
+const uploaded = [];
 let writes = 0, uploads = 0, authenticated = true, organization = "org1", role = "owner", readFailure = false;
 const client = {
   auth: { getUser: async () => ({ data: { user: authenticated ? { id: "user1" } : null } }) },
-  storage: { from: () => ({ upload: async () => { uploads++; return {}; } }) },
+  storage: { from: () => ({ upload: async (path, bytes, options) => { uploads++; uploaded.push({ path, bytes, options }); return {}; } }) },
   from(table) {
     if (table === "profiles") return { select() { return this; }, eq() { return this; }, single: async () => ({ data: { organization_id: organization, role } }) };
     assert.equal(table, "kanban_cards");
@@ -105,6 +106,26 @@ async function main() {
   assert.equal((await api.POST(request())).status, 200);
   assert.notEqual(saved[0].id, saved[1].id);
   assert.notEqual(model.testCardId("org1", "user1", payload.batchId, 0), model.testCardId("org1", "user2", payload.batchId, 0));
+  const sharp = require("sharp");
+  const webp = await sharp({ create: { width: 2, height: 2, channels: 3, background: "orange" } }).webp().toBuffer();
+  const imagePayload = { ...payload, batchId: "d3d28304-38c1-4b7d-93e1-b89bfbaf453e" };
+  const imageRequest = () => {
+    const form = new FormData();
+    form.set("payload", JSON.stringify(imagePayload));
+    form.set("image0", new Blob([webp], { type: "image/webp" }), "part.webp");
+    return new Request("https://preview.example/api/kanban-import-test", { method: "POST", headers: { origin: "https://preview.example" }, body: form });
+  };
+  assert.equal((await api.POST(imageRequest())).status, 200);
+  assert.equal(uploads, 1);
+  assert.equal(uploaded[0].options.contentType, "image/png");
+  assert.equal(uploaded[0].options.upsert, false);
+  assert.equal((await sharp(uploaded[0].bytes).metadata()).format, "png");
+  assert.ok(uploaded[0].path.startsWith("org2/kanban/test-imports/user1/"));
+  assert.equal(saved[2].image_path, uploaded[0].path);
+  assert.equal((await api.POST(imageRequest())).status, 200);
+  assert.equal(uploads, 1);
+  assert.equal(saved.length, 3);
+  console.log("PASS WebP images are stored as PDF-compatible PNGs; retries do not re-upload or duplicate cards.");
   console.log("PASS test imports enforce preview, origin, auth, org, limits, quantities, labels, isolation and retry idempotency; no updates or product writes.");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

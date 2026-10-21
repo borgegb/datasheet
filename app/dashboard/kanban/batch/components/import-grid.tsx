@@ -583,19 +583,19 @@ export function ImportGrid({
                     key={cell.id}
                     className={cn(
                       "border-r border-b border-border/50 p-0",
-                      row.getIsSelected()
-                        ? "bg-blue-50 dark:bg-blue-950/30"
-                        : row.original.row.decision === "skip"
-                          ? "bg-muted/40"
-                          : "bg-background",
+                      cell.column.id === "header_color" &&
+                      isKanbanHeaderColor(row.original.row.header_color)
+                        ? COLOUR_CELL_CLASSES[row.original.row.header_color]
+                        : row.getIsSelected()
+                          ? "bg-blue-50 dark:bg-blue-950/30"
+                          : row.original.row.decision === "skip"
+                            ? "bg-muted/40"
+                            : "bg-background",
                       cell.column.id === "select" &&
                         "sticky left-0 z-10 text-center",
                       cell.column.id === "part_no" &&
                         "sticky left-11 z-10 border-r-2 font-mono text-xs",
                       cell.column.id === "details" && "sticky right-0 z-10",
-                      cell.column.id === "header_color" &&
-                        isKanbanHeaderColor(row.original.row.header_color) &&
-                        COLOUR_CELL_CLASSES[row.original.row.header_color],
                     )}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

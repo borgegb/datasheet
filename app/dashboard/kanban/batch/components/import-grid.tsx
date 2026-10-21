@@ -31,7 +31,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { KANBAN_ALLOWED_HEADER_COLORS } from "@/lib/kanban/colors";
+import {
+  KANBAN_ALLOWED_HEADER_COLORS,
+  isKanbanHeaderColor,
+  type KanbanHeaderColor,
+} from "@/lib/kanban/colors";
 import {
   EDITABLE_FIELDS,
   parseDelimited,
@@ -65,6 +69,16 @@ declare module "@tanstack/react-table" {
   }
 }
 const meta = (table: Table<AssessedRow>) => table.options.meta!.kanbanImport!;
+
+// Match the card preview palette, choosing the stronger black/white contrast.
+const COLOUR_CELL_CLASSES = {
+  red: "bg-red-600 text-white",
+  orange: "bg-orange-600 text-black",
+  green: "bg-green-600 text-black",
+  yellow: "bg-yellow-400 text-black",
+  blue: "bg-blue-600 text-white",
+  purple: "bg-purple-600 text-white",
+} satisfies Record<KanbanHeaderColor, string>;
 
 export function EditableInput({
   value,
@@ -156,7 +170,8 @@ function CellEditor({ row, column, table }: CellContext<AssessedRow, unknown>) {
         onChange={(e) =>
           change([{ id: data.id, patch: { header_color: e.target.value } }])
         }
-        className="h-10 w-full rounded-none border-0 bg-transparent pl-2 pr-10 text-sm capitalize outline-blue-500"
+        wrapperClassName="[&>svg]:text-current"
+        className="h-10 w-full rounded-none border-0 bg-transparent pl-2 pr-10 text-sm font-medium capitalize text-inherit outline-blue-500 [&>option]:bg-background [&>option]:text-foreground"
       >
         {!KANBAN_ALLOWED_HEADER_COLORS.includes(
           data.header_color as (typeof KANBAN_ALLOWED_HEADER_COLORS)[number],
@@ -578,6 +593,9 @@ export function ImportGrid({
                       cell.column.id === "part_no" &&
                         "sticky left-11 z-10 border-r-2 font-mono text-xs",
                       cell.column.id === "details" && "sticky right-0 z-10",
+                      cell.column.id === "header_color" &&
+                        isKanbanHeaderColor(row.original.row.header_color) &&
+                        COLOUR_CELL_CLASSES[row.original.row.header_color],
                     )}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

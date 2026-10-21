@@ -587,9 +587,9 @@ export function ImportGrid({
                       isKanbanHeaderColor(row.original.row.header_color)
                         ? COLOUR_CELL_CLASSES[row.original.row.header_color]
                         : row.getIsSelected()
-                          ? "bg-blue-50 dark:bg-blue-950/30"
+                          ? "bg-blue-50 dark:bg-blue-950"
                           : row.original.row.decision === "skip"
-                            ? "bg-muted/40"
+                            ? "bg-muted"
                             : "bg-background",
                       cell.column.id === "select" &&
                         "sticky left-0 z-10 text-center",

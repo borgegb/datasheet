@@ -18,6 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
+import { fixedManualMetadata, productReference, referenceIdentity, compressorSerialSchema } from "@/lib/certifications/reference";
 import { euDocHoldReason, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
 import { certificateModelName, declarationIssueError, type EuDocProductOptions } from "@/lib/certifications/products";
 import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
@@ -268,14 +269,20 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
   const yearField = isHydrostatic ? "yearOfManufacture" : "yearOfConstruction";
   const serialNumber = hasUnitSerial ? unitSerialNumber(form[yearField], serialDigits) : form.serialNumber;
   const supplementalProfile = supplementalDeclarationProfile(typeSlug);
+  const referenceProduct = selectedProduct ? { productCode: selectedProduct.product_code,
+    productType: selectedProduct.eu_doc_product_type, pedCategory: selectedProduct.eu_doc_ped_category } : null;
+  const manualMetadata = fixedManualMetadata(typeSlug, referenceProduct);
+  const reference = selectedProduct ? productReference(selectedProduct) : null;
+  const isReceiverSerial = isSerialised && reference?.kind === "receiver";
   const holdReason = euDocHoldReason(typeSlug);
   const documentTitle = typeSlug === "eu-doc-serialised" && productType === "pto-compressor"
-    ? "EU DoC - Serialised - PTO Compressors" : typeDef.title;
+    ? "EU DoC - Serialised - 32L Air Receiver (PTO)" : typeDef.title;
   const setupError = selectedProduct ? (isHydrostatic ? hydrostaticSetupError(selectedProduct, documentMode === "issued")
     : documentMode === "issued" ? declarationIssueError(selectedProduct) : null) : null;
   const declarationNumber = isSerialised
     ? serialisedDeclarationNumber(serialNumber, typeSlug) : null;
   const formValues: Record<string, any> = { ...form,
+    ...(manualMetadata || {}),
     ...(hasUnitSerial ? { serialNumber } : {}),
     ...(isSerialised ? { declarationNumber: declarationNumber ?? "" } : {}),
     ...(isHydrostatic && selectedProduct ? { certificateNumber: hydrostaticProductCertificateNumber(selectedProduct, serialNumber) } : {}),
@@ -348,9 +355,9 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
       return f.placeholder;
     }
 
-    if (selectedProduct?.eu_doc_product_type === "pto-compressor") {
-      if (f.name === "commercialName") return "e.g., VariMount 350";
-      if (f.name === "modelType") return "e.g., VM-A-0001";
+    if (selectedProduct?.eu_doc_product_type === "air-receiver") {
+      if (f.name === "commercialName") return "32 L Air Receiver";
+      if (f.name === "modelType") return "32 L Air Receiver - VM-A-0003";
     }
 
     if (f.name === "commercialName") return "e.g., Blast Machine BP200L";
@@ -369,11 +376,15 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
     setProductResults([]);
 
     if (isSerialised) {
+      const identity = referenceIdentity({ productCode: product.product_code, productType: product.eu_doc_product_type, pedCategory: product.eu_doc_ped_category });
       setForm((current) => ({
         ...current,
         ...serialisedProductFields(product),
         commercialName: product.product_title || supplementalProfile?.commercialName || "",
         modelType: certificateModelName(product),
+        ...(identity || {}),
+        revision: productReference(product)?.revision || current.revision,
+        compressorSerialNumber: undefined,
       }));
     }
     if (isHydrostatic) setForm({ ...typeDef.defaults, ...hydrostaticProductFields(product),
@@ -388,6 +399,9 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
   };
 
   const renderField = (f: FieldSpec) => {
+    if (manualMetadata && ["declarationNumber", "issueDate", "revision"].includes(f.name)) {
+      return <Input id={f.name} readOnly value={formValues[f.name]} className="bg-muted/40" />;
+    }
     if (hasUnitSerial && f.name === "serialNumber") {
       return (
         <div className="flex min-w-0 items-center gap-2">
@@ -601,6 +615,10 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
       if (hasUnitSerial && !serialNumber) {
         throw new Error(UNIT_SERIAL_MESSAGE);
       }
+      if (isReceiverSerial) {
+        const serial = compressorSerialSchema.safeParse(formValues.compressorSerialNumber);
+        if (!serial.success) throw new Error(serial.error.issues[0].message);
+      }
       // Lightweight validation for required fields present in schema
       const parse = typeDef.schema.safeParse(formValues);
       if (!parse.success) {
@@ -631,14 +649,14 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
         setGeneratedPdfUrl(data.url);
         router.refresh();
         toast.success(`${supportsDocumentMode && documentMode === "test" ? "Test" : documentTitle} PDF generated`, {
-          description: "Click the button to open your generated PDF.",
+          description: "Your PDF is ready.",
           action: (
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.open(data.url, "_blank")}
             >
-              Open PDF
+              Download PDF
             </Button>
           ),
           duration: 15000,
@@ -677,11 +695,18 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
             </fieldset>
           )}
           {renderEuDocProductSelector()}
+          {manualMetadata && reference?.kind === "blast" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-models">Models covered</Label>
+              <Input id="manual-models" readOnly className="bg-muted/40" value={reference.category === "cat-ii"
+                ? "BP-A-2000 / BP-A-3000 / BP-A-6000" : "BP-A-4000 / BP-A-5000 / BP-A-5200"} />
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               ...(hasUnitSerial ? [yearField, "serialNumber"].flatMap(name => typeDef.fieldLayout.filter(field => field.name === name)) : []),
               ...typeDef.fieldLayout.filter(field => !(isHydrostatic && field.name === "model") && !(hasUnitSerial && (field.name === yearField || field.name === "serialNumber"))),
-            ].map((f) => (
+            ].filter(f => f.name !== "compressorSerialNumber" || isReceiverSerial).map((f) => (
               <div key={f.name} className="min-w-0 space-y-1.5">
                 <Label htmlFor={f.name}>{f.label}</Label>
                 {renderField(f)}
@@ -708,7 +733,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
                   variant="outline"
                   onClick={() => window.open(generatedPdfUrl, "_blank")}
                 >
-                  Open Certificate
+                  Download Certificate
                 </Button>
               </div>
             </div>

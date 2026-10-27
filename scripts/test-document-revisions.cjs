@@ -7,6 +7,7 @@ const { load, routeProbe, unit, blast40 } = require('./test-eu-doc-signature.cjs
 const { CERT_TYPES } = load('app/dashboard/certifications/registry.ts');
 const { DECLARATION_TYPES, supplementalDeclarationProfile } = load('lib/certifications/declarations.ts');
 const { DOCUMENT_REVISIONS } = load('lib/certifications/revision.ts');
+const { fixedManualMetadata, RECEIVER_CERTIFICATE } = load('lib/certifications/reference.ts');
 const { buildEuDeclarationOfConformityPdf } = load('lib/pdf/certifications/buildEuDeclarationOfConformityPdf.ts');
 let passed = 0;
 async function check(name, run) { await run(); passed++; console.log(`PASS ${name}`); }
@@ -31,25 +32,32 @@ async function main() {
       product_title: profile.commercialName, eu_doc_product_type: profile.productType,
       eu_doc_ped_category: profile.pedCategory, eu_doc_certificate_no: null,
       hydrostatic_profile: null } : type === 'eu-doc-owner-manual-pto-compressors'
-      ? { ...blast40, product_code: 'VM-A-0001', product_title: 'PTO Compressor VM350',
-        eu_doc_product_type: 'pto-compressor', eu_doc_certificate_no: null, certification_issue_enabled: true }
+      ? { ...blast40, product_code: 'VM-A-0003', product_title: '32L Air Receiver',
+        eu_doc_product_type: 'air-receiver', eu_doc_certificate_no: RECEIVER_CERTIFICATE, certification_issue_enabled: true }
       : blast40;
+    const manual = fixedManualMetadata(type, { productCode: product.product_code, productType: product.eu_doc_product_type,
+      pedCategory: product.eu_doc_ped_category });
 
     for (const revision of DOCUMENT_REVISIONS) for (const documentMode of ['test', 'issued']) {
       await check(`${type}: ${documentMode} revision ${revision} stored and passed to PDF`, async () => {
         const { response, body, calls } = await routeProbe({ type, product, documentMode,
           data: { revision, issueDate: '2026-10-07' } });
         assert.equal(response.status, 200, JSON.stringify(body));
-        assert.equal(calls.builder[1].revision, revision);
-        assert.equal(calls.records[0].data.revision, revision);
-        assert.equal(calls.records[0].data.issueDate, '2026-10-07');
+        assert.equal(calls.builder[1].revision, manual?.revision || revision);
+        assert.equal(calls.records[0].data.revision, manual?.revision || revision);
+        assert.equal(calls.records[0].data.issueDate, manual?.issueDate || '2026-10-07');
         assert.equal(calls.uploads[0].uploadOptions.upsert, false);
         assert.equal(calls.removals.length, 0);
       });
     }
     for (const revision of ['00', '06', '99', '1', '', ' 02 ', 'Rev 02', 2, null]) {
-      await check(`${type}: rejects revision ${JSON.stringify(revision)}`, async () => {
+      await check(`${type}: ${manual ? 'overrides' : 'rejects'} revision ${JSON.stringify(revision)}`, async () => {
         const { response, body, calls } = await routeProbe({ type, product, data: { revision } });
+        if (manual) {
+          assert.equal(response.status, 200, JSON.stringify(body));
+          assert.equal(calls.records[0].data.revision, manual.revision);
+          return;
+        }
         assert.equal(response.status, 400);
         assert.match(JSON.stringify(body), /Revision must be between 01 and 05/);
         assert.equal(calls.uploads.length, 0);
@@ -57,10 +65,10 @@ async function main() {
         assert.equal(calls.downloads.length, 0);
       });
     }
-    await check(`${type}: older client without revision receives 01`, async () => {
+    await check(`${type}: older client without revision receives the appropriate default`, async () => {
       const { response, calls } = await routeProbe({ type, product });
       assert.equal(response.status, 200);
-      assert.equal(calls.records[0].data.revision, '01');
+      assert.equal(calls.records[0].data.revision, manual?.revision || '01');
     });
     await check(`${type}: PDF prints selected revision in existing header`, async () => {
       const data = definition.schema.parse({ ...unit, revision: '05', issueDate: '2026-10-07',
@@ -81,9 +89,9 @@ async function main() {
       } finally { PDFPage.prototype.drawText = drawText; }
       const revisionIndex = texts.findIndex(t => t.value === 'Revision');
       assert.ok(revisionIndex >= 0);
-      assert.equal(texts[revisionIndex + 1].value, '05');
+      assert.equal(texts[revisionIndex + 1].value, manual?.revision || '05');
       assert.equal(texts[revisionIndex].x, texts[revisionIndex + 1].x);
-      assert.ok(texts.some(t => t.value === '07/October/2026'));
+      assert.ok(texts.some(t => t.value === (manual ? `${manual.issueDate.slice(-2)}/October/2026` : '07/October/2026')));
       assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
       assert.equal(texts.filter(t => t.value === 'TEST / NOT FOR ISSUE - UNSIGNED').length, 2);
       if (output) fs.writeFileSync(path.join(output, `${type}-rev05.pdf`), bytes);

@@ -1,6 +1,7 @@
 import { supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 import { hydrostaticProfileSchema } from "@/lib/certifications/hydrostatic";
 import { allowsBlankDeclarationCertificate } from "@/lib/certifications/release";
+import { productReference, referenceConfigurationError } from "@/lib/certifications/reference";
 
 export type EuDocProduct = {
   id: string;
@@ -43,6 +44,9 @@ function hasDeclarationCertificate(product: EuDocProduct) {
 
 export function declarationIssueError(product: Partial<EuDocProduct>) {
   if (product.certification_issue_enabled === false) return "Signed issuance is blocked for this product pending certification. Only unsigned test documents are available.";
+  const referenceError = referenceConfigurationError({ productCode: product.product_code, productType: product.eu_doc_product_type,
+    pedCategory: product.eu_doc_ped_category, certificateNo: product.eu_doc_certificate_no });
+  if (referenceError) return referenceError;
   if (["cat-ii", "cat-iii"].includes(product.eu_doc_ped_category || "") && !product.eu_doc_certificate_no?.trim() && !allowsBlankCertificate(product)) return "This product has no approved PED certificate number. Signed issuance is blocked.";
   return null;
 }
@@ -52,7 +56,7 @@ export function isAvailableDeclarationProduct(type: string, product: EuDocProduc
   if (!profile) {
     if (type !== "eu-doc-owner-manual-pto-compressors" && isAvailableBlastProduct(product)) return true;
     return (type === "eu-doc-serialised" || type === "eu-doc-owner-manual-pto-compressors") &&
-      product.eu_doc_product_type === "pto-compressor" && product.eu_doc_ped_category === "cat-ii" &&
+      productReference(product)?.kind === "receiver" &&
       hasDeclarationCertificate(product);
   }
   return product.product_code?.trim() === profile.productCode &&

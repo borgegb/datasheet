@@ -18,6 +18,8 @@ import {
 } from "@/lib/pdf/certifications/buildEuDeclarationOfConformityPdf";
 import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { signatureInkForDocument, type SignatureInk } from "@/lib/pdf/certifications/signatureInk";
+import { fixedManualMetadata, referenceIdentity, declarationReference, compressorSerialSchema } from "@/lib/certifications/reference";
+import { certificateDownloadName } from "@/lib/certifications/download";
 import { euDocHoldReason, allowsBlankDeclarationCertificate, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
 import { certificateModelName, declarationIssueError, isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
@@ -213,12 +215,12 @@ async function fetchEuDeclarationProductCertification(
 
   if (
     type === "eu-doc-owner-manual-pto-compressors" &&
-    productType !== "pto-compressor"
+    productType !== "air-receiver"
   ) {
     return {
       productCertification: null,
       error:
-        "Owner's Manual PTO Compressor DoCs must use a PTO compressor product.",
+        "Owner's Manual Receiver DoCs must use the configured 32L air receiver product.",
     };
   }
 
@@ -246,7 +248,7 @@ async function fetchEuDeclarationProductCertification(
   if (!isAvailableDeclarationProduct(type, { ...product, eu_doc_product_type: productType, eu_doc_ped_category: pedCategory })) {
     return { productCertification: null, error: supplemental
       ? `This declaration requires ${supplemental.productCode}, ${supplemental.pedCategory} settings and no Notified Body certificate number.`
-      : "This generator requires a configured Cat. II / III blast machine or Cat. II PTO compressor, matching the document type." };
+      : "This generator requires a configured Cat. II / III blast machine or the Cat. II 32L air receiver, matching the document type." };
   }
 
   const profile = hydrostaticProfileSchema.safeParse(product.hydrostatic_profile);
@@ -343,6 +345,27 @@ export async function POST(
     const adminSupabase = getAdminClient();
     let productRecordId: string | null = null;
     let signatureInk: SignatureInk = "original";
+    let euProductCertification: EuDeclarationProductCertification | null = null;
+    if (isEuDoc) {
+      const result = await fetchEuDeclarationProductCertification(adminSupabase, organizationId, productId, type, isTest);
+      if (result.error || !result.productCertification) return jsonError(result.error || "Invalid product.", 400);
+      euProductCertification = result.productCertification;
+      productRecordId = euProductCertification.id || null;
+      const manual = fixedManualMetadata(type, euProductCertification);
+      const identity = referenceIdentity(euProductCertification);
+      if (manual) merged = { ...merged, ...manual };
+      if (isSerialisedDeclaration(type)) {
+        merged.commercialName = identity?.commercialName || euProductCertification.productTitle || supplementalDeclarationProfile(type)?.commercialName || "";
+        merged.modelType = identity?.modelType || euProductCertification.modelType || euProductCertification.productCode || "";
+      }
+      if (isSerialisedDeclaration(type) && declarationReference(euProductCertification)?.kind === "receiver") {
+        const serial = compressorSerialSchema.safeParse(merged.compressorSerialNumber);
+        if (!serial.success) return jsonError(serial.error.issues[0].message, 400);
+        merged.compressorSerialNumber = serial.data;
+      } else {
+        delete merged.compressorSerialNumber;
+      }
+    }
     if (isHydrostatic) {
       const result = await validateProductId(adminSupabase, organizationId, productId, true);
       if (result.error || !result.product) return jsonError(result.error || "Select a product before generating a hydrostatic certificate.", 400);
@@ -375,29 +398,7 @@ export async function POST(
       }
     }
 
-    let euProductCertification: EuDeclarationProductCertification | null = null;
-
-    if (isEuDeclarationOfConformityType(type)) {
-      const productValidation =
-        await fetchEuDeclarationProductCertification(
-          adminSupabase,
-          organizationId,
-          productId,
-          type,
-          isTest
-        );
-
-      if (productValidation.error || !productValidation.productCertification) {
-        return jsonError(productValidation.error || "Invalid product.", 400);
-      }
-
-      euProductCertification = productValidation.productCertification;
-      productRecordId = euProductCertification.id || null;
-      if (isSerialisedDeclaration(type)) {
-        merged.commercialName = euProductCertification.productTitle || supplementalDeclarationProfile(type)?.commercialName || "";
-        merged.modelType = euProductCertification.modelType || euProductCertification.productCode || "";
-      }
-    } else if (!isHydrostatic) {
+    if (!isEuDoc && !isHydrostatic) {
       const productValidation = await validateProductId(
         adminSupabase,
         organizationId,
@@ -477,8 +478,8 @@ export async function POST(
 
     const iso = new Date().toISOString().replace(/[:.]/g, "-");
     const rid = randomUUID().slice(0, 8);
-    const fileName = `${isTest ? "TEST-" : ""}${type}-certificate-${iso}-${rid}.pdf`;
-    const filePath = `${organizationId}/certifications/${type}/generated/${fileName}`;
+    const fileName = certificateDownloadName(type, { ...merged, documentMode });
+    const filePath = `${organizationId}/certifications/${type}/generated/${iso}-${rid}/${fileName}`;
 
     const { error: uploadError } = await adminSupabase.storage
       .from("datasheet-assets")
@@ -521,7 +522,7 @@ export async function POST(
     revalidatePath("/dashboard/certifications");
     const { data: signed, error: signedErr } = await adminSupabase.storage
       .from("datasheet-assets")
-      .createSignedUrl(filePath, 900);
+      .createSignedUrl(filePath, 900, { download: fileName });
     if (signedErr || !signed?.signedUrl) {
       return jsonError("Certificate saved, but its download link could not be created. Open it from the certificates list.");
     }

@@ -11,6 +11,7 @@
     "test:eu-doc-signature": "node scripts/test-eu-doc-signature.cjs",
     "test:product-matrix": "node scripts/test-product-matrix.cjs",
     "test:document-revisions": "node scripts/test-document-revisions.cjs",
+    "test:october-declarations": "node scripts/test-october-declarations.cjs",
     "test:kanban-batch-print": "node scripts/test-kanban-batch-print.cjs"
   },
   "dependencies": {

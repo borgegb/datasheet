@@ -72,7 +72,7 @@ const hydrostatic = load('lib/certifications/hydrostatic.ts');
 const hydrostaticBuilder = load('lib/pdf/certifications/buildHydrostaticTestPdf.ts');
 const org = '11111111-1111-4111-8111-111111111111';
 const signaturePath = `${org}/22222222-2222-4222-8222-222222222222.png`;
-const blast = { id: 'product-a', organization_id: org, product_title: 'Blast Machine BP200L', product_code: 'BP-A-5000', eu_doc_product_type: 'blast-machine', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'HPiVS-iP1283-001-I-03-00' };
+const blast = { id: 'product-a', organization_id: org, product_title: 'Blast Machine BP200L', product_code: 'BP-A-5000', eu_doc_product_type: 'blast-machine', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'HPiVS-iP1283-001-I-02-01' };
 const common = { declarationNumber: 'TEST-2026-001', issueDate: '2026-09-07' };
 const unit = { ...common, commercialName: blast.product_title, modelType: blast.product_code, serialNumber: 'AP-26-00161', yearOfConstruction: '2026' };
 const hydroProfile = { modelCode: 'BP40L', equipmentDescription: 'Blast Vessel', maxPressureBar: '8.6', minTemperatureC: '-10', maxTemperatureC: '80', issueEnabled: true };
@@ -108,8 +108,8 @@ function mockClient(options = {}) {
       upload: async (filePath, bytes, uploadOptions) => { calls.uploads.push({ bucket, filePath, bytes, uploadOptions }); return { error: options.uploadError ? { message: 'upload failed' } : null }; },
       download: async (filePath) => { calls.downloads.push({ bucket, filePath }); return { data: new Blob([options.signatureBytes || png]), error: options.downloadError ? { message: 'download failed' } : null }; },
       remove: async (paths) => { calls.removals.push({ bucket, paths }); return { error: null }; },
-      createSignedUrl: async (filePath, seconds) => {
-        calls.signedUrls.push({ bucket, filePath, seconds });
+      createSignedUrl: async (filePath, seconds, signedOptions) => {
+        calls.signedUrls.push({ bucket, filePath, seconds, ...(signedOptions ? { options: signedOptions } : {}) });
         return { data: options.previewError ? null : { signedUrl: 'https://example.invalid/document.pdf' }, error: options.previewError ? { message: 'preview failed' } : null };
       },
     }) },
@@ -251,9 +251,9 @@ async function run() {
     assert.equal(response.status, 400); assert.equal(calls.uploads.length, 0);
     assert.equal(calls.downloads.length, 0);
   });
-  await check('owner manual retains its independent declaration number', async () => {
+  await check('owner manual uses the approved fixed declaration number', async () => {
     const { response, calls } = await routeProbe({ type: 'eu-doc-owner-manual-blasting', data: { declarationNumber: 'ACL-DoC-OM01', serialNumber: '' } });
-    assert.equal(response.status, 200); assert.equal(calls.records[0].data.declarationNumber, 'ACL-DoC-OM01');
+    assert.equal(response.status, 200); assert.equal(calls.records[0].data.declarationNumber, 'ACL-DoC-OM03');
     assert.equal(calls.builder[1].serialNumber, undefined);
   });
   for (const condition of ['ready', 'anonymous', 'no-org', 'profile-error', 'product-error', 'empty', 'network-error']) {
@@ -689,19 +689,26 @@ async function run() {
   variants.push(...supplementalVariants.map(([name, type, code, productType, pedCategory]) => [name, type, {
     productCode: code, productType, pedCategory, certificateNo: '', productTitle: declarations.supplementalDeclarationProfile(type).commercialName,
   }]));
-  for (const [name, type, product] of variants) await check(`${name} embeds PNG above signature line on page two`, async () => {
-    const images = [], lines = [];
-    const drawImage = PDFPage.prototype.drawImage, drawLine = PDFPage.prototype.drawLine;
+  for (const [name, type, product] of variants) await check(`${name} embeds PNG in its signature section on page two`, async () => {
+    const images = [], lines = [], boxes = [];
+    const drawImage = PDFPage.prototype.drawImage, drawLine = PDFPage.prototype.drawLine, drawRectangle = PDFPage.prototype.drawRectangle;
     PDFPage.prototype.drawImage = function(image, opts) { images.push({ page: this.doc.getPages().indexOf(this) + 1, ...opts }); return drawImage.call(this, image, opts); };
     PDFPage.prototype.drawLine = function(opts) { lines.push({ page: this.doc.getPages().indexOf(this) + 1, ...opts }); return drawLine.call(this, opts); };
+    PDFPage.prototype.drawRectangle = function(opts) { boxes.push({ page: this.doc.getPages().indexOf(this) + 1, ...opts }); return drawRectangle.call(this, opts); };
     let bytes;
     try {
       bytes = await builder.buildEuDeclarationOfConformityPdf(type, { ...unit, commercialName: product.productTitle, modelType: product.productCode }, { templateRevision: '01' }, product, png);
-    } finally { PDFPage.prototype.drawImage = drawImage; PDFPage.prototype.drawLine = drawLine; }
+    } finally { PDFPage.prototype.drawImage = drawImage; PDFPage.prototype.drawLine = drawLine; PDFPage.prototype.drawRectangle = drawRectangle; }
     assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
     const signature = images.at(-1), line = lines.at(-1);
-    assert.equal(signature.page, 2); assert.equal(line.page, 2);
-    assert.ok(signature.y > line.start.y && signature.y + signature.height <= line.start.y + 42);
+    assert.equal(signature.page, 2);
+    if (load('lib/certifications/reference.ts').declarationReference(product)) {
+      const box = boxes.find(b => b.page === 2 && b.height === 60);
+      assert.ok(box && signature.y > box.y && signature.y + signature.height < box.y + box.height);
+    } else {
+      assert.equal(line.page, 2);
+      assert.ok(signature.y > line.start.y && signature.y + signature.height <= line.start.y + 42);
+    }
     assert.ok(signature.width <= 140 && signature.height <= 38);
     if (process.env.EU_DOC_TEST_OUTPUT) {
       fs.mkdirSync(process.env.EU_DOC_TEST_OUTPUT, { recursive: true });
@@ -718,7 +725,7 @@ async function run() {
       bytes = await builder.buildEuDeclarationOfConformityPdf('eu-doc-serialised', {
         ...unit, declarationNumber: 'TEST-ACL-DoC-2026-BP200L-DECLARATION-00161',
         commercialName: 'Applied Aquablaster Xtreme 100 Blasting Machine',
-      }, { templateRevision: '01' }, variants[1][2], png, { isTest: true });
+      }, { templateRevision: '01' }, { ...variants[1][2], productCode: 'TEST-LONG' }, png, { isTest: true });
     } finally { PDFPage.prototype.drawText = drawText; PDFPage.prototype.drawImage = drawImage; }
     const finalPages = text.at(-1).page.doc.getPages();
     const onPageOne = text.filter(item => item.page === finalPages[0]);
@@ -734,7 +741,7 @@ async function run() {
     if (process.env.EU_DOC_TEST_OUTPUT) fs.writeFileSync(path.join(process.env.EU_DOC_TEST_OUTPUT, 'unsigned-long-serialised.pdf'), bytes);
   });
   await check('excessive content fails instead of overlapping footer', async () => {
-    await assert.rejects(builder.buildEuDeclarationOfConformityPdf('eu-doc-serialised', { ...unit, commercialName: 'very long name '.repeat(100) }, { templateRevision: '01' }, variants[1][2]), /too long to fit/);
+    await assert.rejects(builder.buildEuDeclarationOfConformityPdf('eu-doc-serialised', { ...unit, commercialName: 'very long name '.repeat(100) }, { templateRevision: '01' }, { ...variants[1][2], productCode: 'TEST-LONG' }), /too long to fit/);
   });
   console.log(`\n${passed} checks passed. Database and storage were mocked; no live writes.`);
   if (process.env.EU_DOC_TEST_OUTPUT) fs.writeFileSync(path.join(process.env.EU_DOC_TEST_OUTPUT, 'signature-test-only.png'), png);

@@ -4,6 +4,7 @@ import { supplementalDeclarationProfile } from "@/lib/certifications/declaration
 import { hydrostaticSchema } from "@/lib/certifications/hydrostatic";
 import { HYDROSTATIC_CERTIFICATE_TITLE } from "@/lib/certifications/labels";
 import { DOCUMENT_REVISIONS, documentRevisionSchema } from "@/lib/certifications/revision";
+import { compressorSerialSchema } from "@/lib/certifications/reference";
 
 export type FieldSpec = {
   name: string;
@@ -108,7 +109,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
   },
   "eu-doc-owner-manual-pto-compressors": {
     slug: "eu-doc-owner-manual-pto-compressors",
-    title: "EU DoC - Owner's Manual - PTO Compressors",
+    title: "EU DoC - Owner's Manual - 32L Air Receiver (PTO)",
     templatePath: "",
     defaults: {
       revision: "01",
@@ -158,6 +159,7 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
       modelType: z.string().trim().min(1, "Model / type is required").max(80, "Model / type must be 80 characters or fewer"),
       serialNumber: unitSerialSchema,
       yearOfConstruction: manufactureYearSchema,
+      compressorSerialNumber: compressorSerialSchema.optional(),
     }).refine(data => serialMatchesYear(data.serialNumber, data.yearOfConstruction), {
       message: "Serial number year must match the year of manufacture", path: ["serialNumber"],
     }),
@@ -204,6 +206,13 @@ export const CERT_TYPES: Record<string, CertificationTypeDef> = {
         required: true,
       },
       revisionField,
+      {
+        name: "compressorSerialNumber",
+        label: "Compressor serial number",
+        type: "text",
+        placeholder: "Serial number of the fitted VM350 compressor",
+        required: true,
+      },
     ],
   },
   "hydrostatic-test": {

@@ -15,6 +15,7 @@ import type { CertificationSettings } from "@/lib/certifications/settings";
 import type { HydrostaticProfile } from "@/lib/certifications/hydrostatic";
 import { documentRevisionSchema } from "@/lib/certifications/revision";
 import { allowsBlankDeclarationCertificate } from "@/lib/certifications/release";
+import { declarationReference, fixedManualMetadata, referenceIdentity, referenceConfigurationError, compressorSerialSchema, CAT_III_CERTIFICATE, RECEIVER_CERTIFICATE, NOTIFIED_BODY } from "@/lib/certifications/reference";
 import { DECLARATION_TYPES, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 export type { EuDocProductType, EuDocPedCategory } from "@/lib/certifications/declarations";
 
@@ -109,6 +110,13 @@ export function buildEuDeclarationTitle(
     return [supplemental.kind === "sep" ? "Air Filter SEP Declaration" : "20L EU DoC",
       isSerialisedDeclaration(type) ? "Serialised" : "Owner's Manual", productName,
       declarationNumber].filter(Boolean).join(" - ");
+  }
+
+  const manual = fixedManualMetadata(type, productCertification);
+  if (manual) {
+    const reference = declarationReference(productCertification)!;
+    return ["Owner's Manual DoC", reference.kind === "receiver" ? "32L Air Receiver"
+      : reference.category === "cat-ii" ? "Cat. II Blast Machines" : "Cat. III Blast Machines", manual.declarationNumber].join(" - ");
   }
 
   if (type === "eu-doc-owner-manual-blasting") {
@@ -1068,6 +1076,202 @@ async function buildSupplementalDeclarationPdf(
   return pdfDoc.save();
 }
 
+// The October references have denser tables and explicit, document-specific page breaks.
+// Keep this layout isolated from the approved 20L and SEP documents.
+async function buildReferenceDeclarationPdf(
+  type: EuDeclarationCertificationType, data: EuDeclarationInput,
+  product: EuDeclarationProductCertification, signaturePng: Uint8Array | undefined, isTest: boolean
+) {
+  const reference = declarationReference(product)!;
+  if (!isTest && !signaturePng) throw new Error("A signature is required for issued declarations.");
+  const receiver = reference.kind === "receiver";
+  const catIII = reference.category === "cat-iii";
+  const manual = fixedManualMetadata(type, product);
+  const identity = referenceIdentity(product)!;
+  const values: EuDeclarationInput = { ...data, ...identity, ...(manual || {}) };
+  const issueDate = formatIssueDate(values.issueDate);
+  const number = `${isTest && !stringValue(values.declarationNumber).startsWith("TEST-") ? "TEST-" : ""}${stringValue(values.declarationNumber)}`;
+  const revision = documentRevisionSchema.parse(values.revision);
+  const compressorSerial = receiver && !manual ? compressorSerialSchema.parse(values.compressorSerialNumber) : "";
+  const pdf = await PDFDocument.create();
+  const fonts = await loadFontSet(pdf);
+  const logo = await embedOptionalJpg(pdf, "pdf/assets/Appliedlogo.jpg");
+  const ce = await embedOptionalPng(pdf, "pdf/assets/ce-logo.png");
+  if (!logo || !ce) throw new Error("The required Applied logo or CE mark could not be loaded.");
+  const signature = !isTest && signaturePng ? await pdf.embedPng(signaturePng) : null;
+  const x = 50.8, width = 493.68, size = 8.3, leading = 11.2;
+  const address = "Roscrea Rd., Birr, Co. Offaly, R42 XW08, Republic of Ireland";
+  const pages = [pdf.addPage(PAGE_SIZE), pdf.addPage(PAGE_SIZE)];
+  let page = pages[0], y = 725;
+  const text = (value: string, tx: number, ty: number, bold = false, fontSize = size, color = TEXT_COLOR) =>
+    page.drawText(value, { x: tx, y: ty, font: bold ? fonts.bold : fonts.regular, size: fontSize, color });
+  const paragraph = (value: string) => {
+    y = drawWrappedText({ page, text: value, x, y, maxWidth: width, font: fonts.regular, size, lineHeight: leading });
+  };
+  const heading = (value: string) => {
+    page.drawText(value, { x, y, font: fonts.display, size: 10.2, color: BRAND_GREEN });
+    y -= 5;
+  };
+  const rows = (items: EquipmentRow[], labelWidth = 131) => {
+    for (const row of items) {
+      const labels = wrapText(row.label, fonts.bold, size, labelWidth - 10);
+      const lines = wrapText(row.value, fonts.regular, size, width - labelWidth - 10);
+      const height = Math.max(labels.length, lines.length) * leading + 5;
+      page.drawRectangle({ x, y: y - height, width: labelWidth, height, color: TABLE_LABEL_FILL });
+      page.drawRectangle({ x, y: y - height, width, height, borderColor: BORDER_COLOR, borderWidth: 0.5 });
+      page.drawLine({ start: { x: x + labelWidth, y }, end: { x: x + labelWidth, y: y - height }, thickness: 0.5, color: BORDER_COLOR });
+      labels.forEach((line, i) => text(line, x + 5, y - (height - labels.length * leading) / 2 - size - i * leading, true));
+      lines.forEach((line, i) => text(line, x + labelWidth + 5, y - size - 2.5 - i * leading));
+      y -= height;
+    }
+    y -= 15;
+  };
+  const columns = (items: [string, string][], height: number, withDividers = true) => {
+    const columnWidth = width / items.length;
+    page.drawRectangle({ x, y: y - height, width, height, borderColor: BORDER_COLOR, borderWidth: 0.5 });
+    items.forEach(([label, value], index) => {
+      if (withDividers && index) page.drawLine({ start: { x: x + index * columnWidth, y }, end: { x: x + index * columnWidth, y: y - height }, thickness: 0.5, color: BORDER_COLOR });
+      text(label, x + index * columnWidth + 6, y - 10, false, 7.3, MUTED_COLOR);
+      const lines = wrapText(value, fonts.regular, size, columnWidth - 12);
+      if (lines.length > 1) throw new Error("The declaration metadata is too long for the reference layout.");
+      text(value, x + index * columnWidth + 6, y - height + 6);
+    });
+    y -= height;
+  };
+  const standards = () => {
+    heading("Applicable Standards");
+    rows([
+      { label: "EN ISO 12100:2010", value: "Safety of machinery - General principles for design, risk assessment and risk reduction." },
+      { label: "EN ISO 4414:2010", value: "Pneumatic fluid power - General rules and safety requirements (as applicable)." },
+      { label: "EN ISO 4126-1", value: "Safety devices for protection against excessive pressure - Safety valves (PRV)." },
+    ], 112);
+  };
+  const marking = () => {
+    heading("CE Marking");
+    const scale = Math.min(54 / ce.width, 38 / ce.height);
+    page.drawImage(ce, { x: x + 14, y: y - 42, width: ce.width * scale, height: ce.height * scale });
+    text("2810", x + 2, y - 51, true, 9.2);
+    drawWrappedText({ page, text: receiver
+      ? "The CE marking followed by Notified Body number 2810 is affixed to the air receiver data plate."
+      : `Marking affixed to the product data plate. The Notified Body number (2810) accompanies the CE marking by virtue of the PED production-phase conformity assessment (${catIII ? "Module C2" : "Module A2"}).`,
+      x: x + 87, y: y - 11, maxWidth: width - 87, font: fonts.regular, size, lineHeight: leading });
+    y -= 68;
+  };
+  const valve = (highPressure: boolean) => `Pressure relief valve Goetze GOE ${highPressure ? "812" : "810"} DN15, set pressure ${highPressure ? "12" : "8.6"} bar (ACL part no. ${highPressure ? "SP000784" : "SP000780"}) - CE marked by its manufacturer, Goetze KG Armaturen, Ludwigsburg, Germany, under Directive 2014/68/EU, Category IV, Module B + D; EU-type examination ${highPressure ? "01 202 642/B-15 2003.07" : "as stated in the manufacturer's EU Declaration of Conformity (series 810/410)"}, Notified Body TÜV Rheinland Industrie Service GmbH (0035). Covered by the manufacturer's own EU Declaration of Conformity.`;
+
+  page.drawText(receiver ? "EU DECLARATION OF CONFORMITY" : "EC / EU DECLARATION OF CONFORMITY", { x, y: 782, font: fonts.display, size: 16, color: BRAND_GREEN });
+  text(`Applied Concepts Ltd. | ${address}`, x, 767, true, 7.5, MUTED_COLOR);
+  const logoScale = Math.min(63 / logo.width, 63 / logo.height);
+  page.drawImage(logo, { x: x + width - 63, y: 740, width: logo.width * logoScale, height: logo.height * logoScale });
+  page.drawLine({ start: { x, y: 733 }, end: { x: x + width, y: 733 }, thickness: 0.5, color: MUTED_COLOR });
+  if (receiver) {
+    text(`Pressure Equipment Directive 2014/68/EU - Annex IV${manual ? " · Owner's Manual copy" : ""}`, x, y - 1, true, 7.5, MUTED_COLOR);
+    y -= 10;
+  }
+  columns([["Declaration No.", number], ["Revision", revision], ["Date of issue", issueDate]], 32);
+  y -= 14;
+  paragraph(receiver
+    ? "This declaration of conformity is issued under the sole responsibility of the manufacturer. The pressure equipment described below is in conformity with the relevant Union harmonisation legislation: Directive 2014/68/EU of the European Parliament and of the Council of 15 May 2014 on the harmonisation of the laws of the Member States relating to the making available on the market of pressure equipment." + (manual ? " This declaration applies to each 32 L air receiver identified by the serial number on its data plate." : "")
+    : `Applied Concepts Ltd., ${address}, hereby declares under its sole responsibility that the equipment identified below is in conformity with all the relevant provisions of the Union harmonisation legislation listed in this declaration. This declaration relates exclusively to the equipment in the state in which it was placed on the market and excludes components added or operations carried out subsequently by the user.` + (manual ? " This declaration applies to each unit identified by the serial number on its data plate." : ""));
+  y -= 6;
+  heading("Manufacturer");
+  rows([{ label: "Company", value: "Applied Concepts Ltd." }, { label: "Address", value: address }]);
+  heading(receiver ? "Object of the Declaration - Pressure Equipment" : "Object of the Declaration - Equipment Identification");
+  if (receiver) {
+    rows([
+      { label: "Description", value: "Compressed-air receiver (welded steel pressure vessel)" },
+      { label: "Model / type", value: identity.modelType },
+      { label: "Serial number", value: manual ? "As stated on the air receiver data plate" : stringValue(data.serialNumber) },
+      { label: "Year of manufacture", value: manual ? "As stated on the air receiver data plate" : stringValue(data.yearOfConstruction) },
+      { label: "Fitted to", value: manual ? "PTO Compressor VM350 (VM-A-0001)" : `PTO Compressor VM350, serial no. ${compressorSerial}` },
+    ]);
+    heading("Pressure Equipment Data");
+    rows([
+      { label: "Maximum allowable pressure PS", value: "12 bar" },
+      { label: "Allowable temperature TS", value: "-10 °C / +80 °C" },
+      { label: "Volume V", value: "32 L" }, { label: "Test pressure PT", value: "20 bar" },
+      { label: "Fluid", value: "Compressed air - Group 2" }, { label: "PED category", value: "II (Annex II, Table 2)" },
+    ], 147);
+    heading("Conformity Assessment Procedure");
+    rows([
+      { label: "Module", value: "Module A2 - Internal production control plus supervised pressure equipment checks at random intervals (Annex III)." },
+      { label: "Notified Body", value: NOTIFIED_BODY },
+      { label: "Intervention", value: "Supervision of the final assessment (Module A2)." },
+      { label: "Certificate No.", value: `${RECEIVER_CERTIFICATE} (issued 16 October 2026)` },
+    ]);
+    heading("Harmonised Standards / Technical Specifications");
+    y -= 8;
+    paragraph("No harmonised standard has been applied in full. Conformity with the Essential Safety Requirements of Annex I of Directive 2014/68/EU has been demonstrated by the manufacturer's design and production documentation.");
+    y -= 6;
+    marking();
+  } else {
+    rows(manual ? [
+      { label: "Description / function", value: "Mobile abrasive blast machine" },
+      { label: "Models / type", value: catIII ? "140 L (BP-A-4000) and 200 L (BP-A-5000) - PS 8.6 bar; BP200LX (BP-A-5200) - PS 12 bar" : "BP40L (BP-A-2000), BP100L (BP-A-3000), BP-A-6000" },
+      { label: "Maximum allowable pressure PS", value: catIII ? "8.6 bar (BP-A-4000, BP-A-5000); 12 bar (BP-A-5200)" : "8.6 bar" },
+      { label: "Serial number", value: "As stated on the product data plate" },
+      { label: "Year of manufacture", value: "As stated on the product data plate" },
+    ] : [
+      { label: "Description / function", value: "Blast Machine" },
+      { label: "Commercial name", value: identity.commercialName },
+      { label: "Model / type", value: identity.modelType },
+      { label: "Serial number", value: stringValue(data.serialNumber) },
+      { label: "Year of manufacture", value: stringValue(data.yearOfConstruction) },
+    ]);
+    heading("Applicable Union Harmonisation Legislation");
+    y -= 8;
+    paragraph("- Directive 2006/42/EC of the European Parliament and of the Council of 17 May 2006 on machinery (Machinery Directive).\n- Directive 2014/68/EU of the European Parliament and of the Council of 15 May 2014 on the harmonisation of the laws of the Member States relating to the making available on the market of pressure equipment (PED).");
+    y -= 6;
+    heading("Conformity Assessment Procedure");
+    rows([
+      { label: "Machinery Directive 2006/42/EC", value: "Internal checks on the manufacture of machinery - Annex VIII (manufacturer's self-assessment). The equipment is not listed in Annex IV of the Directive; no Notified Body is required for the machinery conformity assessment." },
+      { label: "Pressure Equipment Directive 2014/68/EU", value: `PED category: Cat. ${catIII ? "III" : "II"}\nModule(s): ${catIII ? "Module B (production type) + Module C2" : "Module A2"}\nNotified Body: ${NOTIFIED_BODY}${catIII ? `\nEU-type examination certificate (Module B): ${CAT_III_CERTIFICATE}` : ""}` },
+    ]);
+    heading("Constituent Pressure Equipment of the Assembly (PED Annex IV)");
+    rows([
+      { label: "Pressure vessel (pot body)", value: catIII
+        ? `${manual ? "Pot body (drawings BP-A-4000 / BP-A-5000 / BP-W-5200)" : product.productCode === "BP-A-5200" ? "BP-W-5200" : product.productCode} - PED Cat. III, Module B (production type) + Module C2, Notified Body 2810, EU-type examination certificate ${CAT_III_CERTIFICATE}.`
+        : "Pot body - PED Cat. II, Module A2, Notified Body 2810." },
+      ...(manual && catIII ? [
+        { label: "Safety accessory - BP-A-4000, BP-A-5000", value: valve(false) },
+        { label: "Safety accessory - BP-A-5200", value: valve(true) },
+      ] : [{ label: "Safety accessory", value: valve(reference.pressure === "12") }]),
+    ]);
+    if (!(manual && catIII)) marking();
+    if (!manual) standards();
+  }
+  if (y < 40) throw new Error("The equipment details are too long for the approved two-page layout.");
+  page = pages[1]; y = 800;
+  if (!receiver) {
+    if (manual && catIII) marking();
+    if (manual) standards();
+    heading("Person Authorised to Compile the Technical File");
+    rows([{ label: "Name", value: "Mark Clendennen" }, { label: "Position", value: "Managing Director" },
+      { label: "Address", value: `${address} (established in the European Union).` }]);
+  }
+  heading("Signed for and on Behalf of Applied Concepts Ltd.");
+  columns([["Place of issue", "Birr, Co. Offaly, Ireland"], ["Name", "Mark Clendennen"], ["Position", "Managing Director"]], 32, false);
+  page.drawRectangle({ x, y: y - 60, width, height: 60, borderColor: BORDER_COLOR, borderWidth: 0.5 });
+  text("Date", x + 6, y - 12, false, 7.3, MUTED_COLOR);
+  text("Signature", x + width / 3 + 6, y - 12, false, 7.3, MUTED_COLOR);
+  text(issueDate, x + 6, y - 54);
+  if (signature) {
+    const scale = Math.min(140 / signature.width, 36 / signature.height);
+    page.drawImage(signature, { x: x + width / 3 + 6, y: y - 52, width: signature.width * scale, height: signature.height * scale });
+  }
+  for (const [index, target] of pages.entries()) {
+    page = target;
+    page.drawRectangle({ x: 0, y: 0, width: PAGE_WIDTH, height: 42, color: BRAND_GREEN });
+    text("www.appliedpi.com", x, 17, false, 8, WHITE);
+    const pageText = `Page ${index + 1} of 2`;
+    text(pageText, (PAGE_WIDTH - fonts.regular.widthOfTextAtSize(pageText, 8)) / 2, 17, false, 8, WHITE);
+    const website = "www.ptocompressors.com";
+    text(website, x + width - fonts.regular.widthOfTextAtSize(website, 8), 17, false, 8, WHITE);
+    if (isTest) text("TEST / NOT FOR ISSUE - UNSIGNED", x, index === 0 ? 744 : 820, true, 9, MUTED_COLOR);
+  }
+  return pdf.save();
+}
+
 export async function buildEuDeclarationOfConformityPdf(
   type: EuDeclarationCertificationType,
   data: EuDeclarationInput,
@@ -1084,6 +1288,11 @@ export async function buildEuDeclarationOfConformityPdf(
   }
   if (supplementalDeclarationProfile(type)) {
     return buildSupplementalDeclarationPdf(type, data, productCertification, signaturePng, options);
+  }
+  if (productCertification && declarationReference(productCertification)) {
+    const error = !options.isTest && referenceConfigurationError(productCertification);
+    if (error) throw new Error(error);
+    return buildReferenceDeclarationPdf(type, data, productCertification, signaturePng, Boolean(options.isTest));
   }
   const declaration = resolveDeclaration(
     type,

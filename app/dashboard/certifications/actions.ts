@@ -69,7 +69,7 @@ export async function fetchEuDocProducts(type = "eu-doc-serialised", productType
     const isHydrostatic = type === "hydrostatic-test";
     const declarationProductType = supplementalDeclarationProfile(type)?.productType ||
       (type === "eu-doc-owner-manual-pto-compressors" || (type === "eu-doc-serialised" && productType === "pto-compressor")
-        ? "pto-compressor" : "blast-machine");
+        ? "air-receiver" : "blast-machine");
     let query = supabase.from("products")
       .select("id, product_title, product_code, eu_doc_product_type, eu_doc_ped_category, eu_doc_certificate_no, hydrostatic_profile, certification_issue_enabled")
       .eq("organization_id", profile.organization_id);

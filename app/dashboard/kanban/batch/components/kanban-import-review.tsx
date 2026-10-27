@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Check,
   CheckCheck,
-  Download,
   FileSpreadsheet,
   ImagePlus,
   Loader2,
@@ -54,6 +53,7 @@ import { ImportGrid, FIELD_LABELS, type RowChange } from "./import-grid";
 import { ImportRowDetails } from "./import-row-details";
 import { cn } from "@/lib/utils";
 import { TestImportPanel, type TestImportSession } from "./test-import-panel";
+import { BatchCardReview } from "./batch-card-review";
 
 type Filter = "all" | "missing" | "matches" | "errors" | "skipped";
 const selectStyle =
@@ -345,344 +345,382 @@ export function KanbanImportReview({
 
   return (
     <div className="min-w-0 space-y-5">
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".xlsx,.xlsm,.csv"
-        className="sr-only"
-        aria-label="Upload workbook"
-        onChange={fileChanged}
-        disabled={busy}
-      />
-      <input
-        ref={imageInput}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        multiple
-        className="sr-only"
-        aria-label="Upload matching images"
-        onChange={(e) => {
-          if (e.target.files?.length) void addImages(e.target.files);
-          e.target.value = "";
-        }}
-        disabled={busy}
-      />
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            <Layers3 className="size-3.5" /> Kanban workspace{" "}
-            <span className="rounded-full border px-2 py-0.5 text-[9px] tracking-wider">
-              Preview
-            </span>
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Review your batch
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Bring in a spreadsheet. Check the details. Decide what becomes a
-            card.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {rows.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => fileInput.current?.click()}
-              disabled={busy}
-            >
-              <Upload /> Change file
-            </Button>
-          )}
-          <Button
-            disabled={!included.length || blocked.length > 0 || busy}
-            onClick={() => setReviewOpen(true)}
-          >
-            Review batch
-            {rows.length > 0 && (
-              <span className="rounded bg-white/15 px-1.5 text-xs">
-                {included.length}
-              </span>
-            )}
-            <ArrowRight />
-          </Button>
-        </div>
-      </header>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4 text-xs">
-        <div className="flex items-center gap-4">
-          <Step
-            number="1"
-            label="Upload"
-            done={!!rows.length}
-            active={!rows.length}
-          />
-          <span className="h-px w-6 bg-border" />
-          <Step number="2" label="Review & edit" active={!!rows.length} />
-          <span className="h-px w-6 bg-border" />
-          <Step number="3" label="Confirm batch" />
-        </div>
-        <span className="text-muted-foreground">
-          {demo
-            ? "Demo · matches use sample records"
-            : `${reference.cards.length} existing cards · ${reference.products.length} catalogue products checked`}
-        </span>
-      </div>
-      <div className="flex items-start gap-2 rounded-lg border border-blue-200/60 bg-blue-50/50 px-3 py-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-100">
-        <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
-        <span>
-          {testImportEnabled
-            ? "Review your batch, export your changes, or confirm a small test using up to three labelled card copies."
-            : "This preview prepares a batch for review. Export your changes to keep them; database import is not enabled here."}
-        </span>
-      </div>
-      {error && (
-        <div
-          role="alert"
-          className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-        >
-          {error}
-          <button aria-label="Dismiss error" onClick={() => setError("")}>
-            <X className="size-4" />
-          </button>
-        </div>
-      )}
-      {message && (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs"
-        >
-          <span>{message}</span>
-          <button aria-label="Dismiss message" onClick={() => setMessage("")}>
-            <X className="size-4" />
-          </button>
-        </div>
-      )}
-      {!rows.length ? (
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file && !busy) void loadFile(file);
+      {/* Keep the table mounted so review navigation preserves column widths and filters. */}
+      <div hidden={reviewOpen} className="min-w-0 space-y-5">
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".xlsx,.xlsm,.csv"
+          className="sr-only"
+          aria-label="Upload workbook"
+          onChange={fileChanged}
+          disabled={busy}
+        />
+        <input
+          ref={imageInput}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple
+          className="sr-only"
+          aria-label="Upload matching images"
+          onChange={(e) => {
+            if (e.target.files?.length) void addImages(e.target.files);
+            e.target.value = "";
           }}
-          className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/15 p-8 text-center"
-        >
-          <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border bg-background shadow-xs">
-            <FileSpreadsheet className="size-7 text-muted-foreground" />
-          </div>
-          <h2 className="text-lg font-semibold">
-            Start with your inventory spreadsheet
-          </h2>
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Drop a file here to load its rows and embedded images. You’ll be
-            able to edit everything before confirming the batch.
-          </p>
-          <Button
-            className="mt-6"
-            disabled={busy}
-            onClick={() => fileInput.current?.click()}
-          >
-            {busy ? <Loader2 className="animate-spin" /> : <Upload />}{" "}
-            {busy ? "Reading workbook…" : "Choose spreadsheet"}
-          </Button>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Excel .xlsx / .xlsm or CSV · Up to 20 MB and 2,000 rows
-          </p>
-          {demo && (
-            <button
-              className="mt-6 text-xs font-medium underline underline-offset-4"
-              onClick={loadSample}
-            >
-              Try a 600-row sample
-            </button>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Summary
-              label="Rows in workbook"
-              count={rows.length}
-              sub={`${groups.length} locations`}
-              icon={<FileSpreadsheet className="size-4" />}
-              onClick={() => {
-                setFilter("all");
-                setLocation("all");
-                setQuery("");
-              }}
-            />
-            <Summary
-              label="Missing details"
-              count={counts.missing}
-              sub="Images, suppliers or card details"
-              icon={<CircleAlert className="size-4 text-amber-600" />}
-              onClick={() => setFilter("missing")}
-            />
-            <Summary
-              label="Existing matches"
-              count={counts.matches}
-              sub="Check before making another card"
-              icon={<CopyCheck className="size-4 text-blue-600" />}
-              onClick={() => setFilter("matches")}
-            />
-            <Summary
-              label="Included in batch"
-              count={included.length}
-              sub={`${counts.skipped} skipped · ${blocked.length} need fixing`}
-              icon={<CheckCheck className="size-4 text-emerald-600" />}
-              onClick={() => setReviewOpen(true)}
-            />
-          </div>
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <FileSpreadsheet className="size-4 shrink-0 text-emerald-600" />
-                <span className="truncate text-sm font-medium">{fileName}</span>
-                <span className="hidden text-xs text-muted-foreground md:inline">
-                  / {sheetName}
-                </span>
-                {busy && <Loader2 className="size-4 animate-spin" />}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={undo}
-                  disabled={!history.length || busy}
-                >
-                  <Undo2 /> Undo
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => imageInput.current?.click()}
-                >
-                  <ImagePlus /> Add images
-                </Button>
-              </div>
+          disabled={busy}
+        />
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              <Layers3 className="size-3.5" /> Kanban workspace{" "}
+              <span className="rounded-full border px-2 py-0.5 text-[9px] tracking-wider">
+                Preview
+              </span>
             </div>
-            {notices.map((notice) => (
-              <p key={notice} className="text-xs text-muted-foreground">
-                {notice}
-              </p>
-            ))}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-1">
-                {(
-                  [
-                    ["all", "All rows"],
-                    ["missing", "Missing details"],
-                    ["matches", "Matches"],
-                    ["errors", "To fix"],
-                    ["skipped", "Skipped"],
-                  ] as [Filter, string][]
-                ).map(([key, title]) => (
-                  <button
-                    key={key}
-                    aria-pressed={filter === key}
-                    onClick={() => setFilter(key)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium",
-                      filter === key
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground hover:bg-muted",
-                    )}
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              Review your batch
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Bring in a spreadsheet. Check the details. Decide what becomes a
+              card.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {rows.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => fileInput.current?.click()}
+                disabled={busy}
+              >
+                <Upload /> Change file
+              </Button>
+            )}
+            <Button
+              id="open-batch-review"
+              disabled={!rows.length || busy}
+              onClick={() => {
+                setReviewOpen(true);
+                window.scrollTo(0, 0);
+              }}
+            >
+              Review batch
+              {rows.length > 0 && (
+                <span className="rounded bg-white/15 px-1.5 text-xs">
+                  {included.length}
+                </span>
+              )}
+              <ArrowRight />
+            </Button>
+          </div>
+        </header>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4 text-xs">
+          <div className="flex items-center gap-4">
+            <Step
+              number="1"
+              label="Upload"
+              done={!!rows.length}
+              active={!rows.length}
+            />
+            <span className="h-px w-6 bg-border" />
+            <Step number="2" label="Review & edit" active={!!rows.length} />
+            <span className="h-px w-6 bg-border" />
+            <Step number="3" label="Confirm batch" />
+          </div>
+          <span className="text-muted-foreground">
+            {demo
+              ? "Demo · matches use sample records"
+              : `${reference.cards.length} existing cards · ${reference.products.length} catalogue products checked`}
+          </span>
+        </div>
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200/60 bg-blue-50/50 px-3 py-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-100">
+          <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {testImportEnabled
+              ? "Review your batch, export your changes, or confirm a small test using up to three labelled card copies."
+              : "This preview prepares a batch for review. Export your changes to keep them; database import is not enabled here."}
+          </span>
+        </div>
+        {error && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+          >
+            {error}
+            <button aria-label="Dismiss error" onClick={() => setError("")}>
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
+        {message && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs"
+          >
+            <span>{message}</span>
+            <button aria-label="Dismiss message" onClick={() => setMessage("")}>
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
+        {!rows.length ? (
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files[0];
+              if (file && !busy) void loadFile(file);
+            }}
+            className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/15 p-8 text-center"
+          >
+            <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border bg-background shadow-xs">
+              <FileSpreadsheet className="size-7 text-muted-foreground" />
+            </div>
+            <h2 className="text-lg font-semibold">
+              Start with your inventory spreadsheet
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+              Drop a file here to load its rows and embedded images. You’ll be
+              able to edit everything before confirming the batch.
+            </p>
+            <Button
+              className="mt-6"
+              disabled={busy}
+              onClick={() => fileInput.current?.click()}
+            >
+              {busy ? <Loader2 className="animate-spin" /> : <Upload />}{" "}
+              {busy ? "Reading workbook…" : "Choose spreadsheet"}
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Excel .xlsx / .xlsm or CSV · Up to 20 MB and 2,000 rows
+            </p>
+            {demo && (
+              <button
+                className="mt-6 text-xs font-medium underline underline-offset-4"
+                onClick={loadSample}
+              >
+                Try a 600-row sample
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <Summary
+                label="Rows in workbook"
+                count={rows.length}
+                sub={`${groups.length} locations`}
+                icon={<FileSpreadsheet className="size-4" />}
+                onClick={() => {
+                  setFilter("all");
+                  setLocation("all");
+                  setQuery("");
+                }}
+              />
+              <Summary
+                label="Missing details"
+                count={counts.missing}
+                sub="Images, suppliers or card details"
+                icon={<CircleAlert className="size-4 text-amber-600" />}
+                onClick={() => setFilter("missing")}
+              />
+              <Summary
+                label="Existing matches"
+                count={counts.matches}
+                sub="Check before making another card"
+                icon={<CopyCheck className="size-4 text-blue-600" />}
+                onClick={() => setFilter("matches")}
+              />
+              <Summary
+                label="Included in batch"
+                count={included.length}
+                sub={`${counts.skipped} skipped · ${blocked.length} need fixing`}
+                icon={<CheckCheck className="size-4 text-emerald-600" />}
+                onClick={() => setReviewOpen(true)}
+              />
+            </div>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileSpreadsheet className="size-4 shrink-0 text-emerald-600" />
+                  <span className="truncate text-sm font-medium">
+                    {fileName}
+                  </span>
+                  <span className="hidden text-xs text-muted-foreground md:inline">
+                    / {sheetName}
+                  </span>
+                  {busy && <Loader2 className="size-4 animate-spin" />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={undo}
+                    disabled={!history.length || busy}
                   >
-                    {title}
-                    <span
+                    <Undo2 /> Undo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => imageInput.current?.click()}
+                  >
+                    <ImagePlus /> Add images
+                  </Button>
+                </div>
+              </div>
+              {notices.map((notice) => (
+                <p key={notice} className="text-xs text-muted-foreground">
+                  {notice}
+                </p>
+              ))}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-1">
+                  {(
+                    [
+                      ["all", "All rows"],
+                      ["missing", "Missing details"],
+                      ["matches", "Matches"],
+                      ["errors", "To fix"],
+                      ["skipped", "Skipped"],
+                    ] as [Filter, string][]
+                  ).map(([key, title]) => (
+                    <button
+                      key={key}
+                      aria-pressed={filter === key}
+                      onClick={() => setFilter(key)}
                       className={cn(
-                        "rounded px-1 text-[10px] tabular-nums",
-                        filter === key ? "bg-background/20" : "bg-muted",
+                        "flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium",
+                        filter === key
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground hover:bg-muted",
                       )}
                     >
-                      {counts[key]}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground" />
-                  <input
-                    aria-label="Search batch"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search this batch…"
-                    className="h-9 w-48 rounded-md border bg-background pr-3 pl-8 text-xs outline-blue-500"
-                  />
-                </div>
-                <NativeSelect
-                  aria-label="Filter location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className={selectStyle}
-                >
-                  <option value="all">All locations</option>
-                  {groups.map((g) => (
-                    <option key={g}>{g}</option>
+                      {title}
+                      <span
+                        className={cn(
+                          "rounded px-1 text-[10px] tabular-nums",
+                          filter === key ? "bg-background/20" : "bg-muted",
+                        )}
+                      >
+                        {counts[key]}
+                      </span>
+                    </button>
                   ))}
-                </NativeSelect>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground" />
+                    <input
+                      aria-label="Search batch"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search this batch…"
+                      className="h-9 w-48 rounded-md border bg-background pr-3 pl-8 text-xs outline-blue-500"
+                    />
+                  </div>
+                  <NativeSelect
+                    aria-label="Filter location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className={selectStyle}
+                  >
+                    <option value="all">All locations</option>
+                    {groups.map((g) => (
+                      <option key={g}>{g}</option>
+                    ))}
+                  </NativeSelect>
+                </div>
               </div>
+              {selected.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs dark:border-blue-900 dark:bg-blue-950/20">
+                  <span className="font-semibold">
+                    {selected.length} selected
+                    {hiddenSelected > 0
+                      ? ` (${hiddenSelected} outside this view)`
+                      : ""}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBulkOpen(true)}
+                  >
+                    <SlidersHorizontal /> Set values
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      change(
+                        selected.map((r) => ({
+                          id: r.id,
+                          patch: { decision: "skip", targetId: undefined },
+                        })),
+                      );
+                      setMessage(`${selected.length} rows skipped.`);
+                    }}
+                  >
+                    Skip selected
+                  </Button>
+                  <button
+                    className="ml-auto underline"
+                    onClick={() => setSelection({})}
+                  >
+                    Clear selection
+                  </button>
+                </div>
+              )}
+              <ImportGrid
+                data={filtered}
+                selection={selection}
+                setSelection={setSelection}
+                change={change}
+                inspect={setDetailId}
+                notify={setMessage}
+                filterKey={`${deferredQuery}|${location}|${filter}`}
+              />
             </div>
-            {selected.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs dark:border-blue-900 dark:bg-blue-950/20">
-                <span className="font-semibold">
-                  {selected.length} selected
-                  {hiddenSelected > 0
-                    ? ` (${hiddenSelected} outside this view)`
-                    : ""}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setBulkOpen(true)}
-                >
-                  <SlidersHorizontal /> Set values
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    change(
-                      selected.map((r) => ({
-                        id: r.id,
-                        patch: { decision: "skip", targetId: undefined },
-                      })),
-                    );
-                    setMessage(`${selected.length} rows skipped.`);
-                  }}
-                >
-                  Skip selected
-                </Button>
-                <button
-                  className="ml-auto underline"
-                  onClick={() => setSelection({})}
-                >
-                  Clear selection
-                </button>
-              </div>
-            )}
-            <ImportGrid
-              data={filtered}
-              selection={selection}
-              setSelection={setSelection}
-              change={change}
-              inspect={setDetailId}
-              notify={setMessage}
-              filterKey={`${deferredQuery}|${location}|${filter}`}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>
+                Edits stay in this tab. Export your review before leaving.
+              </span>
+              <span>
+                {blocked.length
+                  ? `${blocked.length} included rows need fixing before review.`
+                  : "Blank optional fields are flagged for review."}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+      {reviewOpen && (
+        <BatchCardReview
+          items={assessed}
+          fileName={fileName}
+          back={() => {
+            setReviewOpen(false);
+            requestAnimationFrame(() =>
+              document.getElementById("open-batch-review")?.focus(),
+            );
+          }}
+          edit={setDetailId}
+          exportBatch={exportBatch}
+          exporting={exporting}
+          error={error}
+          message={message}
+        >
+          {testImportEnabled && !demo && (
+            <TestImportPanel
+              session={testSession}
+              rows={(Object.values(selection).some(Boolean)
+                ? assessed.filter(
+                    (a) => selection[a.row.id] && !a.errors.length,
+                  )
+                : included.filter((a) => !a.errors.length)
+              ).map((a) => a.row)}
             />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>
-              Edits stay in this tab. Export your review before leaving.
-            </span>
-            <span>
-              {blocked.length
-                ? `${blocked.length} included rows need fixing before review.`
-                : "Blank optional fields are flagged for review."}
-            </span>
-          </div>
-        </>
+          )}
+        </BatchCardReview>
       )}
       <ImportRowDetails
         item={detail}
@@ -765,75 +803,6 @@ export function KanbanImportReview({
             </Button>
             <Button onClick={bulkApply} disabled={!bulkValue.trim()}>
               Apply to selected rows
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Review the proposed batch</DialogTitle>
-            <DialogDescription>
-              Across the whole workbook, including rows outside the current
-              filters.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-3 gap-3">
-            {(
-              [
-                ["Create", rows.filter((r) => r.decision === "create").length],
-                ["Update", rows.filter((r) => r.decision === "update").length],
-                ["Skip", counts.skipped],
-              ] as [string, number][]
-            ).map(([label, count]) => (
-              <div key={label} className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-semibold">{count}</p>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-2 rounded-lg bg-muted/40 p-4 text-sm">
-            <p>
-              {included.filter((a) => a.warnings.length).length} included rows
-              have missing optional details.
-            </p>
-            <p>
-              {
-                included.filter(
-                  (a) => a.row.decision === "create" && a.matches.cards.length,
-                ).length
-              }{" "}
-              new cards share a part number with an existing card.
-            </p>
-            {blocked.length > 0 && (
-              <p className="text-destructive">
-                {blocked.length} rows still need fixing. Return to the table to
-                resolve them.
-              </p>
-            )}
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            This preview exports a ZIP containing the reviewed spreadsheet,
-            actions and supplied images. Full-batch saving is not enabled yet.
-          </p>
-          {testImportEnabled && !demo && (
-            <TestImportPanel
-              session={testSession}
-              rows={(Object.values(selection).some(Boolean)
-                ? assessed.filter(a => selection[a.row.id] && !a.errors.length)
-                : included.filter(a => !a.errors.length)).map(a => a.row)}
-            />
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewOpen(false)}>
-              Back to editing
-            </Button>
-            <Button
-              onClick={exportBatch}
-              disabled={exporting || blocked.length > 0 || !included.length}
-            >
-              {exporting ? <Loader2 className="animate-spin" /> : <Download />}{" "}
-              Export reviewed batch
             </Button>
           </DialogFooter>
         </DialogContent>

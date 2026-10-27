@@ -2,11 +2,21 @@
 
 import React from "react";
 import Image from "next/image";
-import { Card } from "@/components/ui/card";
 import type { KanbanCard } from "../actions";
 
 interface KanbanCardPreviewProps {
-  card: KanbanCard;
+  card: Pick<
+    KanbanCard,
+    | "part_no"
+    | "description"
+    | "location"
+    | "preferred_supplier"
+    | "lead_time"
+    | "signedImageUrl"
+  > & {
+    header_color: string;
+    order_quantity: number | string | null;
+  };
 }
 
 export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
@@ -36,7 +46,7 @@ export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
       {/* Header */}
       <div
         className={`${getHeaderColor(
-          card.header_color
+          card.header_color,
         )} text-white text-center py-6`}
       >
         <h1 className="text-4xl font-bold tracking-wider">KANBAN</h1>
@@ -107,7 +117,7 @@ export default function KanbanCardPreview({ card }: KanbanCardPreviewProps) {
             Order Qty:
           </div>
           <div className="p-4 bg-white text-lg text-center">
-            {card.order_quantity || ""}
+            {card.order_quantity ?? ""}
           </div>
         </div>
 

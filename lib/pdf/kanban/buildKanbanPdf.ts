@@ -5,15 +5,13 @@ import path from "node:path";
 import { getDefaultFont } from "@pdfme/common";
 import type { Template, Font } from "@pdfme/common";
 import { normalizeKanbanHeaderColor } from "@/lib/kanban/colors";
-import { PDFDocument } from "pdf-lib";
-import { fitKanbanTemplate, KanbanPdfLayoutError } from "./fitKanbanTemplate";
 
 interface KanbanCard {
   id: string;
   part_no: string;
   description: string;
   location: string;
-  order_quantity: number | null;
+  order_quantity: number;
   preferred_supplier: string;
   lead_time: string;
   header_color: string;
@@ -89,9 +87,9 @@ export async function buildKanbanPdf(
     };
     console.log("Custom fonts loaded from:", fontDir);
     console.log("Available fonts:", Object.keys(fontMap));
-  } catch (loadError) {
+  } catch (loadError: any) {
     console.error("Error loading fonts for PDFME:", loadError);
-    throw new Error(`Failed to load PDF fonts: ${loadError instanceof Error ? loadError.message : String(loadError)}`);
+    throw new Error(`Failed to load PDF fonts: ${loadError.message}`);
   }
 
   // Prepare inputs for all kanban cards (matching template field names)
@@ -193,28 +191,13 @@ export async function buildKanbanPdf(
   };
   console.log("Kanban plug-ins:", Object.keys(plugins));
 
-  // Fit independently so one long description does not shrink every card.
-  const combined = await PDFDocument.create();
-  let singleBytes: Uint8Array | undefined;
-  for (let index = 0; index < inputs.length; index++) {
-    const input = inputs[index];
-    const fitted = await fitKanbanTemplate(template, input.productInfo, fontMap, kanbanCards[index].part_no);
-    const bytes = await generate({
-      template: fitted,
-      inputs: [input],
-      options: { font: fontMap },
-      plugins,
-    });
-    const document = await PDFDocument.load(bytes);
-    // Never store or print a split card, even if renderer behaviour changes.
-    if (document.getPageCount() !== 1) throw new KanbanPdfLayoutError(kanbanCards[index].part_no);
-    singleBytes = bytes;
-    if (inputs.length > 1) {
-      const [page] = await combined.copyPages(document, [0]);
-      combined.addPage(page);
-    }
-  }
-  const pdfBytes = inputs.length === 1 ? singleBytes! : await combined.save();
+  // Generate PDF
+  const pdfBytes = await generate({
+    template,
+    inputs,
+    options: { font: fontMap },
+    plugins,
+  });
 
   console.log(`PDF generated successfully, size: ${pdfBytes.length} bytes`);
   return pdfBytes;

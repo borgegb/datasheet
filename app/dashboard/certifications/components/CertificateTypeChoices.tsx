@@ -10,7 +10,7 @@ const groups = [
     { slug: "eu-doc-owner-manual-blasting", productType: "blast-machine" },
   ] },
   { name: "PTO Compressors", choices: [
-    { slug: "eu-doc-serialised", productType: "pto-compressor", title: "EU DoC - Serialised - PTO Compressors" },
+    { slug: "eu-doc-serialised", productType: "pto-compressor", title: "EU DoC - Serialised - 32L Air Receiver (PTO)" },
     { slug: "eu-doc-owner-manual-pto-compressors", productType: "pto-compressor" },
   ] },
   { name: "20L Blast Machine", choices: [

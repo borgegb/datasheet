@@ -10,6 +10,7 @@ const products = load('lib/certifications/products.ts');
 const euBuilder = load('lib/pdf/certifications/buildEuDeclarationOfConformityPdf.ts');
 const htBuilder = load('lib/pdf/certifications/buildHydrostaticTestPdf.ts');
 const ink = load('lib/pdf/certifications/signatureInk.ts');
+const { CAT_III_CERTIFICATE } = load('lib/certifications/reference.ts');
 
 const fixtures = matrix.rows.map(([model, code, description, volume, ps, category, type, pt, requirement, approved]) => ({
   ...blast40, id: model, product_title: `${description} ${model}`, product_code: code,
@@ -26,7 +27,10 @@ async function check(name, fn) { await fn(); count++; console.log(`PASS ${name}`
 async function main() {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.invalid';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-only';
-  for (const product of fixtures) {
+  for (const original of fixtures) {
+    // Keep the historical migration fixture intact; use the newly approved reference for issuance.
+    const product = original.eu_doc_ped_category === 'cat-iii' && original.certification_issue_enabled
+      ? { ...original, eu_doc_certificate_no: CAT_III_CERTIFICATE } : original;
     const model = product.id;
     for (const mode of ['test', 'issued']) await check(`${model} Hydrostatic ${mode} approval and product values`, async () => {
       const { response, body, calls } = await routeProbe({ type: 'hydrostatic-test', product, productId: model,
@@ -51,7 +55,7 @@ async function main() {
     for (const mode of ['test', 'issued']) await check(`${model} declaration ${mode} approval and trusted identity`, async () => {
       const { response, calls, body } = await routeProbe({ type, product, productId: model, documentMode: mode,
         data: { commercialName: 'FORGED', modelType: 'WRONG' } });
-      const allowed = mode === 'test' || product.certification_issue_enabled;
+      const allowed = product.eu_doc_product_type !== 'pto-compressor' && (mode === 'test' || product.certification_issue_enabled);
       assert.equal(response.status, allowed ? 200 : 400, JSON.stringify(body));
       if (!allowed) { assert.equal(calls.uploads.length, 0); assert.equal(calls.downloads.length, 0); return; }
       assert.equal(calls.records[0].data.modelType, `${model} / ${product.product_code}`);
@@ -134,7 +138,7 @@ async function main() {
     assert.ok(content.includes(product.id));
     if (name.includes('af5l')) { assert.equal(content.includes('2810'), false); assert.equal(content.includes('12.3'), false); assert.ok(content.includes('15 bar')); }
     if (name === 'sep-af5l') { assert.ok(content.includes('-10')); assert.ok(content.includes('certificate optional')); assert.equal(images.length, 2); }
-    if (name === 'doc-bp200lx') assert.ok(content.includes('Pending certification (test only)'));
+    if (name === 'doc-bp200lx') assert.ok(content.includes(CAT_III_CERTIFICATE));
     for (const t of text) assert.ok(t.x + t.font.widthOfTextAtSize(t.value, t.size) <= 568, `Right overflow: ${t.value}`);
     if (output) fs.writeFileSync(path.join(output, `${name}.pdf`), bytes);
   });

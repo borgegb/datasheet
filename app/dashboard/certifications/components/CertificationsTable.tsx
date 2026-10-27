@@ -16,6 +16,7 @@ import { deleteCertification } from "../actions";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { HYDROSTATIC_CERTIFICATE_TITLE } from "@/lib/certifications/labels";
+import { certificateDownloadName } from "@/lib/certifications/download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,14 +49,15 @@ export default function CertificationsTable({ initialData }: Props) {
     });
   }, []);
 
-  const openPdf = async (path?: string | null) => {
+  const openPdf = async (row: CertificationRow) => {
+    const path = row.pdf_storage_path;
     if (!path) return;
     const supabase = createClient();
     const { data, error } = await supabase.storage
       .from("datasheet-assets")
-      .createSignedUrl(path, 60 * 5);
+      .createSignedUrl(path, 60 * 5, { download: certificateDownloadName(row.type, row.data) });
     if (error || !data?.signedUrl) {
-      toast.error("Failed to open PDF");
+      toast.error("Failed to create PDF download link");
       return;
     }
     window.open(data.signedUrl, "_blank");
@@ -129,9 +131,9 @@ export default function CertificationsTable({ initialData }: Props) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => openPdf(r.pdf_storage_path)}
+                          onClick={() => openPdf(r)}
                         >
-                          <Download className="mr-2 h-4 w-4" /> Open PDF
+                          <Download className="mr-2 h-4 w-4" /> Download PDF
                         </DropdownMenuItem>
                         {(userRole === "owner" || userRole === "member") && (
                           <>

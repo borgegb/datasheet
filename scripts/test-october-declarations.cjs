@@ -57,6 +57,8 @@ async function main() {
       finally { PDFPage.prototype.drawText = drawText; PDFPage.prototype.drawImage = drawImage; }
       assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
       const text = texts.map(t => t.value).join(' ');
+      assert.equal(texts.filter(t => t.value === 'www.appliedpi.com').length, 2);
+      assert.equal(texts.filter(t => t.value === 'www.ptocompressors.com').length, product === receiver ? 2 : 0);
       assert.ok(text.includes('HPi Verification Services (Ireland) Ltd'));
       assert.equal(text.includes('HPiVS-iP1283-001-I-02-00'), false);
       assert.equal(text.includes('HPiVS-iP1283-001-I-03-00'), false);

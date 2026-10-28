@@ -96,7 +96,7 @@ export async function buildHydrostaticTestPdf(data: HydrostaticData, options: Bu
   const temperature = (value: string) => `${Number(value) > 0 ? "+" : ""}${Number(value)} °C`;
   field("Maximum Allowable Pressure (PS):", pressure(input.maxPressureBar));
   field("Allowable Temperature (TS min / max):", `${temperature(input.minTemperatureC)} / ${temperature(input.maxTemperatureC)}`);
-  field("Hydrostatic Test Pressure (PT):", `${pressure(input.testPressureBar)} - ${input.testMedium}, held for ${Number(input.holdingMinutes)} minutes`);
+  field("Hydrostatic Test Pressure (PT):", `${pressure(input.testPressureBar)} - ${input.testMedium}, held for at least ${Number(input.holdingMinutes)} minutes`);
   field("Result:", input.testResult === "pass" ? "PASS - no leakage, no permanent deformation" : "FAIL - test acceptance criteria not met", 8,
     input.testResult === "pass" ? rgb(0.12, 0.34, 0.23) : BLACK);
   const [year, month, day] = input.dateOfTest.split("-");

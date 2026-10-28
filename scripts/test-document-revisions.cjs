@@ -21,7 +21,7 @@ async function main() {
   for (const type of DECLARATION_TYPES) {
     const definition = CERT_TYPES[type];
     await check(`${type}: dropdown and default`, () => {
-      assert.equal(definition.defaults.revision, '01');
+      assert.equal(definition.defaults.revision, type === 'eu-doc-20l-manual' ? '02' : '01');
       const field = definition.fieldLayout.find(f => f.name === 'revision');
       assert.equal(field.type, 'select');
       assert.deepEqual(field.options.map(o => o.value), DOCUMENT_REVISIONS);
@@ -91,7 +91,7 @@ async function main() {
       assert.ok(revisionIndex >= 0);
       assert.equal(texts[revisionIndex + 1].value, manual?.revision || '05');
       assert.equal(texts[revisionIndex].x, texts[revisionIndex + 1].x);
-      assert.ok(texts.some(t => t.value === (manual ? `${manual.issueDate.slice(-2)}/October/2026` : '07/October/2026')));
+      assert.ok(texts.some(t => t.value === (manual?.issueDate ? `${manual.issueDate.slice(-2)}/October/2026` : '07/October/2026')));
       assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
       assert.equal(texts.filter(t => t.value === 'TEST / NOT FOR ISSUE - UNSIGNED').length, 2);
       if (output) fs.writeFileSync(path.join(output, `${type}-rev05.pdf`), bytes);

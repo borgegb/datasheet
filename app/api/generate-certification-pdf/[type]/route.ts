@@ -355,7 +355,8 @@ export async function POST(
       const identity = referenceIdentity(euProductCertification);
       if (manual) merged = { ...merged, ...manual };
       if (isSerialisedDeclaration(type)) {
-        merged.commercialName = identity?.commercialName || euProductCertification.productTitle || supplementalDeclarationProfile(type)?.commercialName || "";
+        const profile = supplementalDeclarationProfile(type);
+        merged.commercialName = identity?.commercialName || (profile?.kind === "20l" ? profile.commercialName : euProductCertification.productTitle || profile?.commercialName || "");
         merged.modelType = identity?.modelType || euProductCertification.modelType || euProductCertification.productCode || "";
       }
       if (isSerialisedDeclaration(type) && declarationReference(euProductCertification)?.kind === "receiver") {

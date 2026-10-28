@@ -269,7 +269,7 @@ for (const [slug, title, serialised] of [
     ...base,
     slug,
     title,
-    defaults: { ...base.defaults },
+    defaults: { ...base.defaults, ...(!serialised ? { revision: profile.revision } : {}) },
     fieldLayout: base.fieldLayout.map(field => ({
       ...field,
       placeholder: field.name === "declarationNumber" && !serialised ? `${profile.numberPrefix}-OM01`

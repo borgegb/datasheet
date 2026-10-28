@@ -679,7 +679,7 @@ function drawHeader(
   });
 }
 
-function drawFooter(page: PDFPage, fonts: FontSet, pageNumber: number) {
+function drawFooter(page: PDFPage, fonts: FontSet, pageNumber: number, showPtoWebsite: boolean) {
   page.drawRectangle({
     x: 0,
     y: FOOTER_Y,
@@ -707,15 +707,17 @@ function drawFooter(page: PDFPage, fonts: FontSet, pageNumber: number) {
     color: WHITE,
   });
 
-  const rightText = "www.ptocompressors.com";
-  const rightWidth = fonts.regular.widthOfTextAtSize(rightText, 9.6);
-  page.drawText(rightText, {
-    x: CONTENT_RIGHT - rightWidth,
-    y: footerTextY,
-    font: fonts.regular,
-    size: 9.6,
-    color: WHITE,
-  });
+  if (showPtoWebsite) {
+    const rightText = "www.ptocompressors.com";
+    const rightWidth = fonts.regular.widthOfTextAtSize(rightText, 9.6);
+    page.drawText(rightText, {
+      x: CONTENT_RIGHT - rightWidth,
+      y: footerTextY,
+      font: fonts.regular,
+      size: 9.6,
+      color: WHITE,
+    });
+  }
 }
 
 function drawLegislation(page: PDFPage, y: number, fonts: FontSet, compact = false) {
@@ -962,6 +964,8 @@ async function buildSupplementalDeclarationPdf(
   }
   const sep = profile.kind === "sep";
   const serialised = isSerialisedDeclaration(type);
+  const values = { ...data, ...(fixedManualMetadata(type, product) || {}) };
+  const declarationNumber = `${options.isTest && !stringValue(values.declarationNumber).startsWith("TEST-") ? "TEST-" : ""}${stringValue(values.declarationNumber)}`;
   const specs = product.equipmentProfile;
   const ps = specs?.maxPressureBar || "8.6";
   const volume = specs?.volumeLitres || (sep ? "5" : "20");
@@ -981,11 +985,11 @@ async function buildSupplementalDeclarationPdf(
   const exclusion = "This declaration relates exclusively to the equipment in the state in which it was placed on the market and excludes components added or operations carried out subsequently by the user.";
   const page1 = pdfDoc.addPage(PAGE_SIZE);
   drawHeader(page1, fonts, 1, logo, titles);
-  drawFooter(page1, fonts, 1);
+  drawFooter(page1, fonts, 1, false);
   let y = drawInfoBar(page1, {
-    declarationNumber: stringValue(data.declarationNumber),
-    issueDate: formatIssueDate(data.issueDate),
-    revision: data.revision === undefined ? profile.revision : documentRevisionSchema.parse(data.revision),
+    declarationNumber,
+    issueDate: formatIssueDate(values.issueDate),
+    revision: values.revision === undefined ? profile.revision : documentRevisionSchema.parse(values.revision),
   }, fonts, TOP_Y);
   y = drawWrappedText({ page: page1, x: MARGIN_X, y, maxWidth: CONTENT_WIDTH, font: fonts.regular, size: 8.7, lineHeight: 11.5,
     text: sep
@@ -1012,12 +1016,10 @@ async function buildSupplementalDeclarationPdf(
     { label: "Description / function", value: specs?.equipmentDescription || (sep
       ? "In-line compressed-air filter housing for the supply of breathing air to airline respirators (e.g. blast helmets)"
       : "Mobile abrasive blast machine") },
-    { label: "Commercial name", value: product.productTitle || (serialised ? stringValue(data.commercialName) : profile.commercialName) },
+    { label: "Commercial name", value: sep ? product.productTitle || (serialised ? stringValue(data.commercialName) : profile.commercialName) : profile.commercialName },
     { label: "Model / type", value: product.modelType || (serialised ? stringValue(data.modelType) : profile.modelType) },
-    ...(serialised ? [
-      { label: "Serial number", value: stringValue(data.serialNumber) },
-      { label: "Year of manufacture", value: stringValue(data.yearOfConstruction) },
-    ] : []),
+    { label: "Serial number", value: serialised ? stringValue(data.serialNumber) : "As stated on the product data plate" },
+    { label: "Year of manufacture", value: serialised ? stringValue(data.yearOfConstruction) : "As stated on the product data plate" },
   ]);
   if (sep) {
     paragraph(page1, "Applicable Legislation",
@@ -1037,7 +1039,7 @@ async function buildSupplementalDeclarationPdf(
 
   const page2 = pdfDoc.addPage(PAGE_SIZE);
   drawHeader(page2, fonts, 2, logo, titles);
-  drawFooter(page2, fonts, 2);
+  drawFooter(page2, fonts, 2, false);
   y = TOP_Y;
   if (sep) {
     rows(page2, "Sound Engineering Practice - Basis", [{
@@ -1265,8 +1267,10 @@ async function buildReferenceDeclarationPdf(
     text("www.appliedpi.com", x, 17, false, 8, WHITE);
     const pageText = `Page ${index + 1} of 2`;
     text(pageText, (PAGE_WIDTH - fonts.regular.widthOfTextAtSize(pageText, 8)) / 2, 17, false, 8, WHITE);
-    const website = "www.ptocompressors.com";
-    text(website, x + width - fonts.regular.widthOfTextAtSize(website, 8), 17, false, 8, WHITE);
+    if (receiver) {
+      const website = "www.ptocompressors.com";
+      text(website, x + width - fonts.regular.widthOfTextAtSize(website, 8), 17, false, 8, WHITE);
+    }
     if (isTest) text("TEST / NOT FOR ISSUE - UNSIGNED", x, index === 0 ? 744 : 820, true, 9, MUTED_COLOR);
   }
   return pdf.save();
@@ -1305,6 +1309,7 @@ export async function buildEuDeclarationOfConformityPdf(
   const logo = await embedOptionalJpg(pdfDoc, "pdf/assets/Appliedlogo.jpg");
   const ceLogo = await embedOptionalPng(pdfDoc, "pdf/assets/ce-logo.png");
   const signature = !options.isTest && signaturePng ? await pdfDoc.embedPng(signaturePng) : null;
+  const showPtoWebsite = productCertification?.productType === "pto-compressor" || productCertification?.productType === "air-receiver";
 
   let page1: PDFPage;
   let y = TOP_Y;
@@ -1313,7 +1318,7 @@ export async function buildEuDeclarationOfConformityPdf(
   for (const compact of [false, true]) {
     page1 = pdfDoc.addPage(PAGE_SIZE);
     drawHeader(page1, fonts, 1, logo);
-    drawFooter(page1, fonts, 1);
+    drawFooter(page1, fonts, 1, showPtoWebsite);
     y = TOP_Y;
     y = drawInfoBar(page1, declaration, fonts, y);
     if (compact) y += 4;
@@ -1411,7 +1416,7 @@ export async function buildEuDeclarationOfConformityPdf(
 
   const page2 = pdfDoc.addPage(PAGE_SIZE);
   drawHeader(page2, fonts, 2, logo);
-  drawFooter(page2, fonts, 2);
+  drawFooter(page2, fonts, 2, showPtoWebsite);
   y = TOP_Y;
 
   y = drawStandards(

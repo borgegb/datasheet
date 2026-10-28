@@ -18,12 +18,12 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
-import { fixedManualMetadata, productReference, referenceIdentity, compressorSerialSchema } from "@/lib/certifications/reference";
+import { fixedManualMetadata, productReference, referenceIdentity, compressorSerialSchema, compressorSerialNumber } from "@/lib/certifications/reference";
 import { euDocHoldReason, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
 import { certificateModelName, declarationIssueError, type EuDocProductOptions } from "@/lib/certifications/products";
 import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 import { HYDROSTATIC_FIXED_FIELDS, OPTIONAL_HYDROSTATIC_NOTE, hydrostaticRequirement, hydrostaticProductCertificateNumber, hydrostaticProductFields, hydrostaticSetupError } from "@/lib/certifications/hydrostatic";
-import { calendarDateValue, unitSerialNumber, UNIT_SERIAL_MESSAGE } from "@/lib/certifications/unit";
+import { calendarDateValue, manufactureYearSchema, unitSerialNumber, UNIT_SERIAL_MESSAGE } from "@/lib/certifications/unit";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Popover,
@@ -253,6 +253,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [serialDigits, setSerialDigits] = React.useState("");
+  const [compressorSerialSuffix, setCompressorSerialSuffix] = React.useState("");
   const [documentMode, setDocumentMode] = React.useState<"test" | "issued">("test");
   const [generatedPdfUrl, setGeneratedPdfUrl] = React.useState<string | null>(
     null
@@ -267,6 +268,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
   const hasUnitSerial = isSerialised || isHydrostatic;
   const usesProductDropdown = requiresEuDocProduct || isHydrostatic;
   const yearField = isHydrostatic ? "yearOfManufacture" : "yearOfConstruction";
+  const serialYear = manufactureYearSchema.safeParse(form[yearField]).success ? String(form[yearField]).trim().slice(-2) : "";
   const serialNumber = hasUnitSerial ? unitSerialNumber(form[yearField], serialDigits) : form.serialNumber;
   const supplementalProfile = supplementalDeclarationProfile(typeSlug);
   const referenceProduct = selectedProduct ? { productCode: selectedProduct.product_code,
@@ -285,6 +287,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
     ...(manualMetadata || {}),
     ...(hasUnitSerial ? { serialNumber } : {}),
     ...(isSerialised ? { declarationNumber: declarationNumber ?? "" } : {}),
+    ...(isReceiverSerial ? { compressorSerialNumber: compressorSerialNumber(form[yearField], compressorSerialSuffix) } : {}),
     ...(isHydrostatic && selectedProduct ? { certificateNumber: hydrostaticProductCertificateNumber(selectedProduct, serialNumber) } : {}),
   };
   const updateField = (name: string, value: string) => {
@@ -368,6 +371,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
 
   const selectProduct = (product: ProductSearchResult) => {
     setSerialDigits("");
+    setCompressorSerialSuffix("");
     setSubmitError(null);
     setProductId(product.id);
     setSelectedProduct(product);
@@ -380,7 +384,7 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
       setForm((current) => ({
         ...current,
         ...serialisedProductFields(product),
-        commercialName: product.product_title || supplementalProfile?.commercialName || "",
+        commercialName: supplementalProfile?.kind === "20l" ? supplementalProfile.commercialName : product.product_title || supplementalProfile?.commercialName || "",
         modelType: certificateModelName(product),
         ...(identity || {}),
         revision: productReference(product)?.revision || current.revision,
@@ -399,16 +403,27 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
   };
 
   const renderField = (f: FieldSpec) => {
-    if (manualMetadata && ["declarationNumber", "issueDate", "revision"].includes(f.name)) {
-      return <Input id={f.name} readOnly value={formValues[f.name]} className="bg-muted/40" />;
+    if ((requiresEuDocProduct && !isSerialised && ["declarationNumber", "revision"].includes(f.name)) ||
+        (manualMetadata?.issueDate && f.name === "issueDate")) {
+      return <Input id={f.name} readOnly value={formValues[f.name] ?? ""} className="bg-muted/40" />;
     }
-    if (hasUnitSerial && f.name === "serialNumber") {
+    if ((hasUnitSerial && f.name === "serialNumber") || (isReceiverSerial && f.name === "compressorSerialNumber")) {
+      const compressor = f.name === "compressorSerialNumber";
       return (
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 font-mono text-sm" aria-label="Serial prefix">AP-{String(form[yearField] || "").slice(-2) || "YY"}-</span>
-          <Input id={f.name} value={serialDigits} inputMode="numeric" maxLength={5} placeholder="00273"
-            aria-label="Serial number (five digits)" className="min-w-0 font-mono"
-            onChange={event => { setSerialDigits(sanitizeSerialChunk(event.target.value, 5)); setGeneratedPdfUrl(null); setSubmitError(null); }} />
+          <span className="shrink-0 font-mono text-sm" aria-hidden="true">AP-</span>
+          <Input readOnly value={serialYear} placeholder="YY" aria-label={`${compressor ? "Compressor serial" : "Serial"} year`}
+            className="w-12 shrink-0 bg-muted/40 px-2 text-center font-mono" />
+          <span className="shrink-0 text-muted-foreground" aria-hidden="true">-</span>
+          <Input id={f.name} value={compressor ? compressorSerialSuffix : serialDigits}
+            inputMode={compressor ? "text" : "numeric"} maxLength={compressor ? 74 : 5}
+            placeholder={compressor ? "Compressor serial" : "00273"}
+            aria-label={compressor ? "Compressor serial number suffix" : "Serial number (five digits)"} className="min-w-0 font-mono"
+            onChange={event => {
+              if (compressor) setCompressorSerialSuffix(event.target.value.replace(/^AP-\d{2}-/i, ""));
+              else setSerialDigits(sanitizeSerialChunk(event.target.value, 5));
+              setGeneratedPdfUrl(null); setSubmitError(null);
+            }} />
         </div>
       );
     }

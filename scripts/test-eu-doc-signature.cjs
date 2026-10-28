@@ -650,10 +650,11 @@ async function run() {
       assert.equal(texts.filter(t => t.value === 'TEST / NOT FOR ISSUE - UNSIGNED').length, 2);
       assert.equal(content.includes('2810'), false);
       assert.equal(content.includes('HPi'), false);
-      assert.equal(texts.some(t => t.value === 'Serial number'), serialised);
-      assert.equal(texts.some(t => t.value === 'Year of manufacture'), serialised);
+      assert.equal(texts.some(t => t.value === 'Serial number'), true);
+      assert.equal(texts.some(t => t.value === 'Year of manufacture'), true);
+      assert.equal(texts.filter(t => t.value === 'As stated on the product data plate').length, serialised ? 0 : 2);
       assert.equal(images.length, category === 'sep' ? 2 : 3, 'logos and optional CE only, never the signature in test mode');
-      assert.ok(texts.some(t => t.value === input.revision));
+      assert.ok(texts.some(t => t.value === (serialised ? input.revision : profile.revision)));
       if (category === 'sep') {
         assert.ok(content.includes("MANUFACTURER'S DECLARATION"));
         assert.ok(content.includes('PT 15 bar'));

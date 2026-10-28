@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { isSerialisedDeclaration } from "@/lib/certifications/declarations";
+import { isSerialisedDeclaration, supplementalDeclarationProfile } from "@/lib/certifications/declarations";
+import { manufactureYearSchema } from "@/lib/certifications/unit";
 
 // Approved by Applied in the six references sent on 21 October 2026.
 export const CAT_III_CERTIFICATE = "HPiVS-iP1283-001-I-02-01";
@@ -41,9 +42,16 @@ export function productReference(product: {
     pedCategory: product.eu_doc_ped_category });
 }
 
-export function fixedManualMetadata(type: string, product: ReferenceProduct | null | undefined) {
+export function fixedManualMetadata(type: string, product: ReferenceProduct | null | undefined): {
+  declarationNumber: string; revision: string; issueDate?: string;
+} | null {
+  if (!product || isSerialisedDeclaration(type)) return null;
+  const profile = supplementalDeclarationProfile(type);
+  if (profile && product.productCode === profile.productCode && product.productType === profile.productType && product.pedCategory === profile.pedCategory) {
+    return { declarationNumber: `${profile.numberPrefix}-OM01`, revision: profile.revision };
+  }
   const reference = declarationReference(product);
-  if (!reference || isSerialisedDeclaration(type)) return null;
+  if (!reference) return null;
   if (type === "eu-doc-owner-manual-pto-compressors" && reference.kind === "receiver") {
     return { declarationNumber: "ACL-DoC-OM01", revision: "02", issueDate: "2026-10-19" };
   }
@@ -65,6 +73,12 @@ export function referenceIdentity(product: ReferenceProduct) {
 export const compressorSerialSchema = z.string({ required_error: "Compressor serial number is required" }).trim().min(1, "Compressor serial number is required")
   .max(80, "Compressor serial number must be 80 characters or fewer")
   .regex(/^[A-Za-z0-9][A-Za-z0-9 ./_-]*$/, "Use letters, numbers, spaces, dots, slashes or hyphens for the compressor serial number");
+
+// The form supplies the prefix; keep the existing suffix formats until Applied confirms a fixed length.
+export function compressorSerialNumber(year: unknown, suffix: string): string {
+  if (!manufactureYearSchema.safeParse(year).success || !suffix.trim()) return "";
+  return `AP-${String(year).trim().slice(-2)}-${suffix.trim()}`;
+}
 
 export function referenceConfigurationError(product: ReferenceProduct) {
   const reference = declarationReference(product);

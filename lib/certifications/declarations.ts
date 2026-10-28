@@ -30,7 +30,7 @@ export function supplementalDeclarationProfile(type: string) {
       pedCategory: "cat-i" as const,
       revision: "02",
       numberPrefix: "ACL-DoC-BP20",
-      commercialName: "Blasting Machine BP20L",
+      commercialName: "Blast Machine BP20L",
       modelType: "20L / BP-A-1000",
     };
   }

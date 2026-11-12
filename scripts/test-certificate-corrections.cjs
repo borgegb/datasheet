@@ -29,12 +29,12 @@ async function main() {
     const product = { ...blast40, product_code: profile.productCode,
       product_title: profile.kind === '20l' ? 'Applied 20 Litre Classic Blast Machine' : profile.commercialName,
       eu_doc_product_type: profile.productType, eu_doc_ped_category: profile.pedCategory, eu_doc_certificate_no: null,
-      hydrostatic_profile: null };
+      hydrostatic_profile: { ...blast40.hydrostatic_profile, modelCode: profile.kind === '20l' ? 'BP20L' : 'AF5L' } };
     const config = { productCode: profile.productCode, productType: profile.productType, pedCategory: profile.pedCategory,
       productTitle: product.product_title, certificateNo: '', modelType: profile.modelType };
     const data = { ...unit, issueDate: '2026-10-28', declarationNumber: 'FORGED', revision: '05',
       serialNumber: 'AP-27-00123', yearOfConstruction: '2027', commercialName: 'FORGED' };
-    const number = serialised ? `${profile.numberPrefix}-27_123` : `${profile.numberPrefix}-OM01`;
+    const number = serialised ? profile.kind === '20l' ? 'ACL-DoC-BP20L-AP-27-00123' : `${profile.numberPrefix}-27_123` : `${profile.numberPrefix}-OM01`;
     for (const documentMode of ['test', 'issued']) await check(`${type}: fixed identity, revision and unchanged date (${documentMode})`, async () => {
       const r = await routeProbe({ type, product, documentMode, data });
       assert.equal(r.response.status, 200, JSON.stringify(r.body));
@@ -72,14 +72,14 @@ async function main() {
       assert.equal(fixedManualMetadata(type, config).issueDate, undefined);
     });
   }
-  for (const [year, digits, suffix] of [['2027', '00123', '123'], ['2027', '01234', '1234'], ['2026', '00355', '355'], ['2028', '00000', '0']]) {
+  for (const [year, digits] of [['2027', '00123'], ['2027', '01234'], ['2026', '00355'], ['2028', '00000']]) {
     await check(`manufacture year ${year} and leading zeros ${digits}`, async () => {
       const serial = unitSerialNumber(year, digits);
       assert.equal(serial, `AP-${year.slice(-2)}-${digits}`);
-      assert.equal(serialisedDeclarationNumber(serial), `ACL-DoC-${year.slice(-2)}_${suffix}`);
+      assert.equal(serialisedDeclarationNumber(serial, 'eu-doc-serialised', 'BP200L'), `ACL-DoC-BP200L-${serial}`);
       const r = await routeProbe({ data: { serialNumber: serial, yearOfConstruction: year, declarationNumber: 'FORGED' } });
       assert.equal(r.response.status, 200, JSON.stringify(r.body));
-      assert.equal(r.calls.records[0].data.declarationNumber, `ACL-DoC-${year.slice(-2)}_${suffix}`);
+      assert.equal(r.calls.records[0].data.declarationNumber, `ACL-DoC-BP200L-${serial}`);
     });
   }
   await check('receiver compressor prefix follows manufacture year, independently of receiver digits', async () => {
@@ -91,7 +91,7 @@ async function main() {
     assert.equal(compressorSerialSchema.safeParse(compressorSerialNumber('2027', 'A'.repeat(74))).success, true);
     assert.equal(compressorSerialSchema.safeParse('VM350-2026-12345').success, true, 'Legacy serial formats remain readable');
     const r = await routeProbe({ product: { ...blast40, product_code: 'VM-A-0003', eu_doc_product_type: 'air-receiver',
-      eu_doc_certificate_no: RECEIVER_CERTIFICATE }, data: { yearOfConstruction: '2027', serialNumber: 'AP-27-00123',
+      eu_doc_certificate_no: RECEIVER_CERTIFICATE, hydrostatic_profile: { ...blast40.hydrostatic_profile, modelCode: 'AR32L' } }, data: { yearOfConstruction: '2027', serialNumber: 'AP-27-00123',
       compressorSerialNumber: compressorSerialNumber('2027', '00888') } });
     assert.equal(r.response.status, 200, JSON.stringify(r.body));
     assert.equal(r.calls.records[0].data.compressorSerialNumber, 'AP-27-00888');

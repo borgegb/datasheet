@@ -19,8 +19,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { FieldSpec } from "../registry";
 import { CERT_TYPES } from "../registry";
 import { fixedManualMetadata, productReference, referenceIdentity, compressorSerialSchema, compressorSerialNumber } from "@/lib/certifications/reference";
-import { euDocHoldReason, serialisedDeclarationNumber, serialisedProductFields } from "@/lib/certifications/release";
-import { certificateModelName, declarationIssueError, type EuDocProductOptions } from "@/lib/certifications/products";
+import { euDocHoldReason, serialisedDeclarationNumber, serialisedProductFields, DECLARATION_MODEL_CODE_MESSAGE } from "@/lib/certifications/release";
+import { certificateModelCode, certificateModelName, declarationIssueError, type EuDocProductOptions } from "@/lib/certifications/products";
 import { isDeclarationType, isSerialisedDeclaration, supplementalDeclarationProfile, type EuDocProductType, type EuDocPedCategory } from "@/lib/certifications/declarations";
 import { HYDROSTATIC_FIXED_FIELDS, OPTIONAL_HYDROSTATIC_NOTE, hydrostaticRequirement, hydrostaticProductCertificateNumber, hydrostaticProductFields, hydrostaticSetupError } from "@/lib/certifications/hydrostatic";
 import { calendarDateValue, manufactureYearSchema, unitSerialNumber, UNIT_SERIAL_MESSAGE } from "@/lib/certifications/unit";
@@ -279,10 +279,12 @@ export default function GenericCertificationForm({ typeSlug, euDocProducts, prod
   const holdReason = euDocHoldReason(typeSlug);
   const documentTitle = typeSlug === "eu-doc-serialised" && productType === "pto-compressor"
     ? "EU DoC - Serialised - 32L Air Receiver (PTO)" : typeDef.title;
+  const modelCode = selectedProduct ? certificateModelCode(selectedProduct) : "";
   const setupError = selectedProduct ? (isHydrostatic ? hydrostaticSetupError(selectedProduct, documentMode === "issued")
+    : isSerialised && supplementalProfile?.kind !== "sep" && !modelCode ? DECLARATION_MODEL_CODE_MESSAGE
     : documentMode === "issued" ? declarationIssueError(selectedProduct) : null) : null;
   const declarationNumber = isSerialised
-    ? serialisedDeclarationNumber(serialNumber, typeSlug) : null;
+    ? serialisedDeclarationNumber(serialNumber, typeSlug, modelCode) : null;
   const formValues: Record<string, any> = { ...form,
     ...(manualMetadata || {}),
     ...(hasUnitSerial ? { serialNumber } : {}),

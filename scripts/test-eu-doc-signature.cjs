@@ -72,10 +72,10 @@ const hydrostatic = load('lib/certifications/hydrostatic.ts');
 const hydrostaticBuilder = load('lib/pdf/certifications/buildHydrostaticTestPdf.ts');
 const org = '11111111-1111-4111-8111-111111111111';
 const signaturePath = `${org}/22222222-2222-4222-8222-222222222222.png`;
-const blast = { id: 'product-a', organization_id: org, product_title: 'Blast Machine BP200L', product_code: 'BP-A-5000', eu_doc_product_type: 'blast-machine', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'HPiVS-iP1283-001-I-02-01' };
+const hydroProfile = { modelCode: 'BP40L', equipmentDescription: 'Blast Vessel', maxPressureBar: '8.6', minTemperatureC: '-10', maxTemperatureC: '80', issueEnabled: true };
+const blast = { id: 'product-a', organization_id: org, product_title: 'Blast Machine BP200L', product_code: 'BP-A-5000', eu_doc_product_type: 'blast-machine', eu_doc_ped_category: 'cat-iii', eu_doc_certificate_no: 'HPiVS-iP1283-001-I-02-01', hydrostatic_profile: { ...hydroProfile, modelCode: 'BP200L' } };
 const common = { declarationNumber: 'TEST-2026-001', issueDate: '2026-09-07' };
 const unit = { ...common, commercialName: blast.product_title, modelType: blast.product_code, serialNumber: 'AP-26-00161', yearOfConstruction: '2026' };
-const hydroProfile = { modelCode: 'BP40L', equipmentDescription: 'Blast Vessel', maxPressureBar: '8.6', minTemperatureC: '-10', maxTemperatureC: '80', issueEnabled: true };
 const blast40 = { ...blast, product_title: 'Applied 40 Litre Blast Machine', product_code: 'BP-A-2000', eu_doc_ped_category: 'cat-ii', eu_doc_certificate_no: 'HPiVS-iP1283-001-1', hydrostatic_profile: hydroProfile };
 const hydroData = { ...hydrostatic.hydrostaticProductFields(blast40), certificateNumber: 'ACL-HT-BP40L-AP-26-00115', serialNumber: 'AP-26-00115', yearOfManufacture: '2026', dateOfTest: '2026-06-05', holdingMinutes: '15', testResult: 'pass' };
 
@@ -223,28 +223,27 @@ async function run() {
     assert.equal(fields.modelType, 'BP-A-2000');
     assert.equal(fields.serialNumber, ''); assert.equal(fields.yearOfConstruction, '');
   });
-  await check('declaration numbering matches Rafael example and existing serial formats', () => {
+  await check('DoC numbering includes the model and complete serial number', () => {
     const { serialisedDeclarationNumber } = load('lib/certifications/release.ts');
     for (const [serial, expected] of [
-      ['AP-26-00321', 'ACL-DoC-26_321'], ['25-00161', 'ACL-DoC-25_161'],
-      ['AP-26-0001', 'ACL-DoC-26_1'], ['AP-26-12345', 'ACL-DoC-26_12345'],
-      [' AP-26-00000 ', 'ACL-DoC-26_0'],
-    ]) assert.equal(serialisedDeclarationNumber(serial), expected);
-    for (const serial of ['', null, {}, 'AP-2026-00321', 'XX-26-00321', 'AP-26-32X21', 'AP-26-00321-extra', 'AP-26-000321']) {
-      assert.equal(serialisedDeclarationNumber(serial), null);
+      ['AP-26-00321', 'ACL-DoC-BP200L-AP-26-00321'], ['AP-26-12345', 'ACL-DoC-BP200L-AP-26-12345'],
+      [' AP-26-00000 ', 'ACL-DoC-BP200L-AP-26-00000'],
+    ]) assert.equal(serialisedDeclarationNumber(serial, 'eu-doc-serialised', 'BP200L'), expected);
+    for (const serial of ['', null, {}, '25-00161', 'AP-26-0001', 'AP-2026-00321', 'XX-26-00321', 'AP-26-32X21', 'AP-26-00321-extra', 'AP-26-000321']) {
+      assert.equal(serialisedDeclarationNumber(serial, 'eu-doc-serialised', 'BP200L'), null);
     }
   });
   for (const documentMode of ['test', 'issued']) await check(`${documentMode} derives and persists declaration number, ignoring forged input`, async () => {
     const { response, calls } = await routeProbe({ documentMode, data: { serialNumber: 'AP-26-00321', declarationNumber: 'FORGED-NUMBER' } });
     assert.equal(response.status, 200);
-    const expected = `${documentMode === 'test' ? 'TEST-' : ''}ACL-DoC-26_321`;
+    const expected = `${documentMode === 'test' ? 'TEST-' : ''}ACL-DoC-BP200L-AP-26-00321`;
     assert.equal(calls.builder[1].declarationNumber, expected);
     assert.equal(calls.records[0].data.declarationNumber, expected);
   });
   await check('serialised numbering does not require a client declaration value', async () => {
     const { response, calls } = await routeProbe({ data: { declarationNumber: null } });
     assert.equal(response.status, 200);
-    assert.equal(calls.records[0].data.declarationNumber, 'ACL-DoC-26_161');
+    assert.equal(calls.records[0].data.declarationNumber, 'ACL-DoC-BP200L-AP-26-00161');
   });
   await check('unrecognized serial format blocks generation instead of guessing a declaration', async () => {
     const { response, calls } = await routeProbe({ data: { serialNumber: 'OTHER-UNIT-42' } });
@@ -352,10 +351,11 @@ async function run() {
     assert.equal(fields.testPressureBar, '20'); assert.equal(fields.maxPressureBar, '8.6');
     assert.equal(fields.minTemperatureC, '-10'); assert.equal(fields.maxTemperatureC, '80');
     assert.equal(fields.assessmentModules, 'A2 (NB 2810)'); assert.equal(fields.testResult, undefined);
-    const unconfigured = hydrostatic.hydrostaticProductFields(blast);
+    const unconfiguredProduct = { ...blast, hydrostatic_profile: null };
+    const unconfigured = hydrostatic.hydrostaticProductFields(unconfiguredProduct);
     for (const field of ['maxPressureBar', 'minTemperatureC', 'maxTemperatureC']) assert.equal(unconfigured[field], '', field);
     assert.equal(hydrostatic.hydrostaticProductCertificateNumber(blast40, 'AP-26-00115'), hydroData.certificateNumber);
-    assert.equal(hydrostatic.hydrostaticProductCertificateNumber(blast, 'AP-26-00115'), '');
+    assert.equal(hydrostatic.hydrostaticProductCertificateNumber(unconfiguredProduct, 'AP-26-00115'), '');
     assert.equal(hydrostatic.hydrostaticAssessmentModules('cat-i'), 'A');
     assert.equal(hydrostatic.hydrostaticAssessmentModules('cat-iii'), 'B + C2 (NB 2810)');
     assert.equal(hydrostatic.hydrostaticAssessmentModules('sep'), 'Not applicable (Article 4(3))');
@@ -597,7 +597,8 @@ async function run() {
   const release = load('lib/certifications/release.ts');
   for (const [name, type, code, productType, category] of supplementalVariants) {
     const profile = declarations.supplementalDeclarationProfile(type);
-    const product = { ...blast, product_code: code, eu_doc_product_type: productType, eu_doc_ped_category: category, eu_doc_certificate_no: null };
+    const product = { ...blast, product_code: code, eu_doc_product_type: productType, eu_doc_ped_category: category, eu_doc_certificate_no: null,
+      hydrostatic_profile: { ...hydroProfile, modelCode: profile.kind === '20l' ? 'BP20L' : 'AF5L' } };
     const serialised = declarations.isSerialisedDeclaration(type);
     const data = { ...unit, declarationNumber: `${profile.numberPrefix}-OM01`, commercialName: profile.commercialName, modelType: profile.modelType, serialNumber: 'AP-26-00321' };
     await check(`${name} uses only its configured product and classification`, () => {
@@ -613,7 +614,7 @@ async function run() {
     for (const mode of ['test', 'issued']) await check(`${name} ${mode} keeps signature and numbering controls`, async () => {
       const { response, body, calls } = await routeProbe({ type, product, data, documentMode: mode, signaturePath: mode === 'test' ? null : signaturePath });
       assert.equal(response.status, 200, JSON.stringify(body));
-      const number = serialised ? `${profile.numberPrefix}-26_321` : data.declarationNumber;
+      const number = serialised ? profile.kind === '20l' ? 'ACL-DoC-BP20L-AP-26-00321' : `${profile.numberPrefix}-26_321` : data.declarationNumber;
       assert.equal(calls.records[0].data.declarationNumber, (mode === 'test' ? 'TEST-' : '') + number);
       assert.equal(calls.downloads.length, mode === 'test' ? 0 : 1);
       if (!serialised) {
@@ -638,7 +639,7 @@ async function run() {
       PDFPage.prototype.drawText = function(value, opts) { texts.push({ value, page: this.doc.getPages().indexOf(this), ...opts }); return drawText.call(this, value, opts); };
       PDFPage.prototype.drawImage = function(value, opts) { images.push({ page: this.doc.getPages().indexOf(this), ...opts }); return drawImage.call(this, value, opts); };
       const input = registry.CERT_TYPES[type].schema.parse({ ...data,
-        declarationNumber: 'TEST-' + (serialised ? release.serialisedDeclarationNumber(data.serialNumber, type) : data.declarationNumber),
+        declarationNumber: 'TEST-' + (serialised ? release.serialisedDeclarationNumber(data.serialNumber, type, product.hydrostatic_profile.modelCode) : data.declarationNumber),
       });
       const mapping = { productCode: code, productTitle: profile.commercialName, productType, pedCategory: category, certificateNo: '' };
       let bytes;
@@ -724,7 +725,7 @@ async function run() {
     let bytes;
     try {
       bytes = await builder.buildEuDeclarationOfConformityPdf('eu-doc-serialised', {
-        ...unit, declarationNumber: 'TEST-ACL-DoC-2026-BP200L-DECLARATION-00161',
+        ...unit, declarationNumber: 'TEST-ACL-DoC-BP200L-DECLARATION-WITH-A-LONG-REFERENCE-AP-26-00161',
         commercialName: 'Applied Aquablaster Xtreme 100 Blasting Machine',
       }, { templateRevision: '01' }, { ...variants[1][2], productCode: 'TEST-LONG' }, png, { isTest: true });
     } finally { PDFPage.prototype.drawText = drawText; PDFPage.prototype.drawImage = drawImage; }
@@ -732,8 +733,9 @@ async function run() {
     const onPageOne = text.filter(item => item.page === finalPages[0]);
     const declaration = onPageOne.filter(item => item.font && item.size === 9 && item.y > 600);
     assert.ok(declaration.length >= 4, 'declaration occupies multiple lines');
+    const revisionX = onPageOne.find(item => item.value === 'Revision').x;
     for (const item of declaration) {
-      if (item.x < 230) assert.ok(item.x + item.font.widthOfTextAtSize(item.value, item.size) < 231, 'inside first cell');
+      if (item.x < revisionX) assert.ok(item.x + item.font.widthOfTextAtSize(item.value, item.size) < revisionX - 8, 'inside first cell');
     }
     assert.ok(onPageOne.find(item => item.value === '2810').y > 66, 'CE number above footer clearance');
     assert.equal(text.filter(item => finalPages.includes(item.page) && item.value === 'TEST / NOT FOR ISSUE - UNSIGNED').length, 2);

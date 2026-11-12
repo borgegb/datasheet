@@ -31,7 +31,7 @@ async function main() {
     const product = profile ? { ...blast40, product_code: profile.productCode,
       product_title: profile.commercialName, eu_doc_product_type: profile.productType,
       eu_doc_ped_category: profile.pedCategory, eu_doc_certificate_no: null,
-      hydrostatic_profile: null } : type === 'eu-doc-owner-manual-pto-compressors'
+      hydrostatic_profile: { ...blast40.hydrostatic_profile, modelCode: profile.kind === '20l' ? 'BP20L' : 'AF5L' } } : type === 'eu-doc-owner-manual-pto-compressors'
       ? { ...blast40, product_code: 'VM-A-0003', product_title: '32L Air Receiver',
         eu_doc_product_type: 'air-receiver', eu_doc_certificate_no: RECEIVER_CERTIFICATE, certification_issue_enabled: true }
       : blast40;

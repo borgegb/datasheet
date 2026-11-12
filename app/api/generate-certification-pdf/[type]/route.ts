@@ -20,7 +20,7 @@ import { CERT_TYPES } from "@/app/dashboard/certifications/registry";
 import { signatureInkForDocument, type SignatureInk } from "@/lib/pdf/certifications/signatureInk";
 import { fixedManualMetadata, referenceIdentity, declarationReference, compressorSerialSchema } from "@/lib/certifications/reference";
 import { certificateDownloadName } from "@/lib/certifications/download";
-import { euDocHoldReason, allowsBlankDeclarationCertificate, SERIAL_NUMBER_FORMAT_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
+import { euDocHoldReason, allowsBlankDeclarationCertificate, SERIAL_NUMBER_FORMAT_MESSAGE, DECLARATION_MODEL_CODE_MESSAGE, serialisedDeclarationNumber } from "@/lib/certifications/release";
 import { isSerialisedDeclaration, supplementalDeclarationProfile, normalizeEuDocProductType, normalizeEuDocPedCategory } from "@/lib/certifications/declarations";
 import { certificateModelName, declarationIssueError, isAvailableDeclarationProduct, type EuDocProduct } from "@/lib/certifications/products";
 import { hydrostaticProfileSchema, hydrostaticProductFields, hydrostaticProductCertificateNumber, hydrostaticSetupError, type HydrostaticData } from "@/lib/certifications/hydrostatic";
@@ -379,7 +379,11 @@ export async function POST(
         certificateNumber: hydrostaticProductCertificateNumber(result.product, merged.serialNumber) };
     }
     if (isSerialisedDeclaration(type)) {
-      const declarationNumber = serialisedDeclarationNumber(merged.serialNumber, type);
+      const modelCode = euProductCertification?.equipmentProfile?.modelCode;
+      if (supplementalDeclarationProfile(type)?.kind !== "sep" && !modelCode) {
+        return jsonError(DECLARATION_MODEL_CODE_MESSAGE, 400);
+      }
+      const declarationNumber = serialisedDeclarationNumber(merged.serialNumber, type, modelCode);
       if (!declarationNumber) return jsonError(SERIAL_NUMBER_FORMAT_MESSAGE, 400);
       merged.declarationNumber = declarationNumber;
     }

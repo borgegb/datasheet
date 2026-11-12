@@ -22,9 +22,13 @@ export type EuDocProductOptions = {
 export const ORGANIZATION_ACCESS_MESSAGE =
   "Your account is not linked to an accessible organization. Contact your organization owner to arrange access.";
 
-export function certificateModelName(product: Pick<EuDocProduct, "product_code" | "hydrostatic_profile">) {
+export function certificateModelCode(product: Pick<EuDocProduct, "hydrostatic_profile">) {
   const profile = hydrostaticProfileSchema.safeParse(product.hydrostatic_profile);
-  return [profile.success ? profile.data.modelCode : null, product.product_code].filter(Boolean).join(" / ");
+  return profile.success ? profile.data.modelCode : "";
+}
+
+export function certificateModelName(product: Pick<EuDocProduct, "product_code" | "hydrostatic_profile">) {
+  return [certificateModelCode(product), product.product_code].filter(Boolean).join(" / ");
 }
 
 export function isAvailableBlastProduct(product: EuDocProduct) {

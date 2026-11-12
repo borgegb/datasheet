@@ -579,16 +579,18 @@ function drawInfoBar(
   page: PDFPage,
   declaration: Pick<ResolvedDeclaration, "declarationNumber" | "revision" | "issueDate">,
   fonts: FontSet,
-  y: number
+  y: number,
+  wideNumber = false
 ) {
   const width = CONTENT_WIDTH;
-  const colWidth = width / 3;
+  const colWidths = wideNumber ? [width * 0.5, width * 0.16, width * 0.34] : [width / 3, width / 3, width / 3];
+  const colOffsets = [0, colWidths[0], colWidths[0] + colWidths[1]];
   const cells = [
     ["Declaration No.", declaration.declarationNumber],
     ["Revision", declaration.revision],
     ["Date of issue", declaration.issueDate],
   ];
-  const valueLines = cells.map(([, value]) => wrapText(value || "-", fonts.regular, 9, colWidth - 16));
+  const valueLines = cells.map(([, value], index) => wrapText(value || "-", fonts.regular, 9, colWidths[index] - 16));
   const height = 38 + (Math.max(...valueLines.map((lines) => lines.length)) - 1) * 12;
 
   page.drawRectangle({
@@ -601,7 +603,7 @@ function drawInfoBar(
   });
 
   [1, 2].forEach((index) => {
-    const x = MARGIN_X + colWidth * index;
+    const x = MARGIN_X + colOffsets[index];
     page.drawLine({
       start: { x, y },
       end: { x, y: y - height },
@@ -611,7 +613,7 @@ function drawInfoBar(
   });
 
   cells.forEach(([label], index) => {
-    const x = MARGIN_X + colWidth * index + 8;
+    const x = MARGIN_X + colOffsets[index] + 8;
     page.drawText(label, {
       x,
       y: y - 14,
@@ -990,7 +992,7 @@ async function buildSupplementalDeclarationPdf(
     declarationNumber,
     issueDate: formatIssueDate(values.issueDate),
     revision: values.revision === undefined ? profile.revision : documentRevisionSchema.parse(values.revision),
-  }, fonts, TOP_Y);
+  }, fonts, TOP_Y, serialised && !sep);
   y = drawWrappedText({ page: page1, x: MARGIN_X, y, maxWidth: CONTENT_WIDTH, font: fonts.regular, size: 8.7, lineHeight: 11.5,
     text: sep
       ? `Applied Concepts Ltd., ${address}, hereby declares under its sole responsibility that the pressure equipment identified below has been designed and manufactured in accordance with the sound engineering practice of a Member State, in order to ensure safe use, as required by Article 4(3) of Directive 2014/68/EU. This is not an EU Declaration of Conformity: Article 4(3) equipment is not subject to a PED conformity assessment and shall not bear the CE marking under that Directive. ${exclusion}`
@@ -1128,15 +1130,17 @@ async function buildReferenceDeclarationPdf(
     }
     y -= 15;
   };
-  const columns = (items: [string, string][], height: number, withDividers = true) => {
-    const columnWidth = width / items.length;
+  const columns = (items: [string, string][], height: number, withDividers = true,
+    columnWidths = items.map(() => width / items.length)) => {
     page.drawRectangle({ x, y: y - height, width, height, borderColor: BORDER_COLOR, borderWidth: 0.5 });
+    let columnX = x;
     items.forEach(([label, value], index) => {
-      if (withDividers && index) page.drawLine({ start: { x: x + index * columnWidth, y }, end: { x: x + index * columnWidth, y: y - height }, thickness: 0.5, color: BORDER_COLOR });
-      text(label, x + index * columnWidth + 6, y - 10, false, 7.3, MUTED_COLOR);
-      const lines = wrapText(value, fonts.regular, size, columnWidth - 12);
+      if (withDividers && index) page.drawLine({ start: { x: columnX, y }, end: { x: columnX, y: y - height }, thickness: 0.5, color: BORDER_COLOR });
+      text(label, columnX + 6, y - 10, false, 7.3, MUTED_COLOR);
+      const lines = wrapText(value, fonts.regular, size, columnWidths[index] - 12);
       if (lines.length > 1) throw new Error("The declaration metadata is too long for the reference layout.");
-      text(value, x + index * columnWidth + 6, y - height + 6);
+      text(value, columnX + 6, y - height + 6);
+      columnX += columnWidths[index];
     });
     y -= height;
   };
@@ -1170,7 +1174,8 @@ async function buildReferenceDeclarationPdf(
     text(`Pressure Equipment Directive 2014/68/EU - Annex IV${manual ? " · Owner's Manual copy" : ""}`, x, y - 1, true, 7.5, MUTED_COLOR);
     y -= 10;
   }
-  columns([["Declaration No.", number], ["Revision", revision], ["Date of issue", issueDate]], 32);
+  columns([["Declaration No.", number], ["Revision", revision], ["Date of issue", issueDate]], 32, true,
+    manual ? undefined : [width * 0.5, width * 0.16, width * 0.34]);
   y -= 14;
   paragraph(receiver
     ? "This declaration of conformity is issued under the sole responsibility of the manufacturer. The pressure equipment described below is in conformity with the relevant Union harmonisation legislation: Directive 2014/68/EU of the European Parliament and of the Council of 15 May 2014 on the harmonisation of the laws of the Member States relating to the making available on the market of pressure equipment." + (manual ? " This declaration applies to each 32 L air receiver identified by the serial number on its data plate." : "")
@@ -1320,7 +1325,7 @@ export async function buildEuDeclarationOfConformityPdf(
     drawHeader(page1, fonts, 1, logo);
     drawFooter(page1, fonts, 1, showPtoWebsite);
     y = TOP_Y;
-    y = drawInfoBar(page1, declaration, fonts, y);
+    y = drawInfoBar(page1, declaration, fonts, y, isSerialisedDeclaration(type));
     if (compact) y += 4;
 
     y = drawWrappedText({

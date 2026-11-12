@@ -1,4 +1,5 @@
 import { supplementalDeclarationProfile } from "@/lib/certifications/declarations";
+import { unitSerialSchema } from "@/lib/certifications/unit";
 
 export function euDocHoldReason(type: string) {
   return type === "ec-vm-350-declaration"
@@ -23,13 +24,21 @@ export function allowsBlankDeclarationCertificate(product: {
 export const SERIAL_NUMBER_FORMAT_MESSAGE =
   "Use AP-YY-##### with five serial digits and a year matching the year of manufacture.";
 
-export function serialisedDeclarationNumber(serial: unknown, type = "eu-doc-serialised"): string | null {
+export const DECLARATION_MODEL_CODE_MESSAGE =
+  "Set the product's certificate model code in its certificate specifications before generating a DoC.";
+
+export function serialisedDeclarationNumber(serial: unknown, type = "eu-doc-serialised", modelCode?: string | null): string | null {
   if (typeof serial !== "string") return null;
-  // Keep the earlier unprefixed and four-digit serial formats compatible.
+  const profile = supplementalDeclarationProfile(type);
+  if (profile?.kind !== "sep") {
+    const parsed = unitSerialSchema.safeParse(serial);
+    if (!parsed.success || !modelCode?.trim()) return null;
+    return `ACL-DoC-${modelCode.trim()}-${parsed.data}`;
+  }
+  // The new DoC naming rule does not change SEP declarations.
   const match = /^(?:AP-)?(\d{2})-(\d{4,5})$/.exec(serial.trim());
   if (!match) return null;
-  const prefix = supplementalDeclarationProfile(type)?.numberPrefix || "ACL-DoC";
-  return `${prefix}-${match[1]}_${match[2].replace(/^0+(?=\d)/, "")}`;
+  return `${profile.numberPrefix}-${match[1]}_${match[2].replace(/^0+(?=\d)/, "")}`;
 }
 
 export function serialisedProductFields(product: {

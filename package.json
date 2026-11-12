@@ -13,6 +13,7 @@
     "test:document-revisions": "node scripts/test-document-revisions.cjs",
     "test:october-declarations": "node scripts/test-october-declarations.cjs",
     "test:certificate-corrections": "node scripts/test-certificate-corrections.cjs",
+    "test:doc-naming": "node scripts/test-doc-naming.cjs",
     "test:kanban-batch-print": "node scripts/test-kanban-batch-print.cjs",
     "test:kanban-import": "node scripts/test-kanban-import.cjs && node scripts/test-kanban-import-test.cjs"
   },
